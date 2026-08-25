@@ -1,0 +1,35 @@
+# O ses-frontend rodando contra o Otimizador que já está de pé.
+#
+#     docker compose -f docker-compose.local.yml up -d --build
+#     http://localhost:8090
+#
+# NÃO SOBE BANCO NEM API: ele entra na rede do compose do Otimizador
+# (`otimizador-backend_default`) e fala com o serviço `api` que já existe. Subir
+# uma segunda API aqui daria duas verdades sobre o mesmo Postgres.
+#
+# A PORTA É 8090 de propósito: 8080 é o front atual do Otimizador, e os dois
+# precisam conviver enquanto se compara um com o outro.
+services:
+  ses-web:
+    build:
+      context: .
+      args:
+        # O SSO fica desligado no local. O `.dockerignore` exclui todo `.env.*`
+        # para não vazar variável de dev para a imagem, então o atalho tem de ser
+        # explícito aqui — ver o comentário no Dockerfile.
+        VITE_SKIP_AUTH: 'true'
+    volumes:
+      # A configuração de nginx com o proxy de /api. Montada em vez de copiada na
+      # imagem: o `nginx.conf` do repositório é o de produção, e trocá-lo no
+      # Dockerfile faria a imagem publicada carregar um proxy que só existe aqui.
+      - ./nginx.local.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - '8090:80'
+    networks:
+      - otimizador
+    restart: unless-stopped
+
+networks:
+  otimizador:
+    external: true
+    name: otimizador-backend_default

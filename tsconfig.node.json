@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "types": ["node"],
+    "strict": true,
+
+    // `tsc -b` emitia vite.config.js ao lado de vite.config.ts — e o Vite
+    // resolve .js antes de .ts, passando a carregar o arquivo gerado. Em
+    // `npm run build` o .js era regenerado e ficava coerente, mas `npm run dev`
+    // é só `vite` (sem tsc): editar o .ts não surtia efeito até um build cheio.
+    //
+    // `noEmit` não serve aqui: projeto referenciado não pode desabilitar emit
+    // (TS6310). Então emitimos só a declaração, exigida pelo `composite`, e
+    // mandamos para fora da raiz — assim nada é gerado ao lado do fonte.
+    "emitDeclarationOnly": true,
+    "outDir": "./node_modules/.tmp/tsconfig-node"
+  },
+  "include": ["vite.config.ts"]
+}

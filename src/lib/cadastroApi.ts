@@ -1,0 +1,670 @@
+/**
+ * CADASTRO — a ponte entre o wizard e as rotas normalizadas do backend.
+ *
+ * ## O que mudou, e por quê
+ *
+ * Antes este módulo falava com `POST /api/cadastro`, que gravava o estado do
+ * wizard inteiro como um DOCUMENTO (`{aba: [{coluna: valor}]}`) e sobrescrevia a
+ * unidade a cada chamada. O backend do Otimizador não tem essa rota, e não é
+ * lacuna: ele grava **uma ficha por vez**, em tabelas normalizadas, e cada
+ * gravação carrega junto a trilha de override, a contagem de pendências e —
+ * na topologia — validações que recusam um sistema incoerente.
+ *
+ * Gravar por documento passaria por cima das três. Por isso a adaptação é aqui,
+ * no transporte, e não no backend: o wizard continua sendo o que era, e este
+ * módulo traduz.
+ *
+ * ## O encaixe é quase 1:1
+ *
+ * As 15 abas do `SCHEMA` são as 15 tabelas de cadastro do backend, e as colunas
+ * têm os mesmos nomes das colunas do banco. O que difere é o RECORTE das rotas,
+ * que agrupam por ficha em vez de por tabela:
+ *
+ *   GET /unidades/{u}/hierarquia   unidade-regional, regional-superintendencia,
+ *                                  superintendencia-cidade, cidade-sistema,
+ *                                  sistema-topologia
+ *   GET /unidades/{u}/contrato     cidade-operacional, metas-cobertura, fator-esgoto
+ *   GET /unidades/{u}/sub-bacias   subbacia-operacional, componentes-subbacias-capex
+ *   GET /unidades/{u}/etes         ete-capex
+ *   GET /unidades/{u}/cts          cts-operacional, componentes-cts-capex
+ *
+ * ## O que este módulo NÃO grava, e por quê
+ *
+ * O backend não expõe escrita para NOME — de regional, superintendência, cidade
+ * ou sistema —, nem para `regional-operacional` (ano-base). Eles vêm do
+ * Databricks. As abas correspondentes continuam sendo LIDAS e exibidas; o que
+ * elas não fazem é voltar para o banco. `ABAS_SEM_ESCRITA` lista todas, e
+ * `salvarCadastro` as ignora explicitamente em vez de tentar e falhar — falha
+ * silenciosa aqui seria pior que ausência.
+ *
+ * `cidade-sistema` é meio-termo, e por isso NÃO está naquela lista: o nome não
+ * grava, mas `usa_sistema_cts` sim, por `PUT /sistemas/{id}`.
+ *
+ * `subbacia-cts` não é lida nem gravada, e some da tela. O pareamento
+ * CTS↔sub-bacia é SOBREPOSIÇÃO DE ÁREA, e nunca significou pertencimento — quem
+ * diz em que sistema a CTS está é a topologia. Servi-la vazia deixaria uma aba
+ * que só pode enganar.
+ */
+import { api } from './api'
+import type { Row, UnidadeState } from '../data/cadastroUnidade/types'
+
+export interface CadastroSalvo {
+  ok: boolean
+  unidade_id: string
+  criado_em: string
+  atualizado_em: string
+}
+
+export interface CadastroLido {
+  unidade_id: string
+  unidade_nome: string
+  regional_nome: string
+  dados: UnidadeState['data']
+  criado_em: string
+  atualizado_em: string
+}
+
+// ---------------------------------------------------------------- payloads
+// Só o que este módulo lê. Não são os tipos completos do backend de propósito:
+// declarar aqui o payload inteiro criaria uma segunda definição para envelhecer
+// junto com a de lá.
+
+interface Hierarquia {
+  unidReg: { rid: string; rnome: string; uid: string; unome: string; waccMedio: string }
+  superintendencias: { id: string; nome: string }[]
+  cidades: { id: string; nome: string; supId: string }[]
+  sistemas: { id: string; nome: string; cidId: string; usaCts?: string }[]
+  topo: { sis: string; id: string; nome: string; jus: string; tipo?: string }[]
+  /** Componentes fora de qualquer sistema — hoje, as CTS ainda não colocadas. */
+  semSistema?: { id: string; nome: string; tipo?: string }[]
+}
+
+interface Contrato {
+  cidades: { id: string; nome: string; fim: string; cob: string }[]
+  metas: { cid: string; ano: string; pct: string }[]
+  fator: { cid: string; cob: string; par: string }[]
+}
+
+type Obra = Record<string, string>
+
+interface FichaColeta {
+  nome?: string
+  sisId?: string
+  sistema?: string
+  jusante?: string
+  db: Record<string, string>
+  params: Record<string, string>
+  obrasOverride: Record<string, Obra>
+}
+
+interface SubBacias {
+  subs: Record<string, FichaColeta>
+}
+
+interface Cts {
+  ctss: Record<string, FichaColeta>
+}
+
+interface Etes {
+  etes: Record<string, string>[]
+}
+
+// ------------------------------------------------------------- de/para
+/**
+ * As chaves curtas do backend ↔ as colunas do wizard.
+ *
+ * O backend agrupa a ficha de coleta em dois blocos — `db` (veio do Databricks,
+ * travado na tela) e `params` (a Regional preenche) — e usa chaves curtas. O
+ * wizard usa o nome da coluna do banco. É o único de/para real deste módulo; o
+ * resto das abas já bate nome a nome.
+ */
+const DB: Record<string, string> = {
+  fat: 'receita_faturada_media_mensal',
+  arr: 'receita_arrecadada_media_mensal',
+  ligU: 'universo_ligacoes',
+  ligA: 'ligacoes_atuais',
+  ligN: 'ligacoes_novas_obras',
+  ecoU: 'universo_economias',
+  ecoA: 'economias_atuais',
+  ecoN: 'economias_novas_obras',
+  // O RECORTE RESIDENCIAL. Estava fora deste de/para e, por tabela, fora da
+  // tela: a ficha chegava com os quatro, a grade não os mostrava, e a gravação
+  // os preservava por baixo (ver `ultimaLeitura`). Dado que existe, decide meta,
+  // e ninguém conseguia conferir.
+  ligURes: 'universo_ligacoes_residencial',
+  ligARes: 'ligacoes_atuais_residencial',
+  ecoURes: 'universo_economias_residencial',
+  ecoARes: 'economias_atuais_residencial',
+}
+
+const PARAMS: Record<string, string> = {
+  preco: 'preco_por_ligacao',
+  tarr: 'tempo_arrecadacao',
+  ramp: 'tempo_ramp_up',
+  vaz: 'vazao_contribuicao',
+  popU: 'universo_populacao',
+  popA: 'populacao_atual',
+  popN: 'populacao_novas_obras',
+  pot: 'potencial_crescimento',
+}
+
+/**
+ * SÓ LEITURA — o servidor calcula e não recebe de volta.
+ *
+ * `ticket` é receita ÷ ligações, feito no servidor, e ele o exclui do contrato
+ * de gravação de propósito: "exigi-lo no corpo obrigaria o cliente a devolver
+ * uma conta que o servidor mesmo fez" (`cadastro.py::CAMPOS_DB`). Fica fora do
+ * `DB` acima porque aquele mapa serve os DOIS sentidos — incluí-lo ali o mandaria
+ * de volta no `PUT`, e o servidor recusaria a ficha por campo desconhecido.
+ */
+const DB_DERIVADO: Record<string, string> = {
+  ticket: 'ticket_medio',
+}
+
+/** Obra: índice do backend ↔ colunas de `componentes-*-capex`. */
+const OBRA: Record<string, string> = {
+  nome: 'componente',
+  qtd: 'quantidade',
+  un: 'unidade',
+  preco: 'preco_unitario',
+  opex: 'opex',
+  tPred: 'tempo_predecessoras',
+  dur: 'tempo_execucao',
+  anoObrig: 'obra_obrigatoria_ano',
+  proibAte: 'obra_proibida_ate',
+  wacc: 'wacc',
+}
+
+const ETE: Record<string, string> = {
+  capMod: 'capacidade_por_modulo',
+  capexMod: 'capex_por_modulo',
+  opexMod: 'opex_por_modulo',
+  tExec: 'tempo_de_execucao',
+  capNom: 'capacidade_nominal_atual',
+  vazOp: 'vazao_de_operacao_atual',
+  nova: 'nova',
+  terreno: 'capex_terreno',
+  modulos: 'modulos',
+  wacc: 'wacc',
+}
+
+/** Inverte um de/para, para o caminho da gravação. */
+const inverso = (m: Record<string, string>): Record<string, string> =>
+  Object.fromEntries(Object.entries(m).map(([k, v]) => [v, k]))
+
+export const ABAS_SEM_ESCRITA = [
+  'unidade-regional',
+  'regional-operacional',
+  'regional-superintendencia',
+  'superintendencia-cidade',
+  'subbacia-cts',
+] as const
+
+/**
+ * O ÚLTIMO PAYLOAD LIDO de cada unidade, para a gravação não apagar o que a
+ * tela não mostra.
+ *
+ * O backend exige a ficha INTEIRA no `PUT` — é o que torna a gravação
+ * idempotente. Mas o wizard não exibe todas as colunas que a ficha tem: o
+ * recorte residencial (`ligURes`, `ecoARes`…) e as colunas de sobreposição de
+ * CTS (`*_com_cts`) existem no banco e não estão no `SCHEMA`. Montar o corpo só
+ * com o que a tela tem gravaria NULO nelas — perda silenciosa de dado que
+ * ninguém pediu para mudar.
+ *
+ * Então o corpo sai do que veio do servidor, com as colunas do wizard aplicadas
+ * por cima. Some quando a página recarrega, e é por isso que `salvarCadastro`
+ * exige uma leitura antes: sem ela, recusa em vez de adivinhar.
+ */
+const ultimaLeitura = new Map<
+  string,
+  { subs: SubBacias; cts: Cts; etes: Etes; dados: UnidadeState['data'] }
+>()
+
+/**
+ * Mudou em relação ao que o servidor devolveu?
+ *
+ * `salvarCadastro` grava ficha a ficha, e uma unidade real tem milhares delas —
+ * a uB1 tem 751 sub-bacias, 155 ETEs e 1.057 componentes de topologia. Mandar
+ * todas a cada clique em Salvar levava ~40s e ~2.000 requisições para gravar um
+ * campo. Pior que a lentidão: cada `PUT` desnecessário é uma chance a mais de
+ * esbarrar numa validação por causa de algo que ninguém editou.
+ *
+ * A comparação é entre a LINHA DA TELA e a linha que a leitura montou — as duas
+ * têm a mesma forma, porque saem do mesmo código. Igual, não vai.
+ */
+function igual(a: Row | undefined, b: Row | undefined): boolean {
+  if (!a || !b) return false
+  const chaves = new Set([...Object.keys(a), ...Object.keys(b)])
+  for (const k of chaves) if ((a[k] ?? '') !== (b[k] ?? '')) return false
+  return true
+}
+
+/**
+ * CAMPO EM BRANCO É AUSÊNCIA — vai como `null`, e não como `""`.
+ *
+ * A grade trata toda célula como texto, então "não preenchido" chega aqui como
+ * string vazia. Para alguns campos isso é indiferente; para os que o servidor
+ * conta como pendência com `IS NULL`, não é: gravar `""` cria um valor, e o
+ * campo passa a parecer preenchido.
+ *
+ * O caso concreto é `unidade_cobertura` (a régua da cobertura). A conta de
+ * completude é `(o.unidade_cobertura IS NULL)::int` — um `""` faria a cidade
+ * contar como pronta e liberaria a simulação sem ninguém ter escolhido a régua.
+ *
+ * A conversão mora AQUI, e não no servidor, porque quem inventou o `""` foi esta
+ * camada: é a grade que transforma ausência em texto vazio. Desfazer isso na
+ * borda de saída é devolver o dado à forma em que ele chegou.
+ */
+function vazioEhAusencia(v: string | undefined): string | null {
+  const s = (v ?? '').trim()
+  return s || null
+}
+
+/** Indexa as linhas de uma aba por uma coluna-chave, para o de/para da gravação. */
+function porChave(linhas: Row[] | undefined, col: string): Map<string, Row> {
+  const m = new Map<string, Row>()
+  for (const l of linhas ?? []) if (l[col]) m.set(l[col], l)
+  return m
+}
+
+// ------------------------------------------------------------------ leitura
+export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
+  const u = encodeURIComponent(unidadeId)
+  const [hier, contrato, subs, etes, cts] = await Promise.all([
+    api.get<Hierarquia>(`/api/unidades/${u}/hierarquia`),
+    api.get<Contrato>(`/api/unidades/${u}/contrato`),
+    api.get<SubBacias>(`/api/unidades/${u}/sub-bacias`),
+    api.get<Etes>(`/api/unidades/${u}/etes`),
+    api.get<Cts>(`/api/unidades/${u}/cts`),
+  ])
+
+  // `dados` entra no cache junto: ele e a LINHA-BASE contra a qual a gravacao
+  // decide o que mudou. Sem ele, salvar mandaria a unidade inteira.
+  const guardar = (dados: UnidadeState['data']) =>
+    ultimaLeitura.set(unidadeId, { subs, cts, etes, dados: JSON.parse(JSON.stringify(dados)) })
+
+  const nomeSistema = new Map(hier.sistemas.map((s) => [s.id, s.nome]))
+  const nomeComponente = new Map(hier.topo.map((t) => [t.id, t.nome]))
+  const nomeCidade = new Map(contrato.cidades.map((c) => [c.id, c.nome]))
+
+  const dados: UnidadeState['data'] = {
+    'unidade-regional': [
+      {
+        regional_id: hier.unidReg.rid,
+        regional_name: hier.unidReg.rnome,
+        unidade_id: hier.unidReg.uid,
+        unidade_name: hier.unidReg.unome,
+        wacc_medio: hier.unidReg.waccMedio,
+      },
+    ],
+
+    // Sem rota de leitura própria: o ano-base é da regional, e o backend não o
+    // expõe. A linha existe para a aba não sumir; o campo fica em branco.
+    'regional-operacional': [{ regional_id: hier.unidReg.rid, ano_base: '' }],
+
+    'regional-superintendencia': hier.superintendencias.map((s) => ({
+      unidade_id: hier.unidReg.uid,
+      superintendencia_id: s.id,
+      superintendencia_name: s.nome,
+    })),
+
+    'superintendencia-cidade': hier.cidades.map((c) => ({
+      emp_codigo: '',
+      empresa: '',
+      superintendencia_id: c.supId,
+      cidade_id: c.id,
+      cidade_name: c.nome,
+    })),
+
+    // `usaCts` chega como `'true'`/`'false'` e vira `Sim`/`Nao` — o vocabulário
+    // que o wizard usa nas outras colunas de sim/não (`nova`, na ETE).
+    'cidade-sistema': hier.sistemas.map((s) => ({
+      emp_codigo: '',
+      empresa: '',
+      sistema_id: s.id,
+      sistema_name: s.nome,
+      cidade_id: s.cidId,
+      usa_sistema_cts: s.usaCts === 'true' ? 'Sim' : 'Nao',
+    })),
+
+    // A topologia traz TAMBÉM o que está fora de sistema (`semSistema`), com
+    // `sistema_id` em branco: é o estado normal de uma CTS antes de a Regional
+    // decidir em que sistema ela entra, e escondê-la faria a tela dizer que ela
+    // não existe.
+    'sistema-topologia': [
+      ...hier.topo.map((t) => ({
+        sistema_id: t.sis,
+        sistema_name: nomeSistema.get(t.sis) ?? '',
+        componente_sistema_id: t.id,
+        componente_sistema_nome: t.nome,
+        componente_tipo: t.tipo ?? '',
+        componente_sistema_id_jusante: t.jus,
+        componente_sistema_nome_jusante: nomeComponente.get(t.jus) ?? '',
+      })),
+      ...(hier.semSistema ?? []).map((t) => ({
+        sistema_id: '',
+        sistema_name: '',
+        componente_sistema_id: t.id,
+        componente_sistema_nome: t.nome,
+        componente_tipo: t.tipo ?? '',
+        componente_sistema_id_jusante: '',
+        componente_sistema_nome_jusante: '',
+      })),
+    ],
+
+    'cidade-operacional': contrato.cidades.map((c) => ({
+      emp_codigo: '',
+      empresa: '',
+      cidade_id: c.id,
+      cidade_name: c.nome,
+      data_fim_concessao: c.fim,
+      unidade_cobertura: c.cob ?? '',
+    })),
+
+    'metas-cobertura': contrato.metas.map((m) => ({
+      emp_codigo: '',
+      empresa: '',
+      cidade_id: m.cid,
+      cidade_name: nomeCidade.get(m.cid) ?? '',
+      ano: m.ano,
+      cobertura_pct: m.pct,
+    })),
+
+    'fator-esgoto': contrato.fator.map((f) => ({
+      emp_codigo: '',
+      empresa: '',
+      cidade_id: f.cid,
+      cidade_name: nomeCidade.get(f.cid) ?? '',
+      cobertura_pct: f.cob,
+      paridade: f.par,
+    })),
+
+    'subbacia-operacional': Object.entries(subs.subs).map(([id, f]) =>
+      linhaDeColeta(id, f, 'sub_bacia_id', 'sub_bacia_name'),
+    ),
+
+    'componentes-subbacias-capex': Object.entries(subs.subs).flatMap(([id, f]) =>
+      linhasDeObra(f, { sub_bacia_id: id, sub_bacia_name: f.nome ?? id, sistema_id: f.sisId ?? '', sistema_name: f.sistema ?? '' }),
+    ),
+
+    'ete-capex': etes.etes.map((e) => {
+      const linha: Row = { ete_id: e.id ?? '', ete_name: e.nome ?? e.id ?? '', sistema_id: e.sisId ?? '' }
+      for (const [curto, coluna] of Object.entries(ETE)) linha[coluna] = e[curto] ?? ''
+      linha.capacidade_ociosa = e.ociosa ?? ''
+      // Prazo e janela da obra da ETE. `tPred` já era lido aqui, mas o servidor
+      // nunca o mandava — chegava sempre vazio. Agora manda os três.
+      linha.tempo_predecessoras = e.tPred ?? ''
+      linha.obra_obrigatoria_ano = e.anoObrig ?? ''
+      linha.obra_proibida_ate = e.proibAte ?? ''
+      return linha
+    }),
+
+    'subbacia-cts': [],
+
+    'cts-operacional': Object.entries(cts.ctss).map(([id, f]) => ({
+      emp_codigo: '',
+      empresa: '',
+      ...linhaDeColeta(id, f, 'cts_id', 'cts_name'),
+      sistema_id: f.sisId ?? '',
+      sistema_name: f.sistema ?? '',
+    })),
+
+    'componentes-cts-capex': Object.entries(cts.ctss).flatMap(([id, f]) =>
+      linhasDeObra(f, { cts_id: id, cts_name: f.nome ?? id }),
+    ),
+  }
+
+  guardar(dados)
+
+  return {
+    unidade_id: hier.unidReg.uid,
+    unidade_nome: hier.unidReg.unome,
+    regional_nome: hier.unidReg.rnome,
+    dados,
+    criado_em: '',
+    atualizado_em: '',
+  }
+}
+
+/** Ficha de coleta (sub-bacia ou CTS) → linha do wizard. */
+function linhaDeColeta(id: string, f: FichaColeta, colId: string, colNome: string): Row {
+  const linha: Row = {
+    sistema_id: f.sisId ?? '',
+    sistema_name: f.sistema ?? '',
+    [colId]: id,
+    [colNome]: f.nome ?? id,
+  }
+  for (const [curto, coluna] of Object.entries(DB)) linha[coluna] = f.db?.[curto] ?? ''
+  for (const [curto, coluna] of Object.entries(DB_DERIVADO)) linha[coluna] = f.db?.[curto] ?? ''
+  for (const [curto, coluna] of Object.entries(PARAMS)) linha[coluna] = f.params?.[curto] ?? ''
+  return linha
+}
+
+/** As obras de uma ficha → uma linha por componente, na ordem do índice. */
+function linhasDeObra(f: FichaColeta, fixas: Row): Row[] {
+  return Object.keys(f.obrasOverride ?? {})
+    .sort((a, b) => Number(a) - Number(b))
+    .map((i) => {
+      const o = f.obrasOverride[i] ?? {}
+      const linha: Row = { ...fixas }
+      for (const [curto, coluna] of Object.entries(OBRA)) linha[coluna] = o[curto] ?? ''
+      // `capex` é derivado (quantidade × preço) e o backend recusa recebê-lo.
+      // Aqui ele é só exibição, como o wizard já o trata (`origem: 'calc'`).
+      linha.capex = ''
+      return linha
+    })
+}
+
+// ----------------------------------------------------------------- gravação
+export class CadastroSemLeitura extends Error {
+  constructor(unidadeId: string) {
+    super(
+      `O cadastro de ${unidadeId} não foi lido nesta sessão. Recarregue a unidade antes de ` +
+        'salvar — sem o dado do servidor, gravar apagaria as colunas que a tela não mostra.',
+    )
+    this.name = 'CadastroSemLeitura'
+  }
+}
+
+/**
+ * Grava o cadastro, uma ficha por vez.
+ *
+ * SEQUENCIAL, e não em paralelo: as recusas do backend dependem umas das outras
+ * (tirar um componente do sistema só vale se ninguém mais escoa para ele), e
+ * disparar tudo de uma vez tornaria o resultado dependente de quem chegasse
+ * primeiro. Uma unidade grande manda centenas de requisições — é o custo de
+ * gravar com trilha por ficha, e é o que o wizard trocava por um POST só.
+ *
+ * A ORDEM importa: a topologia vai por último, e dentro dela quem SOLTA (perde
+ * jusante ou sai do sistema) vai antes de quem LIGA. O servidor valida contra o
+ * que está gravado, não contra o que a tela tem: inverter um trecho manda duas
+ * mudanças, e a ligação nova primeiro seria recusada por ciclo, com razão.
+ */
+export async function salvarCadastro(unidade: UnidadeState): Promise<CadastroSalvo> {
+  const u = encodeURIComponent(unidade.id)
+  const base = ultimaLeitura.get(unidade.id)
+  if (!base) throw new CadastroSemLeitura(unidade.id)
+
+  const d = unidade.data
+  const dbInv = inverso(DB)
+  const paramsInv = inverso(PARAMS)
+  const obraInv = inverso(OBRA)
+
+  // ---- contrato: a cidade e as metas/faixas dela formam UMA ficha ----
+  const metasPorCidade = agrupar(d['metas-cobertura'] ?? [], (r) => r.cidade_id)
+  const fatorPorCidade = agrupar(d['fator-esgoto'] ?? [], (r) => r.cidade_id)
+  const metasBase = agrupar(base.dados['metas-cobertura'] ?? [], (r) => r.cidade_id)
+  const fatorBase = agrupar(base.dados['fator-esgoto'] ?? [], (r) => r.cidade_id)
+  const cidadeBase = porChave(base.dados['cidade-operacional'], 'cidade_id')
+  for (const c of d['cidade-operacional'] ?? []) {
+    if (!c.cidade_id) continue
+    // A cidade e suas metas/faixas sao UMA ficha: qualquer das tres mudando,
+    // ela vai inteira — e o backend a recebe inteira, que e o que torna o PUT
+    // idempotente.
+    const mesmaCidade = igual(c, cidadeBase.get(c.cidade_id))
+    const mesmasMetas = listasIguais(metasPorCidade.get(c.cidade_id), metasBase.get(c.cidade_id))
+    const mesmasFaixas = listasIguais(fatorPorCidade.get(c.cidade_id), fatorBase.get(c.cidade_id))
+    if (mesmaCidade && mesmasMetas && mesmasFaixas) continue
+    await api.put(`/api/unidades/${u}/contrato/${encodeURIComponent(c.cidade_id)}`, {
+      // `cob` VAI SEMPRE, mesmo vazio. O PUT substitui a ficha inteira e lê
+      // `cidade.get("cob")` sem default: a chave ausente vira NULL no banco. Foi
+      // exatamente isso que apagou a régua de 21 cidades em 20/08 — a tela não
+      // tinha a coluna, então não mandava o campo, e cada gravação de concessão
+      // zerava um dado que ninguém tinha tocado.
+      cidade: {
+        id: c.cidade_id,
+        nome: c.cidade_name,
+        fim: c.data_fim_concessao ?? '',
+        cob: vazioEhAusencia(c.unidade_cobertura),
+      },
+      metas: (metasPorCidade.get(c.cidade_id) ?? []).map((m) => ({
+        cid: m.cidade_id,
+        ano: m.ano ?? '',
+        pct: m.cobertura_pct ?? '',
+      })),
+      fator: (fatorPorCidade.get(c.cidade_id) ?? []).map((f) => ({
+        cid: f.cidade_id,
+        cob: f.cobertura_pct ?? '',
+        par: f.paridade ?? '',
+      })),
+    })
+  }
+
+  // ---- coleta: sub-bacia e CTS são a mesma ficha em duas rotas ----
+  await gravarColeta(u, 'sub-bacias', 'sub_bacia_id', d, base, 'subbacia-operacional',
+    'componentes-subbacias-capex', base.subs.subs, { dbInv, paramsInv, obraInv })
+
+  await gravarColeta(u, 'cts', 'cts_id', d, base, 'cts-operacional',
+    'componentes-cts-capex', base.cts.ctss, { dbInv, paramsInv, obraInv })
+
+  // ---- ETE ----
+  const eteBase = porChave(base.dados['ete-capex'], 'ete_id')
+  for (const e of d['ete-capex'] ?? []) {
+    if (!e.ete_id || igual(e, eteBase.get(e.ete_id))) continue
+    const ficha: Record<string, string> = {}
+    for (const [curto, coluna] of Object.entries(ETE)) ficha[curto] = e[coluna] ?? ''
+    ficha.tPred = e.tempo_predecessoras ?? ''
+    ficha.anoObrig = e.obra_obrigatoria_ano ?? ''
+    ficha.proibAte = e.obra_proibida_ate ?? ''
+    // `ociosa` NÃO volta: é derivada (nominal − vazão de operação), e o motor
+    // avisa quando o valor gravado discorda da conta. Mesma regra do `ticket`.
+    await api.put(`/api/unidades/${u}/etes/${encodeURIComponent(e.ete_id)}`, { ete: ficha })
+  }
+
+  // ---- o que o SISTEMA declara sobre si ----
+  //
+  // ANTES da topologia, e por uma razão de ordem: DESMARCAR precisa valer antes
+  // de a segunda CTS entrar, senão o servidor recusa a CTS por causa de uma
+  // marca que a tela já tirou. Marcar, ao contrário, só pode valer depois de as
+  // CTS excedentes saírem — por isso a marcação vai no fim, depois da topologia.
+  const sisBase = porChave(base.dados['cidade-sistema'], 'sistema_id')
+  const sistemasMudados = (d['cidade-sistema'] ?? []).filter(
+    (r) => r.sistema_id && !igual(r, sisBase.get(r.sistema_id)),
+  )
+  const gravarSistema = (r: Row) =>
+    api.put(`/api/unidades/${u}/sistemas/${encodeURIComponent(r.sistema_id)}`, {
+      usaCts: r.usa_sistema_cts === 'Sim',
+    })
+
+  for (const r of sistemasMudados.filter((x) => x.usa_sistema_cts !== 'Sim')) {
+    await gravarSistema(r)
+  }
+
+  // ---- topologia: solta antes de ligar ----
+  const topoBase = porChave(base.dados['sistema-topologia'], 'componente_sistema_id')
+  const topo = (d['sistema-topologia'] ?? []).filter(
+    (t) => t.componente_sistema_id && !igual(t, topoBase.get(t.componente_sistema_id)),
+  )
+  const solta = (t: Row) => !t.sistema_id || !t.componente_sistema_id_jusante
+  for (const t of [...topo.filter(solta), ...topo.filter((x) => !solta(x))]) {
+    await api.put(`/api/unidades/${u}/topologia/${encodeURIComponent(t.componente_sistema_id)}`, {
+      sisId: t.sistema_id ?? '',
+      jusante: t.componente_sistema_id_jusante ?? '',
+    })
+  }
+
+  for (const r of sistemasMudados.filter((x) => x.usa_sistema_cts === 'Sim')) {
+    await gravarSistema(r)
+  }
+
+  const agora = new Date().toISOString()
+  return { ok: true, unidade_id: unidade.id, criado_em: agora, atualizado_em: agora }
+}
+
+/**
+ * Grava as fichas de coleta de uma tabela.
+ *
+ * O corpo parte do que o SERVIDOR devolveu (`base`) e recebe por cima o que a
+ * tela tem. É o que impede a gravação de zerar coluna que o wizard não exibe —
+ * ver `ultimaLeitura`.
+ */
+async function gravarColeta(
+  u: string,
+  rota: 'sub-bacias' | 'cts',
+  colId: string,
+  d: UnidadeState['data'],
+  base: { dados: UnidadeState['data'] },
+  abaFicha: string,
+  abaObras: string,
+  servidor: Record<string, FichaColeta>,
+  inv: { dbInv: Record<string, string>; paramsInv: Record<string, string>; obraInv: Record<string, string> },
+): Promise<void> {
+  const obras = agrupar(d[abaObras] ?? [], (r) => r[colId])
+  const obrasBase = agrupar(base.dados[abaObras] ?? [], (r) => r[colId])
+  const fichaBase = porChave(base.dados[abaFicha], colId)
+
+  for (const linha of d[abaFicha] ?? []) {
+    const id = linha[colId]
+    if (!id) continue
+    const anterior = servidor[id]
+    if (!anterior) continue // ficha que o servidor não conhece: criar não é papel do wizard
+    // Nem a ficha nem as obras dela mudaram: não há o que gravar.
+    if (igual(linha, fichaBase.get(id)) && listasIguais(obras.get(id), obrasBase.get(id))) continue
+
+    const db = { ...anterior.db }
+    const params = { ...anterior.params }
+    for (const [coluna, valor] of Object.entries(linha)) {
+      if (inv.dbInv[coluna]) db[inv.dbInv[coluna]] = valor
+      if (inv.paramsInv[coluna]) params[inv.paramsInv[coluna]] = valor
+    }
+
+    const obrasOverride: Record<string, Obra> = {}
+    const doWizard = obras.get(id) ?? []
+    for (const [i, o] of Object.entries(anterior.obrasOverride ?? {})) {
+      const linhaObra = doWizard.find((x) => x.componente === o.nome)
+      const obra: Obra = { ...o }
+      if (linhaObra) {
+        for (const [coluna, valor] of Object.entries(linhaObra)) {
+          if (inv.obraInv[coluna]) obra[inv.obraInv[coluna]] = valor
+        }
+      }
+      obrasOverride[i] = obra
+    }
+
+    await api.put(`/api/unidades/${u}/${rota}/${encodeURIComponent(id)}`, {
+      db,
+      params,
+      obrasOverride,
+    })
+  }
+}
+
+function agrupar(linhas: Row[], chave: (r: Row) => string | undefined): Map<string, Row[]> {
+  const mapa = new Map<string, Row[]>()
+  for (const l of linhas) {
+    const k = chave(l)
+    if (!k) continue
+    const atual = mapa.get(k)
+    if (atual) atual.push(l)
+    else mapa.set(k, [l])
+  }
+  return mapa
+}
+
+/** Duas listas de linhas dizem a mesma coisa? Ordem conta — ela é do wizard. */
+function listasIguais(a: Row[] | undefined, b: Row[] | undefined): boolean {
+  const x = a ?? []
+  const y = b ?? []
+  if (x.length !== y.length) return false
+  return x.every((linha, i) => igual(linha, y[i]))
+}

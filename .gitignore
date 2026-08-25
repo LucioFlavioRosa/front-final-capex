@@ -1,0 +1,25 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+.vite
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Backup do redesign anterior — histórico morto, não versionar.
+src.bak-preredesign/
+
+# Saída do scripts/exportar-figma.mjs: ~12 MB de HTML+PNG das telas. É artefato
+# regenerável, não fonte — e binário grande em histórico de git não sai mais sem
+# reescrever o histórico. O script fica versionado; a saída dele, não.
+export-figma/
+
+# Saídas do `tsc -b`: tsconfig.node.json é composite e emite JS/d.ts ao lado do
+# fonte, então vite.config.js é gerado a partir de vite.config.ts em cada build.
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts

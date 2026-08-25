@@ -1,0 +1,339 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* ---- Marca — controladas pelo painel Designer (dev) ---- */
+  --color-primary: 1 32 155; /* #01209B — azul primário (rodapé, botões, painéis KPI, títulos) */
+  /* Fundo dos painéis de gráfico/diagrama (.data-surface, water.950 — Cadastro/Resultado).
+     Fora do painel Designer: não aparece na Home nem no Login, escopo atual da ferramenta. */
+  --color-secondary: 16 144 140; /* #10908C */
+
+  /* Fundo das telas. Off-white com viés levemente azulado (mesma família da marca,
+     não um cinza neutro) para que os cards em #FFF puro leiam como camada elevada. */
+  --color-canvas: 237 241 249; /* #EDF1F9 */
+
+  /* ---- Cabeçalho — independente da primária, para permitir um header com tom próprio ---- */
+  --color-header-bg: 1 32 155; /* #01209B */
+  --color-header-text: 255 255 255; /* #FFFFFF */
+
+  /* ---- Texto do corpo — cor base do <body> e dos títulos/valores de leitura na Home e no
+     Login (h2/h3 de conteúdo). Texto secundário/mudo (ink-500 etc.) fica fixo de propósito. */
+  --color-body-text: 30 41 59; /* #1E293B — ink-800 */
+
+  /* ---- Logo — tom da marca-símbolo æ (rodapé) e do stop turquesa do gradiente (Logo.tsx) ---- */
+  --color-logo: 23 227 203; /* #17E3CB — aegea-400 */
+
+  /* ---- Bloco de Cadastro na Home — Otimização e Histórico ficam fixos de propósito,
+     fora do escopo do Designer (dev only edita só Home + Login). ---- */
+  --color-mod-cadastro: 1 32 155; /* #01209B */
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply text-body-text font-sans min-h-screen;
+    background-color: rgb(var(--color-canvas));
+    font-family: 'Manrope', system-ui, sans-serif;
+    text-wrap: pretty;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  thead th {
+    @apply text-[10.5px] font-semibold tracking-[.085em] uppercase text-ink-400 text-left border-b border-ink-200 whitespace-nowrap;
+    padding: 0 14px 9px;
+  }
+  thead th[data-r] {
+    @apply text-right;
+  }
+  tbody td {
+    @apply border-b border-ink-200 align-middle;
+    padding: 11px 14px;
+  }
+  tbody tr {
+    transition: background 140ms cubic-bezier(.32, .72, 0, 1);
+  }
+  tbody tr:hover {
+    @apply bg-water-50;
+  }
+  tbody tr[data-sel='1'] {
+    @apply bg-aegea-50;
+    box-shadow: inset 3px 0 0 theme('colors.aegea.400');
+  }
+  td[data-m] {
+    @apply font-mono tabular-nums text-right whitespace-nowrap text-[12.5px] font-medium;
+  }
+}
+
+@layer components {
+  /**
+   * Barra de rolagem horizontal ESPELHADA, acima do cabeçalho das tabelas largas
+   * do cadastro (ver `useRolagemEspelhada` em AbaGrid.tsx).
+   *
+   * A altura é explícita, e é o ponto delicado: o conteúdo dela é uma div de
+   * 1px só para dar largura. Com `height: auto` a caixa fecharia em 1px e a
+   * barra ficaria cortada — daí o `height` fixo, dimensionado para a barra
+   * caber inteira. As regras `::-webkit-scrollbar` afinam a barra para os 10px
+   * declarados; no Firefox o mesmo vem de `scrollbar-width: thin`.
+   */
+  .barra-rolagem-topo {
+    height: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(148 163 184) transparent; /* polegar ink-400 */
+  }
+  .barra-rolagem-topo::-webkit-scrollbar {
+    height: 10px;
+  }
+  .barra-rolagem-topo::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .barra-rolagem-topo::-webkit-scrollbar-thumb {
+    background: rgb(148 163 184);
+    border-radius: 999px;
+  }
+  .barra-rolagem-topo::-webkit-scrollbar-thumb:hover {
+    background: rgb(100 116 139);
+  }
+
+  /* ---- Gramática das telas de rodada (histórico + resultados) ---------------
+     Portada do design de 19/08 ("Historico/Resultados SES Aegea").
+
+     Escopada em classes próprias, e NÃO aplicada em `thead th` ou no `Button`
+     do kit, porque o pedido foi redesenhar histórico e resultados: mexer nas
+     regras globais redesenharia Cadastro, Simular e Login de carona. Quem
+     quiser a gramática nova pede por nome. */
+
+  /* A carta branca: a superfície de tudo que não é faixa de KPI. */
+  .carta {
+    @apply rounded-2xl border border-ink-200 bg-white shadow-carta;
+  }
+
+  /* Cabeçalho de tabela em FAIXA, e não só um filete.
+     A faixa é o que separa o cabeçalho do corpo quando a tabela rola dentro da
+     carta — com borda só, a primeira linha de dado encosta no rótulo. */
+  .carta-tabela thead th {
+    @apply bg-water-50 text-ink-water border-b border-ink-200 text-[11px] tracking-[.05em];
+    padding: 12px 14px;
+  }
+  .carta-tabela tbody td {
+    @apply border-b border-ink-100;
+  }
+  .carta-tabela tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  /* Grade de tiles siameses: 1px de vão preenchido pela cor da borda, o que
+     desenha as divisórias internas sem cada tile ter borda própria (e sem as
+     bordas dobrarem de espessura no encontro). */
+  .tiles {
+    @apply grid gap-px overflow-hidden rounded-xl border border-ink-200 bg-ink-200;
+  }
+  .tiles > * {
+    @apply bg-white px-3.5 py-3;
+  }
+
+  /* Superfície navy-gradiente — usada nos painéis de KPI/dados ("direção gráfica" do redesign) */
+  .band-surface {
+    background: rgb(var(--color-primary));
+    color: #fff;
+  }
+  .band-mut {
+    color: #b8c6ff;
+  }
+  .band-line {
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+  /* Fundo institucional navy (Login) */
+  .hero-bg {
+    background: linear-gradient(150deg, rgba(0, 16, 63, 0.94) 0%, rgba(0, 39, 189, 0.72) 100%), #00103f;
+  }
+
+  /* ---- Rodapé ----------------------------------------------------------------
+     Azul chapado da marca, sem gradiente — mesma formatação do rodapé do site
+     institucional da Aegea. Fecha a página com o mesmo azul do cabeçalho. */
+  .footer-surface {
+    background: rgb(var(--color-primary));
+    color: #ffffff;
+  }
+  .footer-line {
+    border-color: rgba(255, 255, 255, 0.16);
+  }
+  /* Marca æ oficial recortada pelo canal alfa do PNG, o que permite pintá-la
+     com a turquesa da marca em vez de aceitar o azul chapado do arquivo. */
+  .footer-mark {
+    background-color: rgb(var(--color-logo));
+    -webkit-mask: url('/assets/aegea-mark.png') no-repeat center / contain;
+    mask: url('/assets/aegea-mark.png') no-repeat center / contain;
+  }
+  /* Superfície navy para gráficos/diagramas (Pareto, unifilar) */
+  .data-surface {
+    background: linear-gradient(158deg, rgb(var(--color-secondary)) 0%, #001e93 100%);
+    color: #fff;
+  }
+  .data-mut {
+    color: #8aa0ff;
+  }
+  .data-line {
+    border-color: rgba(255, 255, 255, 0.16);
+  }
+  .data-grid {
+    stroke: rgba(255, 255, 255, 0.1);
+  }
+
+  /* ---- Paleta de DADOS (gráficos) --------------------------------------------
+     Validada com o validador da skill `dataviz` nas 6 checagens (banda de
+     luminosidade, piso de croma, separação para daltonismo, piso de visão
+     normal, contraste), nas duas superfícies reais do app:
+
+       claro  (#ffffff): pior par adjacente CVD ΔE 14,6 · visão normal 19,6  PASS
+       escuro (#0f172a): pior par adjacente CVD ΔE 13,2 · visão normal 19,3  PASS
+
+     A ORDEM DOS SLOTS É MECANISMO DE SEGURANÇA, NÃO ESTÉTICA. Laranja (tronco)
+     e âmbar (EEE) não podem ficar adjacentes — juntos dão ΔE 13,7, abaixo do
+     piso de 15. Se for reordenar, rode o validador de novo antes.
+
+     Slots 1 e 3 são a marca (azul/turquesa Aegea, ajustados para a banda de
+     luminosidade). Os outros quatro são extensão necessária: seis categorias
+     não cabem em duas famílias de matiz sem falhar o teste de daltonismo.
+
+     ALERTA DE CONTRASTE (não dispensável): turquesa, âmbar e magenta ficam
+     abaixo de 3:1 no branco. Exigem rótulo direto visível ou visão em tabela.
+
+     ALERTA DE SEPARAÇÃO ENTRE PARES NÃO-ADJACENTES (17/08/2026): a validação
+     acima é da lista de pares ADJACENTES. Rodando `--pairs all`, dois pares
+     ficam abaixo do piso — violeta×azul (ΔE 12,5 em visão normal) e
+     magenta×turquesa (ΔE 2,6 sob deuteranopia). Os dois são PRÉ-EXISTENTES aos
+     seis slots originais, não vieram do sétimo.
+     Consequência prática, e é o que o `QuadroGrafico` já garante: onde os sete
+     aparecem juntos, a identidade NÃO pode ser só a cor. No CAPEX por
+     componente cada barra tem rótulo no eixo; no Obras por ano os segmentos são
+     empilhados em ordem fixa (só pares adjacentes se tocam) e a tabela
+     equivalente é obrigatória. Gráfico novo que ponha os sete lado a lado sem
+     rótulo direto quebra isto — rode o validador antes.
+
+     Gráficos vivem em superfície CLARA/NEUTRA — nunca sobre .band-surface ou
+     .data-surface, que são azul de marca saturado e engoliriam a série azul. */
+  .viz-root {
+    /* superfícies e tinta */
+    --viz-surface: #ffffff;
+    --viz-grid: #e2e8f0;
+    --viz-axis: #cbd5e1;
+    --viz-ink: #0f172a;
+    --viz-ink-2: #475569;
+    --viz-ink-muted: #94a3b8;
+
+    /* categóricos — um por elemento de obra; cor segue a ENTIDADE, nunca o rank */
+    --viz-rede: #2e4ec9; /* slot 1 · azul Aegea */
+    --viz-tronco: #eb6834; /* slot 2 · laranja  */
+    --viz-ligacao: #14bcad; /* slot 3 · turquesa Aegea */
+    --viz-eee: #eda100; /* slot 4 · âmbar    */
+    --viz-lr: #e87ba4; /* slot 5 · magenta  */
+    --viz-ete: #7c5ce6; /* slot 6 · violeta  */
+    /* slot 7 · verde — SÉTIMO COMPONENTE, acrescentado na fase 9 (17/08/2026).
+       O contrato de resultado tem SETE componentes de obra, não seis: o
+       Coletor de tempo seco faltava nesta lista. Reciclar um slot faria a mesma
+       cor significar duas entidades, que é o que a regra acima proíbe.
+       Validado com o validador da skill `dataviz` na lista de pares
+       ADJACENTES, que é a que governa segmento empilhado:
+         claro  (#ffffff): pior par CVD ΔE 14,6 · visão normal 19,6  PASS
+         escuro (#0f172a): pior par CVD ΔE 13,2 · visão normal 19,3  PASS */
+    --viz-cts: #2f9e44;
+
+    /* fluxo de caixa das telas de resultado (fluxo de escoamento do VPL, desembolso,
+       EBITDA) — portado do design de 19/08. É um par PRÓPRIO, e não o mesmo
+       do divergente `--viz-pos/--viz-neg` (linhas abaixo): aquele marca
+       polaridade genérica de qualquer série que possa ser negativa (ex.: um
+       histograma), e usa vermelho para "sai" porque ali "sai" costuma ser
+       alerta. Aqui "sai" é CAPEX/OPEX — uma saída ESPERADA, não um problema —
+       e o design usa a mesma família azul da marca para ela, reservando
+       vermelho só para o teto de orçamento (`--viz-critical`, com legenda
+       própria, nunca como identidade de série).
+       Escuro/claro para texto sobre branco: contraste 4.5:1+ mesmo na versão
+       clara — ver os rótulos de valor do fluxo de escoamento. */
+    --viz-fluxo-entra: #14bcad; /* aegea-500 */
+    --viz-fluxo-entra-texto: #0d6b6f; /* aegea-700 */
+    --viz-fluxo-sai: #2e4ec9; /* water-500 */
+    --viz-fluxo-total: #03145e; /* water-900 */
+    --viz-fluxo-primaria: #01209b; /* water-700 — EBITDA e CAPEX acumulado */
+
+    /* metas de cobertura: alvo × realizado.
+       O alvo é PREMISSA contratual, não resultado da rodada — daí o
+       cinza-azulado, que não disputa saliência com o realizado. O realizado é
+       o veredito, e por isso tem duas cores: quem chegou e quem não chegou. */
+    --viz-meta-alvo: #b8c3ed; /* water-200 */
+    --viz-meta-atingida: #14bcad; /* aegea-500 */
+    --viz-meta-perdida: #d03b3b;
+
+    /* divergente — dinheiro com sinal (fluxo de escoamento do VPL, histograma) */
+    --viz-pos: #2e4ec9;
+    --viz-neg: #d03b3b;
+    --viz-mid: #e2e8f0;
+
+    /* sequencial — magnitude contínua (ocupação de ETE, uso do teto) */
+    --viz-seq-1: #b8c3ed;
+    --viz-seq-2: #8a9ce1;
+    --viz-seq-3: #5c75d5;
+    --viz-seq-4: #2e4ec9;
+    --viz-seq-5: #01209b;
+
+    /* status — reservados; nunca viram "série 7"; sempre com ícone + rótulo */
+    --viz-good: #0ca30c;
+    --viz-warning: #fab219;
+    --viz-serious: #ec835a;
+    --viz-critical: #d03b3b;
+  }
+
+  /* Passos escuros — mesmas seis matizes re-escalonadas para a superfície
+     escura, não uma paleta diferente. Declarados só sob [data-theme], sem
+     @media (prefers-color-scheme): o app é light-only até a Fase 7, e a media
+     query escureceria os gráficos dentro de uma tela clara. Ao ligar o dark
+     mode, adicionar o bloco @media espelhando este. */
+  :root[data-theme='dark'] .viz-root {
+    --viz-surface: #0f172a;
+    --viz-grid: #1e293b;
+    --viz-axis: #334155;
+    --viz-ink: #f8fafc;
+    --viz-ink-2: #cbd5e1;
+    --viz-ink-muted: #94a3b8;
+
+    --viz-rede: #5c75d5;
+    --viz-tronco: #d95926;
+    --viz-ligacao: #12a79c;
+    --viz-eee: #c98500;
+    --viz-lr: #d55181;
+    --viz-ete: #9085e9;
+    --viz-cts: #3fae52;
+
+    --viz-pos: #5c75d5;
+    --viz-mid: #334155;
+
+    --viz-fluxo-entra: #3fcdbd;
+    --viz-fluxo-entra-texto: #9de4dc;
+    --viz-fluxo-sai: #7c93e0;
+    --viz-fluxo-total: #c7d0f2;
+    --viz-fluxo-primaria: #7c93e0;
+
+    --viz-meta-alvo: #55628f;
+    --viz-meta-atingida: #3fcdbd;
+    --viz-meta-perdida: #e56b6b;
+
+    --viz-seq-1: #e0e5f7;
+    --viz-seq-2: #b8c3ed;
+    --viz-seq-3: #8a9ce1;
+    --viz-seq-4: #5c75d5;
+    --viz-seq-5: #2e4ec9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
