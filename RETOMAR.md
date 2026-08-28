@@ -51,14 +51,14 @@ docker compose -f docker-compose.local.yml up -d ses-web               # serviç
 | `localhost:8000` | a API (`/readyz`, rotas sob `/api`) |
 | `localhost:55432` | Postgres (`otim` / `otim` / `otimizador`) |
 
-> ### `start`, e não `up` — isto apaga o banco
+> ### O banco mora no volume `db-dados`
 >
-> O serviço `db` **não tem volume nomeado**: o dado mora na camada gravável do container,
-> num volume anônimo. `start` religa o que existe; um `up` que decida recriar o `db`, ou um
-> `docker volume prune` de rotina, apagam tudo.
+> O serviço `db` usa um volume **nomeado**, declarado no `docker-compose.yml` do backend. Ele
+> sobrevive a `up`, a `down` e ao `docker volume prune`; some só com `docker compose down -v`.
 >
-> Se acontecer, não se perde nada: `dev/cadastro_base.dump` no repositório do backend está
-> atualizado até 24/08 e traz todo o estado descrito no §4. É o passo 3 do `SUBIR_LOCAL.md`.
+> Se sumir mesmo assim, a volta são os dumps: `dev/cadastro_base.dump` no repositório do
+> backend traz o cadastro do §4, e `otimizador_completo_20260824.dump` (OneDrive do Teams)
+> traz também as 47 rodadas já executadas. É o passo 3 do `SUBIR_LOCAL.md`.
 
 ## 4 · Em que estado o banco está
 
