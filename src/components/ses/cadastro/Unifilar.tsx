@@ -78,7 +78,12 @@ const CAIXA = {
   estreita: { w: 132, gap: 18, corte: 16 },
 } as const
 
-const LARGURA_MINIMA = 460
+/**
+ * Abaixo disto o desenho não é mais legível, e quem decide o LAYOUT precisa
+ * saber: exportada para o `CadastroWizard` medir se a coluna que sobra comporta
+ * o desenho antes de escolher lado a lado. Ver `GAP_DAS_COLUNAS` lá.
+ */
+export const LARGURA_MINIMA = 460
 
 /**
  * O QUANTO O DESENHO ACEITA ENCOLHER para caber na coluna, antes de passar a
@@ -96,6 +101,39 @@ const LARGURA_MINIMA = 460
  * apertar os olhos.
  */
 const ENCOLHIMENTO_MAXIMO = 0.75
+
+/**
+ * A largura que o desenho PEDE, e o mínimo com que ele ainda se lê.
+ *
+ * Exportadas porque o layout de duas colunas precisa saber quanto reservar antes
+ * de decidir se cabe. Reservar um número fixo não serve: a largura depende do
+ * nível mais cheio DO SISTEMA escolhido, e um sistema de cinco nós pede quase o
+ * dobro de um de dois. Foi o que sobrou de arraste depois da primeira correção —
+ * a coluna reservava o mínimo genérico (460) para um desenho cujo piso era 582.
+ *
+ * Mesma conta que o `layout` usa, e é por isso que ela mora aqui: dois lugares
+ * calculando a largura do mesmo desenho é um número que vai discordar de si.
+ */
+export function larguraNaturalDoDesenho(uni: UnifilarSistema): number {
+  const porNivel = new Map<number, number>()
+  for (const no of uni.nos) porNivel.set(no.nivel, (porNivel.get(no.nivel) ?? 0) + 1)
+  const maiorFaixa = Math.max(1, ...porNivel.values())
+  const caixa = maiorFaixa >= LARGO_A_PARTIR_DE ? CAIXA.estreita : CAIXA.ampla
+  return Math.max(LARGURA_MINIMA, maiorFaixa * caixa.w + (maiorFaixa - 1) * caixa.gap + PAD * 2)
+}
+
+/**
+ * A moldura do painel em volta do SVG: `p-1` dos dois lados mais a borda de 1px.
+ * Some na conta porque o que a coluna precisa comportar é o painel, não o
+ * desenho — reservar só o SVG deixava 9px de rolagem, que é rolagem do mesmo
+ * jeito.
+ */
+const CROMO_DO_PAINEL = 10
+
+/** O mínimo que a coluna do desenho precisa ter para ele não rolar de lado. */
+export function larguraMinimaDoDesenho(uni: UnifilarSistema): number {
+  return Math.round(larguraNaturalDoDesenho(uni) * ENCOLHIMENTO_MAXIMO) + CROMO_DO_PAINEL
+}
 
 /**
  * QUANDO O DESENHO AINDA TRANSBORDA depois de encolher, ele precisa PARECER que
@@ -305,11 +343,7 @@ function Desenho({
 
     const maiorFaixa = Math.max(1, ...[...porNivel.values()].map((l) => l.length))
     const caixa = maiorFaixa >= LARGO_A_PARTIR_DE ? CAIXA.estreita : CAIXA.ampla
-
-    const largura = Math.max(
-      LARGURA_MINIMA,
-      maiorFaixa * caixa.w + (maiorFaixa - 1) * caixa.gap + PAD * 2,
-    )
+    const largura = larguraNaturalDoDesenho(uni)
     const altura = PAD * 2 + uni.niveis * BOX_H + Math.max(0, uni.niveis - 1) * GAP_Y
 
     const pos = new Map<string, { x: number; y: number }>()

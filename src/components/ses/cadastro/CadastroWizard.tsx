@@ -41,9 +41,9 @@ import { FiltroEscopo } from './FiltroEscopo'
 import { PainelTopologia } from './PainelTopologia'
 import { UsaSistemaCts } from './UsaSistemaCts'
 import { AdicionarCts } from './AdicionarCts'
-import { Unifilar, type DestaqueUnifilar } from './Unifilar'
+import { larguraMinimaDoDesenho, Unifilar, type DestaqueUnifilar } from './Unifilar'
 import { validarTopologia } from '../../../domain/validacao'
-import { ehCts } from '../../../domain/fluxo'
+import { ehCts, unifilarDoSistema} from '../../../domain/fluxo'
 
 /**
  * OS BANNERS VERDES "DADOS REAIS" SAÍRAM (07/08/2026), junto da legenda de
@@ -151,6 +151,73 @@ function DescricaoDaAba({ texto }: { texto: string }) {
   )
 }
 
+
+/** O respiro entre a tabela e o desenho no layout de duas colunas. */
+const GAP_DAS_COLUNAS = 24
+
+/**
+ * A tabela não encolhe além disto — abaixo daqui sobra a coluna congelada e
+ * quase nada, e aí ela deixa de ser tabela.
+ */
+const TABELA_MINIMA = 560
+
+/**
+ * QUEM CEDE LARGURA É A TABELA, e não o desenho.
+ *
+ * Havia um `min-[1360px]` aqui, com o número vindo de uma conta feita à mão
+ * sobre a largura da tabela do Fluxo NAQUELE dia. Alargar uma coluna da grade —
+ * como as de código, que passaram a caber os dez caracteres do id — moveu a soma
+ * e não moveu a constante: em 1440px a tela continuava escolhendo lado a lado e o
+ * desenho, sem espaço, caía na rolagem lateral. Unifilar que precisa ser
+ * arrastado perde o que ele existe para dar, que é ver o sistema de uma vez.
+ *
+ * A INVERSÃO. O comentário do layout dizia "a tabela tem largura própria e não
+ * negocia; o desenho reescala", e isso vale enquanto sobra espaço. Quando não
+ * sobra, a régua se inverte, porque as duas superfícies não são simétricas: a
+ * GRADE SABE ROLAR — tem barra espelhada no topo, coluna congelada e navegação
+ * por teclado, tudo construído para largura maior que a tela — e o DESENHO NÃO,
+ * ele só sabe encolher até parar de ser legível. Tirar largura de quem tem
+ * mecanismo é barato; tirar de quem não tem é quebrar.
+ *
+ * Só quando nem assim couber (janela estreita, `TABELA_MINIMA` alcançado) é que
+ * empilha — e aí é o certo, porque lado a lado apertado não serve a nenhum dos
+ * dois.
+ */
+function useDuasColunas(larguraNaturalDaTabela: number, minimoDoDesenho: number) {
+  const [disponivel, setDisponivel] = useState(0)
+  const observer = useRef<ResizeObserver | null>(null)
+
+  /**
+   * REF DE CALLBACK, e não `useRef` com efeito de deps vazias.
+   *
+   * O container só existe na aba do Fluxo. Com `useRef` + `useEffect([])` o
+   * efeito roda na montagem do wizard, quando a aba aberta ainda é outra e o nó
+   * não existe: ele saía no `if (!el) return`, e nunca mais rodava. O observer
+   * jamais era instalado, `disponivel` ficava em 0, e a tela empilhava para
+   * sempre — inclusive numa janela de sobra, que é o oposto do que este hook
+   * existe para decidir.
+   *
+   * A ref de callback é chamada quando o nó ENTRA e quando SAI, então ela
+   * acompanha a aba aparecendo e sumindo sem precisar adivinhar dependência.
+   */
+  const ref = useCallback((el: HTMLDivElement | null) => {
+    observer.current?.disconnect()
+    if (!el) return
+    const medir = () => setDisponivel(el.clientWidth)
+    medir()
+    observer.current = new ResizeObserver(medir)
+    observer.current.observe(el)
+  }, [])
+
+  const paraTabela = disponivel - GAP_DAS_COLUNAS - minimoDoDesenho
+  const ladoALado = paraTabela >= TABELA_MINIMA
+  return {
+    ref,
+    ladoALado,
+    /** O quanto a tabela ocupa: a largura dela, ou o que sobra depois do desenho. */
+    larguraDaTabela: ladoALado ? Math.min(larguraNaturalDaTabela, paraTabela) : larguraNaturalDaTabela,
+  }
+}
 
 export function CadastroWizard() {
   const {
@@ -516,6 +583,21 @@ export function CadastroWizard() {
   // `ehFluxo` porque é a única aba com ação de linha sem `addRow` — ver
   // `larguraDaGrade`.
   const larguraColunaGrade = larguraDaGrade(abaGrade, !!abaGrade.addRow || ehFluxo) + CROMO_DA_GRADE
+  /**
+   * O mínimo do desenho depende do SISTEMA escolhido — um de cinco nós pede quase
+   * o dobro de um de dois —, então ele entra na conta do layout em vez de uma
+   * constante. Ver `larguraMinimaDoDesenho`.
+   */
+  const minimoDoDesenho = useMemo(
+    () => (ehFluxo && escopo.sistemaId
+      ? larguraMinimaDoDesenho(unifilarDoSistema(unidade.data, escopo.sistemaId))
+      : 0),
+    [ehFluxo, escopo.sistemaId, unidade.data],
+  )
+  const { ref: refDuasColunas, ladoALado, larguraDaTabela } = useDuasColunas(
+    larguraColunaGrade,
+    minimoDoDesenho,
+  )
 
   /**
    * A GRADE MAIS A LEGENDA DE ORIGEM, num fragmento — porque na aba do Fluxo as
@@ -922,14 +1004,29 @@ export function CadastroWizard() {
                   tabela corre. E ela ganha altura máxima própria, porque um sistema de
                   6 níveis dá ~630px de SVG mais a legenda e a lista de nós soltos.
                 */
-                <div className="flex flex-col gap-6 min-[1360px]:flex-row min-[1360px]:items-start">
+                <div
+                  ref={refDuasColunas}
+                  /* `flex-col` E `flex-row` na mesma string não funciona: o
+                     Tailwind emite `.flex-col` DEPOIS de `.flex-row`, então a
+                     coluna vence independentemente da ordem no atributo, e o
+                     layout empilhava mesmo com a medida dizendo que cabia. A
+                     variante de media query que havia aqui antes escapava disso
+                     por vir de outro bloco do CSS. Uma direção por vez. */
+                  className={`flex gap-6 ${ladoALado ? 'flex-row items-start' : 'flex-col'}`}
+                >
                   <div
-                    className="min-w-0 min-[1360px]:flex-none"
-                    style={{ width: `min(100%, ${larguraColunaGrade}px)` }}
+                    className={ladoALado ? 'min-w-0 flex-none' : 'min-w-0'}
+                    style={{ width: `min(100%, ${larguraDaTabela}px)` }}
                   >
                     {grade}
                   </div>
-                  <div className="min-w-0 min-[1360px]:sticky min-[1360px]:top-6 min-[1360px]:max-h-[calc(100vh-8rem)] min-[1360px]:flex-1 min-[1360px]:overflow-y-auto">
+                  <div
+                    className={
+                      ladoALado
+                        ? 'min-w-0 flex-1 sticky top-6 max-h-[calc(100vh-8rem)] overflow-y-auto'
+                        : 'min-w-0'
+                    }
+                  >
                     <Unifilar
                       dados={unidade.data}
                       sistemaId={escopo.sistemaId}
