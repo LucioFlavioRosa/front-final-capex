@@ -90,6 +90,31 @@ function reducer(state: CadastroState, action: Action): CadastroState {
       return { ...state, regionalId: action.regionalId, unidadeId: '', unidade: null }
 
     case 'SELECT_UNIDADE':
+      /**
+       * ESCOLHER A UNIDADE QUE JÁ ESTÁ ESCOLHIDA NÃO FAZ NADA — e sem esta
+       * linha ela APAGAVA o cadastro carregado.
+       *
+       * A tela de seleção auto-escolhe a primeira unidade da regional assim que
+       * a lista chega, e isso dispara a leitura. Quando a pessoa então clica na
+       * unidade que queria — a mesma, porque é a que está em destaque —, o
+       * `SELECT_UNIDADE` recriava `unidade` com `data` VAZIO. E o efeito de
+       * carga depende de `unidadeId`, que não mudou: ele não roda de novo, e o
+       * cadastro lido some para sempre.
+       *
+       * Quem ganhava a corrida decidia o resultado, e QUANTO MAIS RÁPIDO O
+       * SERVIDOR, PIOR: a uB2 responde em ~218ms e era apagada em 6 de 6
+       * tentativas; a uB1 é mais lenta e chegava depois do segundo clique, então
+       * sobrevivia. Por isso os testes verdes conviviam com a unidade grande
+       * sem abrir — e por isso a suíte agora roda contra as duas (ver
+       * `UNIDADES_DE_TESTE` em `vitest.integracao.config.ts`).
+       *
+       * Devolver `state` inteiro é o certo, e não remontar preservando `data`:
+       * mesmo id significa mesmo nome e mesma regional, então não há o que
+       * atualizar. E não existe "recarregar clicando de novo" — o efeito não
+       * refaz a leitura para o mesmo id de qualquer forma; antes desta linha o
+       * clique repetido só sabia esvaziar.
+       */
+      if (state.unidade && state.unidade.id === action.unidadeId) return state
       return {
         ...state,
         regionalId: action.regionalId,

@@ -8,12 +8,25 @@
  *
  * PULA SOZINHO quando o backend não está no ar, para não reprovar o build de
  * quem só quer rodar a suíte. Ligue com `VITE_API_URL=http://localhost:8000`.
+ *
+ * RODA CONTRA AS DUAS UNIDADES da base de teste, e não só a uB1. Toda a suíte de
+ * integração usava a uB1, e a uB2 — a maior, com 930 sub-bacias, 186 CTS e a
+ * única com topologia em rede de verdade — nunca era exercitada. Isso é o tipo
+ * de ponto cego que deixa um defeito grande conviver com uma suíte verde.
+ *
+ * Só a LEITURA roda nas duas. Os testes que gravam continuam na uB1 de propósito:
+ * eles mexem em dado real e o restauram no fim, e dobrar isso na unidade grande
+ * dobraria o risco sem dobrar a informação.
  */
 import { beforeAll, describe, expect, it } from 'vitest'
 import { lerCadastro } from './cadastroApi'
 
 const BASE = process.env.VITE_API_URL ?? 'http://localhost:8000'
-const UNIDADE = process.env.UNIDADE_TESTE ?? 'uA1'
+/**
+ * As unidades de teste. `UNIDADE_TESTE` continua sobrepondo, para apontar a
+ * suíte para uma base diferente sem editar código.
+ */
+const UNIDADES = process.env.UNIDADE_TESTE ? [process.env.UNIDADE_TESTE] : ['uB1', 'uB2']
 
 let noAr = false
 
@@ -26,7 +39,7 @@ beforeAll(async () => {
   }
 })
 
-describe('lerCadastro contra o backend real', () => {
+describe.each(UNIDADES)('lerCadastro contra o backend real — %s', (UNIDADE) => {
   it('monta as 15 abas do wizard a partir das 5 rotas', async () => {
     if (!noAr) return console.log('backend fora do ar — pulado')
 

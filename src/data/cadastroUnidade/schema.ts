@@ -416,7 +416,13 @@ export function colunaLargura(col: string): number {
   // largura foi escolhida quando o texto era proporcional, e a troca de fonte
   // estreitou na prática justamente a coluna cujo conteúdo precisa ser lido
   // inteiro. Truncar código não é economizar espaço, é apagar o dado.
-  if (COLS_XS.has(col)) return 104
+  //
+  // 104 TAMBÉM NÃO BASTAVA, e o erro foi meu: dimensionei pelo glifo e esqueci
+  // a caixa. A célula gasta ~44px antes do texto (28 de `tbody td` mais 16 do
+  // `px-2` do span), então 104 deixava 60px — oito caracteres. `e1b83_1_1`, com
+  // nove, voltava a virar `e1b83_1…`, e só apareceu abrindo a unidade grande.
+  // 124 deixa ~80px, que cobre os dez do id mais longo da base com folga.
+  if (COLS_XS.has(col)) return 124
   if (COLS_LG.has(col)) return 168
   return 128
 }
