@@ -18,8 +18,19 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   pill?: boolean
 }
 
+/**
+ * `transition-[...]` explícito, e não `transition-all`: `all` também liga a
+ * transição em propriedades de LAYOUT, que o compositor não resolve de graça
+ * — sem contrapartida numa grade com dezenas de botões (Cadastro).
+ *
+ * `active:duration-press` é a correção do achado 1.6 da revisão de UX: o
+ * config declara `press: 60ms` como a duração do CLIQUE ("um press lento faz
+ * o botão parecer emperrado"), mas o botão base ainda respondia em
+ * `duration-hover` (140ms) — o próprio botão emperrado que a doutrina
+ * descreve. `hover:` e `focus-visible:` continuam em `duration-hover`.
+ */
 const base =
-  'relative overflow-hidden inline-flex items-center justify-center gap-1.5 font-semibold transition-all duration-hover ease-saida focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-water-500/50 disabled:opacity-60 disabled:cursor-not-allowed active:scale-[.98]'
+  'relative overflow-hidden inline-flex items-center justify-center gap-1.5 font-semibold transition-[background-color,border-color,color,box-shadow,filter,transform] duration-hover ease-saida focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-water-500/50 disabled:opacity-60 disabled:cursor-not-allowed active:scale-[.98] active:duration-press'
 
 const variants: Record<Variant, string> = {
   primary: 'bg-water-600 text-white hover:brightness-90',

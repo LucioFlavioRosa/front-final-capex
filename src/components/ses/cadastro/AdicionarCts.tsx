@@ -1,5 +1,6 @@
 import { useId, useMemo, useState } from 'react'
 import type { Row } from '../../../data/cadastroUnidade/types'
+import { ehCts, type Dados } from '../../../lib/cadastroFluxo'
 
 /**
  * ADICIONAR UMA CTS AO SISTEMA.
@@ -9,8 +10,8 @@ import type { Row } from '../../../data/cadastroUnidade/types'
  * dizer de qual sistema são. Nenhuma nasce atrelada: em que sistema cada uma
  * entra é decisão de quem monta, aqui.
  *
- * POR QUE UM CONTROLE PRÓPRIO, e não uma célula da grade: na aba do Fluxo a
- * coluna `sistema_id` é de leitura (`origem: 'db'`) — ela descreve onde o
+ * POR QUE UM CONTROLE PRÓPRIO, e não uma célula da grade: na aba do Fluxo o
+ * `sistema_id` nem é coluna da grade — ele descreve onde o
  * componente ESTÁ, e sub-bacia e ETE estão onde o Databricks disse. Abrir a
  * coluna para edição deixaria qualquer componente ser arrastado para qualquer
  * sistema, que é o oposto do modelo. A CTS é a exceção, e a exceção tem seu
@@ -27,6 +28,7 @@ export function AdicionarCts({
   sistemaId,
   sistemaNome,
   topo,
+  dados,
   limitada,
   onAdicionar,
 }: {
@@ -34,6 +36,15 @@ export function AdicionarCts({
   sistemaNome: string
   /** As linhas da aba do Fluxo — é delas que sai quem está sem sistema. */
   topo: Row[]
+  /**
+   * O cadastro inteiro, para `tipoDoNo` saber o que cada componente é.
+   *
+   * A coluna `componente_tipo` da grade é DERIVADA da mesma função (ver
+   * `cadastroCalc`), e a lógica não lê aquela string: ela é rótulo de tela
+   * ('sub-bacia', 'CTS'), e comparar contra rótulo quebraria na primeira
+   * mudança de texto.
+   */
+  dados: Dados
   /** O sistema usa sistema de CTS e já tem a dele: não há o que adicionar. */
   limitada: boolean
   onAdicionar: (componenteId: string) => void
@@ -42,8 +53,8 @@ export function AdicionarCts({
   const id = useId()
 
   const disponiveis = useMemo(
-    () => topo.filter((t) => !t.sistema_id && t.componente_tipo === 'cts'),
-    [topo],
+    () => topo.filter((t) => !t.sistema_id && ehCts(dados, t)),
+    [topo, dados],
   )
 
   if (!sistemaId) return null

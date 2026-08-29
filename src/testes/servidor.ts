@@ -247,6 +247,42 @@ export const handlers = [
       fimCapex: 2033,
     }),
   ),
+  http.get('/api/runs/:runId/obras/cronograma', () =>
+    HttpResponse.json({
+      anos: [
+        {
+          ano: 2028,
+          obras: 2,
+          capex: 500_366,
+          obrasTerceiro: 0,
+          porComponente: [
+            { componente: 'Ligação de esgoto', obras: 1, capex: 310_024 },
+            { componente: 'Rede coletora', obras: 1, capex: 190_342 },
+          ],
+        },
+      ],
+    }),
+  ),
+  http.get('/api/runs/:runId/obras', () =>
+    HttpResponse.json({
+      total: 1,
+      itens: [
+        {
+          obraId: 'rede_b2b27_1_2',
+          componente: 'Rede coletora',
+          situacao: 'construida',
+          cidadeId: 'Belford Roxo',
+          sistemaId: 'Sistema 27',
+          subBaciaId: 'b2b27_1_2',
+          capex: 190_342,
+          quantidade: 383,
+          unidade: 'm',
+          anoInicio: 2028,
+          prazoMeses: 9,
+        },
+      ],
+    }),
+  ),
   http.get('/api/runs/:runId/cidades', () =>
     HttpResponse.json([
       {
@@ -258,8 +294,59 @@ export const handlers = [
         metasAtingidas: 2,
         metasTotal: 2,
         sistemas: 3,
+        cobertura: [
+          { ano: 2031, coberturaPct: 71.2 },
+          { ano: 2032, coberturaPct: 92.4 },
+        ],
+        metas: [
+          {
+            ano: 2032,
+            alvoPct: 90,
+            realizadoPct: 92.4,
+            atingida: true,
+            dentroDaJanela: true,
+          },
+        ],
       },
     ]),
+  ),
+  http.get('/api/runs/:runId/cidades/:cidadeId/explicabilidade', () =>
+    HttpResponse.json({ naoFaturando: 0, totalSubbacias: 0, categorias: [], elos: [] }),
+  ),
+  http.get('/api/runs/:runId/explicabilidade', () =>
+    HttpResponse.json({
+      naoFaturando: 185,
+      totalSubbacias: 1047,
+      categorias: [
+        {
+          categoria: 'Sem orçamento na janela',
+          subbacias: 120,
+          vazaoPresa: 340.5,
+          itens: [
+            { subBaciaId: 'SB-001', cidadeId: 'Aperibe', sistemaId: 'S1', vazaoPresa: 12.4 },
+            { subBaciaId: 'SB-002', cidadeId: 'Aperibe', sistemaId: 'S1', vazaoPresa: 9.8 },
+          ],
+        },
+        {
+          categoria: 'Depende de transporte não construído',
+          subbacias: 65,
+          vazaoPresa: 210.2,
+          itens: [
+            { subBaciaId: 'SB-030', cidadeId: 'Cambuci', sistemaId: 'S2', vazaoPresa: 15.1 },
+          ],
+        },
+      ],
+      elos: [
+        {
+          obraId: 'tro-0042',
+          componente: 'Tronco',
+          cidadeId: 'c001',
+          sistemaId: 's001',
+          subBaciaId: 'b001',
+          bloqueia: 12,
+        },
+      ],
+    }),
   ),
   http.put('/api/runs/:runId/favorita', () => new HttpResponse(null, { status: 204 })),
   http.delete('/api/runs/:runId/favorita', () => new HttpResponse(null, { status: 204 })),

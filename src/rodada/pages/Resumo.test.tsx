@@ -57,7 +57,7 @@ describe('Simular — o resumo mostra o que vai ser disparado', () => {
     // campo digitado — se alguém trocar o padrão, este número acompanha.
     expect(resumo()).toHaveTextContent('R$ 560 Mi')
 
-    await userEvent.click(screen.getByRole('button', { name: /parâmetros do motor/i }))
+    // Sem abrir nada: "Parâmetros do motor" nasce aberto (item 1 de 26/08).
     await userEvent.click(screen.getByRole('radio', { name: 'Linear' }))
 
     expect(resumo()).toHaveTextContent('linear')

@@ -1,6 +1,6 @@
 import { SCHEMA, UNIDADE_POR_COMPONENTE } from '../data/cadastroUnidade/schema'
 import type { Row } from '../data/cadastroUnidade/types'
-import { sistemaDaCts, type Dados } from './cadastroFluxo'
+import { sistemaDaCts, tipoDoNo, type Dados } from './cadastroFluxo'
 
 /** Converte texto pt-BR ("3.214" / "0,091") em número; null se inválido. */
 export function toNum(v: string | undefined): number | null {
@@ -78,6 +78,23 @@ export function computeCalc(col: string, row: Row, ctx: CtxCalc = {}): string {
     if (!ctx.dados) return '—'
     const sistema = sistemaDaCts(ctx.dados, String(row.cts_id ?? ''))
     return (col === 'sistema_id' ? sistema.id : sistema.nome) || '—'
+  }
+
+  /**
+   * O QUE O COMPONENTE É — sub-bacia, CTS ou ETE.
+   *
+   * Derivado da aba em que ele tem ficha, que é a única fonte que existe: não há
+   * coluna de tipo em `input.sistema_topologia`, e não precisa haver. É a mesma
+   * pergunta que `tipoDoNo` responde para o unifilar e para a validação de
+   * topologia — aqui ela só ganha uma coluna na tela.
+   *
+   * Os rótulos são os que a tela mostra, e 'cts' é o que a lógica compara (ver
+   * `AdicionarCts`): quem decide não lê esta string, chama `tipoDoNo`.
+   */
+  if (col === 'componente_tipo') {
+    if (!ctx.dados) return '—'
+    const tipo = tipoDoNo(ctx.dados, String(row.componente_sistema_id ?? ''))
+    return { subbacia: 'sub-bacia', cts: 'CTS', ete: 'ETE', desconhecido: '—' }[tipo]
   }
 
   /**

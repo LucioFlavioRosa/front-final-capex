@@ -45,7 +45,7 @@
  * diz em que sistema a CTS está é a topologia. Servi-la vazia deixaria uma aba
  * que só pode enganar.
  */
-import { api } from './api'
+import { api, apiBlob, apiUpload } from './api'
 import type { Row, UnidadeState } from '../data/cadastroUnidade/types'
 
 export interface CadastroSalvo {
@@ -667,4 +667,56 @@ function listasIguais(a: Row[] | undefined, b: Row[] | undefined): boolean {
   const y = b ?? []
   if (x.length !== y.length) return false
   return x.every((linha, i) => igual(linha, y[i]))
+}
+
+/* ===========================================================================
+ *  TEMPLATE DE EXCEL — baixar e importar
+ *
+ *  As duas funções abaixo vieram do front do cliente e falam com rotas que o
+ *  backend do Otimizador AINDA NÃO TEM: `GET /api/cadastro/{u}/template` e
+ *  `POST /api/cadastro/{u}/importar`, servidas lá por `app/cadastro/routes.py`
+ *  e `app/cadastro/template_excel.py`.
+ *
+ *  Ficam aqui, e não fora, porque os botões que as chamam vieram junto com o
+ *  resto do wizard. Enquanto as rotas não existirem, cada botão responde 404 e
+ *  o `CadastroWizard` mostra o erro do servidor num toast — falha visível, que
+ *  é o que se quer: um botão que não faz nada e não diz nada é pior.
+ *
+ *  O resto deste módulo é o adaptador para as rotas normalizadas — `lerCadastro`
+ *  e `salvarCadastro` acima —, e ele não passa por aqui.
+ * ======================================================================== */
+
+/**
+ * Baixa o template Excel desta unidade e dispara o download no navegador.
+ *
+ * `URL.createObjectURL` e o clique sintético são o jeito padrão de entregar um
+ * blob como download sem navegar a aba para longe da tela de cadastro.
+ */
+export async function baixarTemplateCadastro(unidadeId: string): Promise<void> {
+  const { blob, nomeArquivo } = await apiBlob(
+    `/api/cadastro/${encodeURIComponent(unidadeId)}/template`,
+  )
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = nomeArquivo
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+/**
+ * Sobe a planilha preenchida e devolve `dados` no formato de
+ * `UnidadeState['data']` — pronto para mesclar no estado do wizard.
+ *
+ * NÃO salva no banco: o servidor só lê e devolve. Quem chama decide o que fazer
+ * com o resultado — no wizard, mesclar no estado e deixar a pessoa revisar antes
+ * de clicar em Salvar.
+ */
+export function importarTemplateCadastro(
+  unidadeId: string,
+  arquivo: File,
+): Promise<{ dados: Record<string, Row[]> }> {
+  return apiUpload(`/api/cadastro/${encodeURIComponent(unidadeId)}/importar`, arquivo)
 }

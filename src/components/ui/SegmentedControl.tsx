@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useIndicador } from './useIndicador'
 
 interface SegmentedOption<T extends string> {
   value: T
@@ -13,7 +14,15 @@ interface SegmentedControlProps<T extends string> {
   'aria-label'?: string
 }
 
-/** Grupo de pílulas (toggle) — horizonte, base de receita, densidade, agrupar por ano. */
+/**
+ * Grupo de pílulas (toggle) — horizonte, base de receita, densidade, agrupar
+ * por ano.
+ *
+ * A pílula branca ESCORREGA até a opção nova (`useIndicador`, a mesma técnica
+ * do Trilho) em vez de pular: o fundo/sombra saiu do botão e virou um `<span>`
+ * absoluto medido pelo hook; os botões ficam transparentes, com o texto por
+ * cima (`z-10`).
+ */
 export function SegmentedControl<T extends string>({
   options,
   value,
@@ -21,29 +30,41 @@ export function SegmentedControl<T extends string>({
   className = '',
   'aria-label': ariaLabel,
 }: SegmentedControlProps<T>) {
+  const { containerRef, estilo } = useIndicador<HTMLDivElement>(value)
+
   return (
     <div
+      ref={containerRef}
       role="radiogroup"
       aria-label={ariaLabel}
-      className={`inline-flex gap-1 rounded-[9px] bg-ink-200 p-[3px] ${className}`}
+      className={`relative inline-flex gap-1 rounded-[9px] bg-ink-200 p-[3px] ${className}`}
     >
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          role="radio"
-          aria-checked={opt.value === value}
-          onClick={() => onChange(opt.value)}
-          className={[
-            'rounded-[7px] px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors duration-hover ease-saida',
-            opt.value === value
-              ? 'bg-white text-ink-900 shadow-soft'
-              : 'text-ink-600 hover:text-ink-900',
-          ].join(' ')}
-        >
-          {opt.label}
-        </button>
-      ))}
+      {options.map((opt) => {
+        const active = opt.value === value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            data-indicador={active ? '1' : undefined}
+            onClick={() => onChange(opt.value)}
+            className={[
+              'relative z-10 rounded-[7px] px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors duration-hover ease-saida',
+              active ? 'text-ink-900' : 'text-ink-600 hover:text-ink-900',
+            ].join(' ')}
+          >
+            {opt.label}
+          </button>
+        )
+      })}
+      {estilo && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-[3px] rounded-[7px] bg-white shadow-soft transition-[transform,width] duration-mover ease-saida"
+          style={{ width: estilo.width, transform: `translateX(${estilo.left}px)` }}
+        />
+      )}
     </div>
   )
 }

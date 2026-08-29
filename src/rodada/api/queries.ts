@@ -30,20 +30,64 @@ const chaves = {
   ebitda: (runId: string, cidadeId?: string) =>
     ['runs', runId, 'ebitda', cidadeId ?? 'unidade'] as const,
   cidades: (runId: string) => ['runs', runId, 'cidades'] as const,
+  explicabilidade: (runId: string) => ['runs', runId, 'explicabilidade'] as const,
+  explicabilidadeDaCidade: (runId: string, cidadeId: string) =>
+    ['runs', runId, 'cidades', cidadeId, 'explicabilidade'] as const,
   cidade: (runId: string, cidadeId: string) => ['runs', runId, 'cidades', cidadeId] as const,
-  topologia: (runId: string, sistemaId: string) => ['runs', runId, 'sistemas', sistemaId] as const,
+  fluxo: (runId: string, sistemaId: string) => ['runs', runId, 'sistemas', sistemaId] as const,
   subbacia: (runId: string, subId: string) => ['runs', runId, 'subbacias', subId] as const,
   obra: (runId: string, obraId: string) => ['runs', runId, 'obras', obraId] as const,
+  /** O filtro inteiro entra na chave: página, ordenação e recorte são cortes
+   *  DIFERENTES da mesma lista, não a mesma consulta com resultado igual. */
+  obras: (
+    runId: string,
+    filtro?: {
+      situacao?: string
+      cidadeId?: string
+      ano?: number
+      pagina?: number
+      tamanho?: number
+      ordenar?: string
+    },
+  ) =>
+    [
+      'runs',
+      runId,
+      'obras',
+      'lista',
+      filtro?.situacao ?? '*',
+      filtro?.cidadeId ?? '*',
+      filtro?.ano ?? '*',
+      filtro?.pagina ?? 1,
+      filtro?.tamanho ?? 50,
+      filtro?.ordenar ?? 'inicio',
+    ] as const,
+  cronogramaDeObras: (runId: string) => ['runs', runId, 'obras', 'cronograma'] as const,
   prontidao: (unidadeId: string) => ['prontidao', unidadeId] as const,
 }
 
 /** Opções de quem lê uma rodada: leu uma vez, vale para sempre. */
 const IMUTAVEL = { staleTime: Infinity, gcTime: Infinity } as const
 
-export function useRuns(filtro?: { unidadeId?: string; usuario?: string }) {
+/** Estados em que a rodada ainda está em voo — o servidor pode mudá-los sozinho. */
+const EM_VOO = new Set(['PENDENTE', 'RODANDO'])
+
+export function useRuns(
+  filtro?: { unidadeId?: string; usuario?: string },
+  opcoes?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: chaves.runs(filtro),
     queryFn: () => resultados.listar(filtro),
+    enabled: opcoes?.enabled,
+    /**
+     * A lista é a única query da rodada em que o dado muda SEM ação do
+     * usuário. Enquanto houver rodada em voo ela se repesca sozinha; quando
+     * todas terminam, o intervalo volta a `false` e a tela para de bater no
+     * servidor.
+     */
+    refetchInterval: (query) =>
+      query.state.data?.some((r) => EM_VOO.has(r.status)) ? 8000 : false,
   })
 }
 
@@ -83,6 +127,15 @@ export function useCidades(runId: string | undefined) {
   })
 }
 
+export function useExplicabilidade(runId: string | undefined) {
+  return useQuery({
+    queryKey: chaves.explicabilidade(runId ?? '—'),
+    queryFn: () => resultados.explicabilidade(runId as string),
+    enabled: !!runId,
+    ...IMUTAVEL,
+  })
+}
+
 export function useCidade(runId: string | undefined, cidadeId: string | undefined) {
   return useQuery({
     queryKey: chaves.cidade(runId ?? '—', cidadeId ?? '—'),
@@ -92,10 +145,57 @@ export function useCidade(runId: string | undefined, cidadeId: string | undefine
   })
 }
 
-export function useTopologia(runId: string | undefined, sistemaId: string | undefined) {
+/** "Sub-bacias fora do plano" do nível 2 — item 10 de 26/08. */
+export function useExplicabilidadeDaCidade(
+  runId: string | undefined,
+  cidadeId: string | undefined,
+) {
   return useQuery({
-    queryKey: chaves.topologia(runId ?? '—', sistemaId ?? '—'),
-    queryFn: () => resultados.topologia(runId as string, sistemaId as string),
+    queryKey: chaves.explicabilidadeDaCidade(runId ?? '—', cidadeId ?? '—'),
+    queryFn: () => resultados.explicabilidadeDaCidade(runId as string, cidadeId as string),
+    enabled: !!runId && !!cidadeId,
+    ...IMUTAVEL,
+  })
+}
+
+/** Lista de obras por ordem de execução, nível 1 — item 3 de 26/08. */
+export function useObras(
+  runId: string | undefined,
+  filtro?: {
+    situacao?: string
+    cidadeId?: string
+    ano?: number
+    pagina?: number
+    tamanho?: number
+    ordenar?: string
+  },
+) {
+  return useQuery({
+    queryKey: chaves.obras(runId ?? '—', filtro),
+    queryFn: () => resultados.obras(runId as string, filtro),
+    enabled: !!runId,
+    // `placeholderData` (e não `keepPreviousData`, removido no v5) segura a
+    // página anterior na tela enquanto a nova pagina/filtra — sem isso a
+    // tabela pisca vazia a cada clique em "próxima página".
+    placeholderData: (anterior) => anterior,
+    ...IMUTAVEL,
+  })
+}
+
+/** O cronograma de obras do plano — item 3, na leitura corrigida em 27/08. */
+export function useCronogramaDeObras(runId: string | undefined) {
+  return useQuery({
+    queryKey: chaves.cronogramaDeObras(runId ?? '—'),
+    queryFn: () => resultados.cronogramaDeObras(runId as string),
+    enabled: !!runId,
+    ...IMUTAVEL,
+  })
+}
+
+export function useFluxo(runId: string | undefined, sistemaId: string | undefined) {
+  return useQuery({
+    queryKey: chaves.fluxo(runId ?? '—', sistemaId ?? '—'),
+    queryFn: () => resultados.fluxo(runId as string, sistemaId as string),
     enabled: !!runId && !!sistemaId,
     ...IMUTAVEL,
   })

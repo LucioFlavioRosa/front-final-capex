@@ -650,6 +650,68 @@ export function AbaGrid({
   })
 
   /**
+   * "REPETIR NAS LINHAS DA MESMA EMPRESA" — o preenchimento em lote do item 12
+   * do feedback de 26/08.
+   *
+   * Copiar-selecionar-colar já preenchia várias células de uma vez (ver
+   * `onPaste` em `useSelecaoGrade`), e continua sendo o caminho geral. O que
+   * faltava era o caso em que o RECORTE não é um retângulo que a pessoa
+   * desenha, e sim um fato do cadastro: as cidades de um mesmo contrato. Ali o
+   * gesto de planilha exige ordenar, conferir onde a empresa começa e onde
+   * termina, e arrastar — três chances de errar a fronteira.
+   *
+   * Só aparece com uma célula EDITÁVEL em foco e valor preenchido: replicar
+   * vazio apagaria as irmãs, e um botão que às vezes limpa a coluna não é um
+   * atalho, é uma armadilha.
+   *
+   * Opera dentro do VISÍVEL, como todo o resto da grade — filtro ativo recorta
+   * o alcance, que é o comportamento do Excel e o que o rótulo promete ao dizer
+   * quantas linhas serão tocadas.
+   */
+  const replicavel = useMemo(() => {
+    const chave = aba.replicarPor
+    if (!chave || !sel.foco) return null
+    const { ri, ci } = sel.foco
+    const def = aba.cols[ci]
+    const origem = visiveis[ri]?.row
+    if (!def || !origem || !podeEditar(ri, ci)) return null
+
+    const grupo = origem[chave] ?? ''
+    const valor = origem[def.coluna] ?? ''
+    if (!grupo || !valor.trim()) return null
+
+    // A própria linha fica de fora, e as que já têm o mesmo valor também: o
+    // contador precisa dizer o que vai MUDAR, senão "repetir em 7 linhas"
+    // aparece depois de já ter repetido em 7 linhas.
+    const alvos = visiveis
+      .map((v, i) => ({ i, row: v.row }))
+      .filter(
+        ({ i, row }) =>
+          i !== ri && (row[chave] ?? '') === grupo && (row[def.coluna] ?? '') !== valor && podeEditar(i, ci),
+      )
+      .map(({ i }) => i)
+
+    if (!alvos.length) return null
+    return {
+      ci,
+      valor,
+      alvos,
+      rotuloGrupo: origem['empresa'] || grupo,
+      coluna: colunaLabel(def.coluna),
+    }
+  }, [aba.replicarPor, aba.cols, sel.foco, visiveis, podeEditar])
+
+  function replicarNoGrupo() {
+    if (!replicavel) return
+    aplicarEdicoes(replicavel.alvos.map((ri) => ({ ri, ci: replicavel.ci, value: replicavel.valor })))
+    onAviso?.(
+      `"${replicavel.valor}" repetido em ${replicavel.alvos.length} ${
+        replicavel.alvos.length === 1 ? 'linha' : 'linhas'
+      } de ${replicavel.rotuloGrupo}.`,
+    )
+  }
+
+  /**
    * A LINHA EM FOCO INDO PARA FORA — em índice ORIGINAL.
    *
    * `sel.foco.ri` é índice do VISÍVEL, e é o mesmo cuidado de `aplicarEdicoes`:
@@ -721,15 +783,31 @@ export function AbaGrid({
           lá embaixo, não 40 linhas acima. E a dica de atalhos foi para o rodapé
           — como parágrafo fixo no topo ela era ruído permanente ocupando a
           largura inteira, todo dia, para uma informação que se lê uma vez. */}
-      {qtdFiltros > 0 && (
+      {(qtdFiltros > 0 || replicavel) && (
         <div className="mb-3 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setFiltros({})}
-            className="inline-flex items-center gap-2 rounded-full bg-water-50 px-3 py-1.5 text-[12.5px] font-semibold text-water-700 transition-colors duration-hover ease-saida hover:bg-water-100"
-          >
-            {qtdFiltros} {qtdFiltros === 1 ? 'filtro' : 'filtros'} · limpar
-          </button>
+          {qtdFiltros > 0 && (
+            <button
+              type="button"
+              onClick={() => setFiltros({})}
+              className="inline-flex items-center gap-2 rounded-full bg-water-50 px-3 py-1.5 text-[12.5px] font-semibold text-water-700 transition-colors duration-hover ease-saida hover:bg-water-100"
+            >
+              {qtdFiltros} {qtdFiltros === 1 ? 'filtro' : 'filtros'} · limpar
+            </button>
+          )}
+          {/* Aparece e some conforme o foco anda pela grade, e é por isso que
+              ele mora aqui em cima e não flutuando ao lado da célula: um botão
+              que nasce grudado no cursor rouba o clique de quem só queria
+              digitar na célula vizinha. */}
+          {replicavel && (
+            <button
+              type="button"
+              onClick={replicarNoGrupo}
+              className="inline-flex items-center gap-2 rounded-full bg-aegea-50 px-3 py-1.5 text-[12.5px] font-semibold text-aegea-700 transition-colors duration-hover ease-saida hover:bg-aegea-100"
+            >
+              Repetir “{replicavel.valor}” em {replicavel.alvos.length}{' '}
+              {replicavel.alvos.length === 1 ? 'linha' : 'linhas'} de {replicavel.rotuloGrupo}
+            </button>
+          )}
         </div>
       )}
       {/* `aria-hidden` + sem foco: para o teclado e o leitor de tela esta barra

@@ -4,9 +4,23 @@ import { CrumbsProvider, useCrumbsAtuais } from '@/rodada/state/Crumbs'
 import { ArvoreEscopo } from '@/rodada/layout/ArvoreEscopo'
 import { ProvedorContextoTrilho } from '@/components/layout/ContextoCabecalho'
 import { Modal } from '@/components/ui/Modal'
+import { PainelDicionario, ProvedorDicionario } from '@/rodada/components/Dicionario'
 import { useRunMeta, useRuns } from '@/rodada/api/queries'
+import { DICIONARIO_RODADA } from '@/rodada/domain/dicionario'
+import { DICIONARIO_RESULTADO } from '@/rodada/domain/dicionarioResultado'
 import { dataCurta } from '@/rodada/lib/formato'
 import type { Crumb } from '@/rodada/state/Crumbs'
+
+/**
+ * OS DOIS DICIONÁRIOS JUNTOS, e não só o de resultado.
+ *
+ * O rodapé de cada nível mostra os parâmetros com que a rodada foi disparada
+ * (orçamento, janela, base de receita, objetivo) — que são verbetes do
+ * dicionário da SIMULAÇÃO. Servir só o de resultado deixaria metade da faixa
+ * sem "?" possível, e a divisão entre os dois arquivos é de autoria do número,
+ * não de tela.
+ */
+const VERBETES = { ...DICIONARIO_RESULTADO, ...DICIONARIO_RODADA }
 
 /**
  * A casca de `/resultados/*`.
@@ -71,23 +85,42 @@ function Interna() {
 
   return (
     <ProvedorContextoTrilho valor={contexto}>
-      {runId ? (
-        <div className="max-w-content mx-auto grid items-start gap-6 px-4 py-8 md:px-6 lg:grid-cols-[286px_minmax(0,1fr)]">
-          <ArvoreEscopo runId={runId} />
-          <div className="min-w-0">
-            <Outlet />
+      {/*
+        O DICIONÁRIO MORA AQUI, e não em cada nível: o "?" nasce ao lado de um
+        KPI no meio da faixa e o painel vive na borda da tela, então o provider
+        tem de estar acima dos dois. A casca é também o que não desmonta ao
+        navegar entre níveis — com o provider dentro de uma página, descer da
+        cidade para o sistema fecharia o verbete aberto.
+
+        O painel só existe quando há rodada: o índice de `/resultados` é o
+        histórico, que não tem KPI de resultado para explicar.
+      */}
+      <ProvedorDicionario>
+        {runId ? (
+          <div className="max-w-content mx-auto grid items-start gap-6 px-4 py-8 md:px-6 lg:grid-cols-[286px_minmax(0,1fr)]">
+            <ArvoreEscopo runId={runId} />
+            <div className="min-w-0">
+              <Outlet />
+            </div>
+            <PainelDicionario verbetes={VERBETES} />
           </div>
-        </div>
-      ) : (
-        <Outlet />
-      )}
-      {seletorAberto && (
-        <SeletorDeRodada
-          runAtual={runId}
-          unidadeId={meta.data?.unidadeId}
-          aoFechar={() => setSeletorAberto(false)}
-        />
-      )}
+        ) : (
+          <Outlet />
+        )}
+      </ProvedorDicionario>
+      {/*
+        SEMPRE montado, e não `{seletorAberto && <SeletorDeRodada />}`: o
+        `Modal` só consegue tocar a animação de SAÍDA se ele próprio
+        permanecer no DOM enquanto `open` cai para `false` — desmontar o
+        wrapper junto com o fechar cortava a saída no mesmo quadro. Quem liga
+        e desliga a query é o `enabled` de `useRuns`, lá dentro.
+      */}
+      <SeletorDeRodada
+        aberto={seletorAberto}
+        runAtual={runId}
+        unidadeId={meta.data?.unidadeId}
+        aoFechar={() => setSeletorAberto(false)}
+      />
     </ProvedorContextoTrilho>
   )
 }
@@ -105,20 +138,24 @@ function Interna() {
  * cegas num app de decisão de investimento é pior que não poder trocar.
  */
 function SeletorDeRodada({
+  aberto,
   runAtual,
   unidadeId,
   aoFechar,
 }: {
+  aberto: boolean
   runAtual: string | undefined
   unidadeId: string | undefined
   aoFechar: () => void
 }) {
   const navegar = useNavigate()
-  const runs = useRuns(unidadeId ? { unidadeId } : undefined)
+  // Só busca enquanto o seletor está aberto — montar o componente cedo (para
+  // o Modal poder animar a saída) não deve significar buscar cedo.
+  const runs = useRuns(unidadeId ? { unidadeId } : undefined, { enabled: aberto })
 
   return (
     <Modal
-      open
+      open={aberto}
       onClose={aoFechar}
       title="Trocar de rodada"
       subtitle="Só rodadas desta unidade — números de unidades diferentes não se comparam."

@@ -125,6 +125,21 @@ export default {
           from: { opacity: '0' },
           to: { opacity: '1' },
         },
+        // As três saídas que faltavam — toast, modal/paleta/dicionário e o
+        // véu por trás deles. Mais curtas que a entrada de propósito: entrar
+        // é apresentar, sair é só liberar o caminho.
+        fadeOutDown: {
+          from: { opacity: '1', transform: 'none' },
+          to: { opacity: '0', transform: 'translateY(8px)' },
+        },
+        scaleOut: {
+          from: { opacity: '1', transform: 'scale(1)' },
+          to: { opacity: '0', transform: 'scale(.97)' },
+        },
+        overlayOut: {
+          from: { opacity: '1' },
+          to: { opacity: '0' },
+        },
         pulseKpi: {
           '0%': { backgroundColor: 'rgba(34,197,94,.12)' },
           '100%': { backgroundColor: 'transparent' },
@@ -153,11 +168,26 @@ export default {
           to: { transform: 'scaleX(1)' },
         },
       },
+      /**
+       * As quatro entradas (`fade-in`, `fade-in-up`, `scale-in`,
+       * `overlay-in`) usam `duration-entrar` (280ms) e `ease-saida` — os
+       * mesmos dois tokens do bloco de MOVIMENTO acima, escritos por extenso
+       * porque `animation` do Tailwind não referencia `transitionDuration`.
+       * Antes cada uma trazia um número e uma curva próprios (.25s/.4s/.2s,
+       * três curvas diferentes); nenhum motivo separava um "entrar" do
+       * outro, então a diferença era só ruído. As três SAÍDAS
+       * (`fade-out-down`, `scale-out`, `overlay-out`) ficam mais curtas de
+       * propósito — 60–70% da entrada — pela mesma regra do guia de
+       * movimento: sair é liberar o caminho, não apresentar.
+       */
       animation: {
-        'fade-in': 'fadeIn .25s ease-out',
-        'fade-in-up': 'fadeInUp .4s cubic-bezier(.16,1,.3,1) both',
-        'scale-in': 'scaleIn .2s cubic-bezier(.16,1,.3,1) both',
-        'overlay-in': 'overlayIn .2s ease-out both',
+        'fade-in': 'fadeIn 280ms cubic-bezier(.32,.72,0,1) both',
+        'fade-in-up': 'fadeInUp 280ms cubic-bezier(.32,.72,0,1) both',
+        'scale-in': 'scaleIn 280ms cubic-bezier(.32,.72,0,1) both',
+        'overlay-in': 'overlayIn 280ms cubic-bezier(.32,.72,0,1) both',
+        'fade-out-down': 'fadeOutDown 200ms cubic-bezier(.32,.72,0,1) both',
+        'scale-out': 'scaleOut 160ms cubic-bezier(.32,.72,0,1) both',
+        'overlay-out': 'overlayOut 160ms ease-in both',
         'pulse-kpi': 'pulseKpi .7s ease-out',
         draw: 'draw 1800ms cubic-bezier(.2,.7,.3,1) forwards',
         pop: 'pop 260ms both',

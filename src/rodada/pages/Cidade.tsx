@@ -1,6 +1,8 @@
+import { useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { Estado } from '@/rodada/components/Estado'
 import { BotaoExportar } from '@/rodada/components/BotaoExportar'
+import { BotaoParametros } from '@/rodada/components/PainelParametros'
 import {
   Cartao,
   CelulaLink,
@@ -8,17 +10,26 @@ import {
   ItemRodape,
   TituloSecao,
   Trilha,
+  ValorOcupacao,
 } from '@/rodada/components/pecas'
 import { SecaoElementos } from '@/rodada/components/SecaoElementos'
+import { SecaoPorQue } from '@/rodada/components/SecaoPorQue'
 import {
   GraficoFluxoEscoamento,
   GraficoCobertura,
   GraficoEbitda,
 } from '@/rodada/components/graficos'
-import { useCidade, useEbitda, useRunMeta } from '@/rodada/api/queries'
+import { BotaoAjuda } from '@/rodada/components/Dicionario'
+import {
+  useCidade,
+  useCidades,
+  useEbitda,
+  useExplicabilidadeDaCidade,
+  useRunMeta,
+} from '@/rodada/api/queries'
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
-import { VAZIO, brlMi, inteiro, pct } from '@/rodada/lib/formato'
+import { brlMi, inteiro, pct } from '@/rodada/lib/formato'
 
 /**
  * Nível 2 — uma cidade da rodada.
@@ -37,6 +48,31 @@ export function Cidade() {
   const meta = useRunMeta(runId)
   const cidade = useCidade(runId, cidadeId)
   const ebitda = useEbitda(runId, cidadeId)
+  const explicabilidade = useExplicabilidadeDaCidade(runId, cidadeId)
+
+  /**
+   * A POSIÇÃO DESTA CIDADE NO RANKING DE VPL (item 8 do feedback de 26/08).
+   *
+   * Sai da lista do nível 1, que já traz TODAS as cidades com o VPL de cada
+   * uma — não há consulta nova: `useCidades` compartilha a `queryKey` com a
+   * árvore de escopo, que já a carregou para desenhar o galho desta cidade.
+   *
+   * Ordena decrescente e assume que a lista é o universo da rodada. Cidade com
+   * VPL negativo cai no fim, e é isso mesmo: a posição descreve onde ela está,
+   * não emite juízo — daí ser texto no subtítulo, e não medalha colorida.
+   *
+   * `null` enquanto a lista não chegou, ou se esta cidade não estiver nela:
+   * inventar "1º de 1" a partir de uma lista incompleta seria pior que não
+   * mostrar posição nenhuma.
+   */
+  const cidades = useCidades(runId)
+  const ranking = useMemo(() => {
+    const lista = cidades.data
+    if (!lista?.length || !cidadeId) return null
+    const ordenadas = [...lista].sort((a, b) => (b.vpl ?? 0) - (a.vpl ?? 0))
+    const pos = ordenadas.findIndex((c) => c.id === cidadeId)
+    return pos < 0 ? null : { posicao: pos + 1, total: ordenadas.length }
+  }, [cidades.data, cidadeId])
 
   // Esta página declara o seu degrau; a casca cuida dos dois de cima.
   useCrumbs(cidade.data ? [{ rotulo: cidade.data.nome }] : [])
@@ -56,12 +92,37 @@ export function Cidade() {
             <FaixaKpi
               nivel="Nível 2 · Cidade"
               titulo={c.nome}
-              acoes={<BotaoExportar />}
-              destaque={{ rotulo: 'VPL da cidade', valor: brlMi(c.vpl) }}
+              /* A posição vai no SUBTÍTULO e não num tile: como tile ela seria
+                 a quinta de uma grade de quatro colunas, deixando três células
+                 vazias — o defeito que acabou de ser corrigido no nível 1. */
+              subtitulo={
+                ranking && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span>
+                      <b className="font-semibold text-ink-800">{ranking.posicao}º de{' '}
+                        {ranking.total}
+                      </b>{' '}
+                      em VPL entre as cidades desta rodada
+                    </span>
+                    <BotaoAjuda chave="RANKING_VPL" texto="Posição no ranking de VPL" />
+                  </span>
+                )
+              }
+              acoes={
+                <>
+                  <BotaoParametros meta={meta.data} />
+                  <BotaoExportar />
+                </>
+              }
+              destaque={{ rotulo: 'VPL da cidade', valor: brlMi(c.vpl), ajuda: 'VPL_PLANO' }}
               itens={[
-                { rotulo: 'CAPEX', valor: brlMi(c.capexTotal) },
+                { rotulo: 'CAPEX', valor: brlMi(c.capexTotal), ajuda: 'CAPEX_TOTAL' },
                 { rotulo: 'Cobertura base', valor: pct(c.coberturaBasePct) },
-                { rotulo: 'Cobertura final', valor: pct(c.coberturaFinalPct) },
+                {
+                  rotulo: 'Cobertura final',
+                  valor: pct(c.coberturaFinalPct),
+                  ajuda: 'COBERTURA_FINAL',
+                },
                 { rotulo: 'Ligações novas', valor: inteiro(c.ligacoesNovas) },
               ]}
               rodape={
@@ -86,7 +147,11 @@ export function Cidade() {
 
             <TituloSecao>Quadros da cidade</TituloSecao>
             <div className="grid gap-4 lg:grid-cols-2">
-              <GraficoFluxoEscoamento parcelas={c.cascata} escopo={c.nome} />
+              <GraficoFluxoEscoamento
+                parcelas={c.cascata}
+                escopo={c.nome}
+                baseReceita={meta.data?.parametros.baseReceita}
+              />
               <GraficoCobertura cobertura={c.cobertura} metas={c.metas} escopo={c.nome} />
               <div className="lg:col-span-2">
                 <Estado
@@ -99,12 +164,33 @@ export function Cidade() {
                     texto: 'Não há anos materializados neste recorte.',
                   }}
                 >
-                  {(e) => <GraficoEbitda anos={e.anos} total={e.total} escopo={c.nome} />}
+                  {(e) => (
+                    <GraficoEbitda
+                      anos={e.anos}
+                      total={e.total}
+                      escopo={c.nome}
+                      baseReceita={meta.data?.parametros.baseReceita}
+                    />
+                  )}
                 </Estado>
               </div>
             </div>
 
             <SecaoElementos anos={c.elementosPorAno} />
+
+            {/* "QUAIS SISTEMAS E SUB-BACIAS ESTÃO SENDO PRIORIZADOS E QUAIS
+                FICARAM DE FORA" — item 10 do feedback de 26/08. Mesmo bloco do
+                nível 1, recortado por cidade: sem `Estado` de erro/carregando
+                próprio de propósito — se a explicabilidade falhar aqui, a
+                tela inteira já falhou antes (o mesmo `runId`/`cidadeId`), e
+                duplicar o tratamento seria alarme sem informação nova. */}
+            {explicabilidade.data && (
+              <SecaoPorQue
+                dados={explicabilidade.data}
+                runId={runId}
+                titulo="Sub-bacias fora do plano, por motivo"
+              />
+            )}
 
             <TituloSecao nota="clique para descer um nível">Sistemas da cidade</TituloSecao>
             {c.sistemas.length === 0 ? (
@@ -150,7 +236,11 @@ export function Cidade() {
                           {/* Ocupação nula é o caso que motivou a regra do '—':
                               ETE com capacidade zero não tem ocupação de 0%,
                               tem ocupação INEXISTENTE. */}
-                          <td data-m>{s.ocupacaoPct === null ? VAZIO : pct(s.ocupacaoPct)}</td>
+                          {/* X-02: acima de 100% é inconsistência de dado, não
+                              plano — ver `ocupacaoEte` em `lib/formato.ts`. */}
+                          <td data-m>
+                            <ValorOcupacao pct={s.ocupacaoPct} />
+                          </td>
                         </tr>
                       ))}
                     </tbody>

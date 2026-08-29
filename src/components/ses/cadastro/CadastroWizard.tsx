@@ -12,12 +12,17 @@
  * que precisam concordar entre si.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, Info, FloppyDisk, CircleNotch, PencilSimple } from '@phosphor-icons/react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  ArrowLeft, ArrowRight, Info, FloppyDisk, CircleNotch, PencilSimple,
+  DownloadSimple, UploadSimple,
+} from '@phosphor-icons/react'
 import { BLOCOS, POSICAO_POR_SCHEMA, rotuloBloco } from '../../../data/cadastroUnidade/blocos'
+import { useIndicador } from '../../ui/useIndicador'
 import { larguraDaGrade } from '../../../data/cadastroUnidade/schema'
 import type { Row } from '../../../data/cadastroUnidade/types'
 import { ApiError } from '../../../lib/api'
+import { baixarTemplateCadastro, importarTemplateCadastro } from '../../../lib/cadastroApi'
 import {
   type Escopo,
   SEM_ESCOPO,
@@ -38,6 +43,7 @@ import { UsaSistemaCts } from './UsaSistemaCts'
 import { AdicionarCts } from './AdicionarCts'
 import { Unifilar, type DestaqueUnifilar } from './Unifilar'
 import { validarTopologia } from '../../../lib/cadastroValidacao'
+import { ehCts } from '../../../lib/cadastroFluxo'
 
 /**
  * OS BANNERS VERDES "DADOS REAIS" SAÍRAM (07/08/2026), junto da legenda de
@@ -109,7 +115,10 @@ const MIN_LINHAS_PARA_ESCOPO = 15
 const CROMO_DA_GRADE = 20
 
 export function CadastroWizard() {
-  const { state, irFase, setCell, setCells, addRow, delRow, garantirFaixaZeroParidade, salvar, salvando } = useCadastro()
+  const {
+    state, irFase, setCell, setCells, addRow, delRow, importarPlanilha,
+    garantirFaixaZeroParidade, salvar, salvando,
+  } = useCadastro()
   const { toast } = useToast()
   const unidade = state.unidade
   const [blocoIdx, setBlocoIdx] = useState(() => POSICAO_POR_SCHEMA[state.passo]?.bloco ?? 0)
@@ -128,14 +137,19 @@ export function CadastroWizard() {
   const aba = bloco.abas[abaAtualIdx]
   const rows = useMemo(() => unidade?.data[aba.key] ?? [], [unidade, aba.key])
 
+  // As duas fileiras do stepper ESCORREGAM até o item ativo (`useIndicador`,
+  // a mesma técnica do Trilho) em vez de trocar de cor num corte seco.
+  const indicadorBloco = useIndicador<HTMLDivElement>(String(blocoIdx))
+  const indicadorAba = useIndicador<HTMLDivElement>(`${blocoIdx}.${abaAtualIdx}`)
+
   /**
-   * OS QUATRO CALLBACKS DA GRADE, estáveis por `useCallback`.
+   * OS CINCO CALLBACKS DA GRADE, estáveis por `useCallback`.
    *
    * Eram closures inline no JSX. Cada render do wizard criava funções novas, a
    * grade as repassava para as 751 linhas, e o `memo` de `AbaGridRow` nunca
    * acertava — cada tecla repintava a planilha inteira.
    *
-   * Dependem só de `aba.key` (e de `dispatch`, que o reducer mantém estável),
+   * Dependem só de `aba.key` (e dos despachos, que o reducer mantém estáveis),
    * então trocam de identidade ao trocar de aba, e não a cada tecla. É a
    * diferença entre repintar uma linha e repintar 751.
    */
@@ -155,6 +169,18 @@ export function CadastroWizard() {
   const ehFluxo = aba.key === ABA_DO_FLUXO
 
   /**
+   * A CTS APARECE NO FLUXO. Ficou oculta entre 21 e 29/08 por pedido daquela
+   * data ("não vamos usar CTS no fluxo de escoamento no momento") — a lógica
+   * seguiu intacta o tempo todo, era só a UI que saía.
+   *
+   * Voltou porque a regra que ela expõe é a que se quer usar: marcada, a caixa
+   * "usa sistema de CTS" limita o sistema a UMA CTS; desmarcada, ele aceita
+   * quantas forem colocadas. Sem esses dois controles não há onde marcar nem
+   * onde adicionar, e a regra existe só no servidor.
+   */
+  const mostrarCtsNoFluxo: boolean = true
+
+  /**
    * EDITAR É UM ATO DECLARADO, e não o estado natural da tela.
    *
    * A grade nasce somente leitura. Sem isso, uma tabela de mil linhas fica
@@ -169,7 +195,6 @@ export function CadastroWizard() {
   useEffect(() => {
     setEditando(false)
   }, [aba.key])
-
 
   // ------------------------------------------------------- barra de escopo
   /**
@@ -191,7 +216,10 @@ export function CadastroWizard() {
    * ela nunca chega a ver a lista inteira.
    *
    * A chave é por aba porque trocar de aba e voltar deve devolver o que a
-   * pessoa tinha escolhido, e não recomeçar do padrão.
+   * pessoa tinha escolhido, e não recomeçar do padrão. A aba do Fluxo abre num
+   * sistema ESCOLHIDO, e nao em "todos": e a regra que ela herdou da
+   * Representacao — abrir sem sistema mostraria o desenho vazio justamente onde
+   * ele deveria demonstrar para que serve (ver `sistemaPadraoDoFluxo`).
    */
   const [escolhaDeEscopo, setEscolhaDeEscopo] = useState<Record<string, Escopo>>({})
 
@@ -231,21 +259,20 @@ export function CadastroWizard() {
     [sistemasDoCadastro, escopo.sistemaId],
   )
   const topoDoCadastro = unidade?.data[ABA_DO_FLUXO]
+  const dadosDoCadastro = unidade?.data
   const ctsDoSistema = useMemo(() => {
-    if (!escopo.sistemaId) return 0
-    // Pelo TIPO da linha da topologia, e nao pela aba `cts-operacional`: aquela
-    // so lista as CTS ja colocadas nesta unidade, entao usa-la para reconhecer
-    // uma CTS seria circular.
+    if (!escopo.sistemaId || !dadosDoCadastro) return 0
+    // Pelo TIPO do componente, e nao pela aba `cts-operacional`: aquela lista as
+    // CTS cadastradas, entao usa-la para reconhecer uma CTS seria circular.
     return (topoDoCadastro ?? []).filter(
-      (t) => t.sistema_id === escopo.sistemaId && t.componente_tipo === 'cts',
+      (t) => t.sistema_id === escopo.sistemaId && ehCts(dadosDoCadastro, t),
     ).length
-  }, [topoDoCadastro, escopo.sistemaId])
+  }, [topoDoCadastro, dadosDoCadastro, escopo.sistemaId])
 
   /**
    * COLOCA a CTS no sistema escolhido — escrevendo `sistema_id` na LINHA DELA na
-   * aba do Fluxo. É a mesma coluna que a grade mostra travada: travada para
-   * sub-bacia e ETE, que estão onde o Databricks disse, e escrita aqui para a
-   * CTS, que é a única que a Regional coloca.
+   * aba do Fluxo. O `sistema_id` saiu das COLUNAS da grade (a barra acima já diz
+   * qual é o sistema), mas continua no DADO, e é ele que este controle escreve.
    *
    * O jusante fica em branco de propósito: para onde a CTS escoa é a próxima
    * decisão, e adivinhá-la seria inventar topologia.
@@ -255,8 +282,8 @@ export function CadastroWizard() {
       const ri = (topoDoCadastro ?? []).findIndex((t) => t.componente_sistema_id === componenteId)
       if (ri < 0) return
       // As duas colunas numa edição só: `sistema_name` acompanha o `sistema_id`
-      // porque é ele que a grade exibe. Em dois dispatches a linha apareceria
-      // por um quadro com o sistema certo e o nome em branco.
+      // porque é ele que a gravação e o unifilar leem. Em dois dispatches a
+      // linha ficaria por um quadro com o sistema certo e o nome em branco.
       setCells(ABA_DO_FLUXO, [
         { ri, col: 'sistema_id', value: escopo.sistemaId },
         { ri, col: 'sistema_name', value: sistemaEscolhido?.sistema_name ?? '' },
@@ -269,9 +296,9 @@ export function CadastroWizard() {
   /**
    * TIRA A CTS DO SISTEMA — a linha FICA, com sistema e jusante em branco.
    *
-   * É o espelho de `aoAdicionarCts`, e o mesmo que o servidor faz no `DELETE`:
-   * apagar a linha perderia o NOME do componente, que só existe na topologia, e
-   * a CTS sumiria da lista de disponíveis em vez de voltar para ela.
+   * É o espelho de `aoAdicionarCts`: apagar a linha perderia o NOME do
+   * componente, que só existe na topologia, e a CTS sumiria da lista de
+   * disponíveis em vez de voltar para ela.
    */
   const aoTirarDoSistema = useCallback(
     (ri: number) => {
@@ -289,8 +316,8 @@ export function CadastroWizard() {
 
   /** A ação de linha só existe para CTS que ESTÁ num sistema. */
   const ehCtsColocada = useCallback(
-    (row: Row) => row.componente_tipo === 'cts' && !!row.sistema_id,
-    [],
+    (row: Row) => !!dadosDoCadastro && !!row.sistema_id && ehCts(dadosDoCadastro, row),
+    [dadosDoCadastro],
   )
 
   const aoMudarUsaCts = useCallback(
@@ -505,6 +532,66 @@ export function CadastroWizard() {
     }
   }
 
+  /**
+   * BAIXAR TEMPLATE — o Excel que a Regional preenche fora do site.
+   *
+   * Já vem com as linhas desta unidade (uma por sub-bacia, CTS, ETE, cidade e
+   * nó do fluxo que existem de verdade no cadastro) — ver
+   * `app/cadastro/template_excel.py`. Pode ser chamado ANTES de qualquer
+   * dado existir na tela (unidade recém-selecionada, cadastro nunca salvo):
+   * o template é gerado do banco, não do estado local.
+   */
+  const [baixando, setBaixando] = useState(false)
+  async function baixarTemplate() {
+    if (!unidade) return
+    setBaixando(true)
+    try {
+      await baixarTemplateCadastro(unidade.id)
+    } catch (erro) {
+      toast(
+        erro instanceof ApiError
+          ? `Não foi possível gerar o template: ${erro.message}`
+          : 'Não foi possível falar com o servidor.',
+        'warning',
+      )
+    } finally {
+      setBaixando(false)
+    }
+  }
+
+  /**
+   * IMPORTAR PLANILHA — a volta do template preenchido.
+   *
+   * O upload só MESCLA no estado em tela (ver `IMPORTAR_PLANILHA` no
+   * reducer) — não grava no banco. A pessoa revê o que entrou (o âmbar de
+   * obrigatório em branco já aparece na grade, célula por célula) e decide
+   * clicar em Salvar, como faria depois de digitar à mão.
+   *
+   * `<input type=file>` disparado por um `<button>` porque o input nativo do
+   * navegador não é estilizável — o mesmo padrão que qualquer "escolher
+   * arquivo" custom usa.
+   */
+  const inputArquivoRef = useRef<HTMLInputElement>(null)
+  const [importando, setImportando] = useState(false)
+  async function importarArquivo(arquivo: File) {
+    if (!unidade) return
+    setImportando(true)
+    try {
+      const { dados } = await importarTemplateCadastro(unidade.id, arquivo)
+      importarPlanilha(dados)
+      toast('Planilha importada. Revise os campos e clique em Salvar.', 'success')
+    } catch (erro) {
+      toast(
+        erro instanceof ApiError
+          ? `Não foi possível importar: ${erro.message}`
+          : 'Não foi possível falar com o servidor.',
+        'warning',
+      )
+    } finally {
+      setImportando(false)
+    }
+  }
+
   function avancar() {
     if (!ultimaDoBloco) return setAbaIdx(abaAtualIdx + 1)
     if (!ultimoBloco) {
@@ -575,6 +662,49 @@ export function CadastroWizard() {
           >
             <PencilSimple weight="fill" /> {editando ? 'Concluir edição' : 'Editar'}
           </Button>
+          {/* BAIXAR/IMPORTAR TEMPLATE — o ciclo de preencher fora do site. Ficam
+              juntos e ANTES de Salvar/Editar na leitura, porque baixar o
+              template costuma ser o primeiro passo de quem chega numa unidade
+              grande (milhares de sub-bacias) e não vai digitar linha por linha
+              na grade. */}
+          <input
+            ref={inputArquivoRef}
+            type="file"
+            accept=".xlsx"
+            className="hidden"
+            onChange={(e) => {
+              const arquivo = e.target.files?.[0]
+              e.target.value = ''
+              if (arquivo) void importarArquivo(arquivo)
+            }}
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => inputArquivoRef.current?.click()}
+            disabled={importando}
+          >
+            {importando ? (
+              <>
+                <CircleNotch weight="bold" className="animate-spin" /> Importando…
+              </>
+            ) : (
+              <>
+                <UploadSimple weight="bold" /> Importar planilha
+              </>
+            )}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={baixarTemplate} disabled={baixando}>
+            {baixando ? (
+              <>
+                <CircleNotch weight="bold" className="animate-spin" /> Gerando…
+              </>
+            ) : (
+              <>
+                <DownloadSimple weight="bold" /> Baixar template
+              </>
+            )}
+          </Button>
           {/* Salvar vem ANTES de "Revisão antes de rodar" e em variante
               secundária: é a ação frequente, mas não é a que fecha o fluxo. */}
           <Button variant="secondary" size="sm" onClick={salvarAgora} disabled={salvando}>
@@ -595,39 +725,60 @@ export function CadastroWizard() {
       </div>
 
       {/* blocos */}
-      <div className="mt-6 flex gap-1 overflow-x-auto rounded-[11px] bg-ink-200 p-1">
+      <div
+        ref={indicadorBloco.containerRef}
+        className="relative mt-6 flex gap-1 overflow-x-auto rounded-[11px] bg-ink-200 p-1"
+      >
         {BLOCOS.map((b, i) => (
           <button
             key={b.nome}
             type="button"
+            data-indicador={i === blocoIdx ? '1' : undefined}
             onClick={() => { setBlocoIdx(i); setAbaIdx(0) }}
-            className={`min-w-[150px] flex-1 whitespace-nowrap rounded-lg border border-transparent px-3 py-2.5 text-[12.5px] font-semibold transition-colors duration-hover ease-saida ${
-              i === blocoIdx ? 'bg-white text-water-700 shadow-soft' : 'text-ink-600 hover:bg-white/60'
+            className={`relative z-10 min-w-[150px] flex-1 whitespace-nowrap rounded-lg border border-transparent px-3 py-2.5 text-[12.5px] font-semibold transition-colors duration-hover ease-saida ${
+              i === blocoIdx ? 'text-water-700' : 'text-ink-600 hover:bg-white/60'
             }`}
           >
             {rotuloBloco(i)}
           </button>
         ))}
+        {indicadorBloco.estilo && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-1 rounded-lg bg-white shadow-soft transition-[transform,width] duration-mover ease-saida"
+            style={{ width: indicadorBloco.estilo.width, transform: `translateX(${indicadorBloco.estilo.left}px)` }}
+          />
+        )}
       </div>
 
       {/* abas do bloco */}
-      <div className="mt-5 flex gap-5 overflow-x-auto border-b border-ink-200" role="tablist">
+      <div
+        ref={indicadorAba.containerRef}
+        className="relative mt-5 flex gap-5 overflow-x-auto border-b border-ink-200"
+        role="tablist"
+      >
         {bloco.abas.map((a, i) => (
           <button
             key={a.key}
             type="button"
             role="tab"
             aria-selected={i === abaAtualIdx}
+            data-indicador={i === abaAtualIdx ? '1' : undefined}
             onClick={() => setAbaIdx(i)}
-            className={`whitespace-nowrap border-0 border-b-2 bg-none pb-[11px] text-[13.5px] transition-colors duration-hover ease-saida ${
-              i === abaAtualIdx
-                ? 'border-water-600 font-semibold text-ink-900'
-                : 'border-transparent text-ink-500 hover:text-ink-800'
+            className={`whitespace-nowrap border-0 border-b-2 border-transparent bg-none pb-[11px] text-[13.5px] transition-colors duration-hover ease-saida ${
+              i === abaAtualIdx ? 'font-semibold text-ink-900' : 'text-ink-500 hover:text-ink-800'
             }`}
           >
             {a.titulo}
           </button>
         ))}
+        {indicadorAba.estilo && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-0 h-0.5 rounded-t-sm bg-water-600 transition-[transform,width] duration-mover ease-saida"
+            style={{ width: indicadorAba.estilo.width, transform: `translateX(${indicadorAba.estilo.left}px)` }}
+          />
+        )}
       </div>
 
       {/* Uma coluna só: a lateral de 336px do progresso saiu para o chip no topo. */}
@@ -664,8 +815,8 @@ export function CadastroWizard() {
                 <FiltroEscopo opcoes={opcoes} escopo={escopo} onEscopo={setEscopo} />
                 {/* Só na aba do Fluxo, e só com um sistema escolhido: a pergunta
                     "quantas CTS este sistema comporta" não tem resposta para
-                    "todos os sistemas". */}
-                {ehFluxo && (
+                    "todos os sistemas". Ver `mostrarCtsNoFluxo` acima. */}
+                {mostrarCtsNoFluxo && ehFluxo && unidade && (
                   <>
                     <UsaSistemaCts
                       sistemaId={escopo.sistemaId}
@@ -678,9 +829,8 @@ export function CadastroWizard() {
                       sistemaId={escopo.sistemaId}
                       sistemaNome={sistemaEscolhido?.sistema_name ?? ''}
                       topo={topoDoCadastro ?? []}
-                      limitada={
-                        sistemaEscolhido?.usa_sistema_cts === 'Sim' && ctsDoSistema > 0
-                      }
+                      dados={unidade.data}
+                      limitada={sistemaEscolhido?.usa_sistema_cts === 'Sim' && ctsDoSistema > 0}
                       onAdicionar={aoAdicionarCts}
                     />
                   </>

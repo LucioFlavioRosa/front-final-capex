@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X, type Icon } from '@phosphor-icons/react'
+import { useSaidaMontada } from './useSaidaMontada'
 
 type Size = 'sm' | 'md' | 'lg' | 'xl'
 
@@ -51,13 +52,21 @@ export function Modal({
     }
   }, [open, onClose])
 
-  if (!open) return null
+  // 160ms: o tempo de `animate-scale-out`/`animate-overlay-out` abaixo —
+  // segura o modal montado até a saída terminar, em vez de sumir no clique.
+  const { montado, fechando } = useSaidaMontada(open, 160)
+  if (!montado) return null
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-ink-900/60 backdrop-blur-sm animate-overlay-in" onClick={onClose} />
       <div
-        className={`relative bg-white rounded-2xl shadow-elev w-full mx-4 max-h-[92vh] overflow-y-auto animate-scale-in ${sizes[size]}`}
+        className={`absolute inset-0 bg-ink-900/60 backdrop-blur-sm ${fechando ? 'animate-overlay-out' : 'animate-overlay-in'}`}
+        onClick={onClose}
+      />
+      <div
+        className={`relative bg-white rounded-2xl shadow-elev w-full mx-4 max-h-[92vh] overflow-y-auto ${
+          fechando ? 'animate-scale-out' : 'animate-scale-in'
+        } ${sizes[size]}`}
       >
         <div className="px-6 py-4 border-b border-ink-100 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur z-10">
           <div className="flex items-center gap-3">

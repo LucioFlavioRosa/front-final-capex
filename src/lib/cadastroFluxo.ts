@@ -95,6 +95,31 @@ function indice(dados: Dados): Indice {
   return novo
 }
 
+/**
+ * A LINHA DO FLUXO É UMA CTS?
+ *
+ * `tipoDoNo` deriva o tipo da aba em que o componente tem ficha, e é a resposta
+ * certa para tudo que está DENTRO de um sistema. Só que a CTS AINDA NÃO COLOCADA
+ * não tem ficha nenhuma aqui: `/unidades/{u}/cts` serve as CTS DA UNIDADE — as
+ * 186 já colocadas em uB2 —, enquanto as 150 livres chegam pela topologia, em
+ * `semSistema`, e são exatamente as que se quer poder adicionar.
+ *
+ * Derivar sozinho as apagava da lista, e a tela dizia "nenhuma CTS livre na
+ * base" com 150 delas no payload. Por isso o tipo que o SERVIDOR manda entra
+ * como segunda resposta — e só quando a primeira não sabe, para a derivação
+ * continuar mandando onde ela tem como saber.
+ *
+ * `componente_tipo` aqui é o CÓDIGO que veio do backend (`cts`), e não o rótulo
+ * de tela ('CTS') que `cadastroCalc` desenha na coluna: o rótulo muda com o
+ * texto, o código é contrato.
+ */
+export function ehCts(dados: Dados, linha: Row): boolean {
+  const tipo = tipoDoNo(dados, txt(linha.componente_sistema_id))
+  if (tipo !== 'desconhecido') return tipo === 'cts'
+  return txt(linha.componente_tipo).toLowerCase() === 'cts'
+}
+
+
 export function tipoDoNo(dados: Dados, id: string): TipoNo {
   const k = txt(id)
   if (!k) return 'desconhecido'

@@ -53,6 +53,8 @@ export const COR = {
   tinta: 'var(--viz-ink)',
   tinta2: 'var(--viz-ink-2)',
   mudo: 'var(--viz-ink-muted)',
+  /** Lavagem do cursor de hover do recharts — cor da marca, e não RGB cravado. */
+  cursor: 'color-mix(in srgb, var(--viz-pos) 5%, transparent)',
 } as const
 
 /**

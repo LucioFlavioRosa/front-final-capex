@@ -87,6 +87,27 @@ export function pct(v: number | null | undefined): string {
   return ausente(v) ? VAZIO : `${NUM1.format(v)}%`
 }
 
+/**
+ * A OCUPAÇÃO DE UMA ETE, MARCADA QUANDO PASSA DE 100% (defeito X-02, achado
+ * revisando os prints de 26/08 — um print mostrava 2.734,2%).
+ *
+ * `ocupacaoPct` é `vazaoConectada ÷ capacidadeInstalada`, e as duas vêm de
+ * `otim_sistema` sem restrição alguma ligando uma à outra — nada no banco
+ * impede que a vazão publicada exceda a capacidade publicada. Isso não é um
+ * plano onde a ETE afoga: é sinal de que as duas colunas divergiram na
+ * geração do dado (confirmado: acontece na base sintética de demonstração,
+ * onde capacidade e vazão são geradas de forma independente).
+ *
+ * `texto` continua mostrando o número real — escondê-lo esconderia o próprio
+ * defeito que a tela existe para expor. `inconsistente` é o que diferencia:
+ * quem renderiza decide a cor e o aviso a partir dele, sem duplicar o corte
+ * de 100% em cada tela que mostra ocupação.
+ */
+export function ocupacaoEte(v: number | null | undefined): { texto: string; inconsistente: boolean } {
+  if (ausente(v)) return { texto: VAZIO, inconsistente: false }
+  return { texto: pct(v), inconsistente: v > 100 }
+}
+
 /** 209,7 L/s — vazao com 1 casa. */
 export function vazao(v: number | null | undefined): string {
   return ausente(v) ? VAZIO : `${NUM1.format(v)} L/s`

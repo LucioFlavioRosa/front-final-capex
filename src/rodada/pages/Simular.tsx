@@ -93,7 +93,21 @@ export function Simular() {
   const navegar = useNavigate()
   const { toast } = useToast()
   const [estado, despachar] = useReducer(redutor, undefined, estadoInicial)
-  const [avancado, setAvancado] = useState(false)
+  /**
+   * NASCE ABERTO, e o cartão subiu para antes do Orçamento (item 1 do feedback
+   * de 26/08).
+   *
+   * Ele nasceu fechado e no fim da coluna por uma razão que continua verdadeira:
+   * mudar um destes valores muda o resultado de quem só clica Iniciar. Mas essa
+   * proteção supunha um operador, e a Aegea disse que o usuário é analista de
+   * cenário — "esses parâmetros serão bastante usados para brincar com os
+   * cenários". Quem usa todo dia não deve ter de abrir uma gaveta todo dia.
+   *
+   * O que segura o disparo por engano continua de pé: o aviso sobre os defaults
+   * logo abaixo do título, e o `ResumoDaRodada` fixo na direita, que mostra os
+   * onze valores juntos antes do clique.
+   */
+  const [avancado, setAvancado] = useState(true)
 
   const prontidao = useProntidao(estado.unidadeId || undefined)
   const criar = useCriarRodada()
@@ -253,6 +267,143 @@ export function Simular() {
             </div>
           </Cartao>
 
+          <Cartao>
+            <button
+              type="button"
+              onClick={() => setAvancado((v) => !v)}
+              aria-expanded={avancado}
+              className="flex w-full items-center justify-between text-left"
+            >
+              <span className="text-[13px] font-bold text-ink-800">Parâmetros do motor</span>
+              <span className="text-[11.5px] font-semibold text-water-600">
+                {avancado ? 'Ocultar' : 'Mostrar'}
+              </span>
+            </button>
+            <p className="mt-1 text-[11.5px] leading-snug text-ink-500">
+              Os valores padrão são os que a equipe roda hoje — mudar um deles muda o resultado de
+              quem só clicar Iniciar.
+            </p>
+
+            {avancado && (
+              <div className="mt-3.5 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <RotuloParametro
+                    texto={`Objetivo — ${rotuloFoco(numOuNulo(estado.foco) ?? 0)}`}
+                    tecnico="FOCO_COBERTURA"
+                  />
+                  <SegmentedControl
+                    aria-label="Objetivo"
+                    value={estado.foco}
+                    onChange={(v) => despachar({ tipo: 'set', patch: { foco: v } })}
+                    /**
+                     * ORDEM PEDIDA PELA AEGEA (item 16): Cobertura, Equilíbrio,
+                     * Só VPL — o inverso da anterior. Só a ORDEM mudou: os
+                     * `value` ('1' | '0.5' | '0') são o que viaja como
+                     * `foco_cobertura` e o motor lê como número de 0 a 1, então
+                     * mexer neles mudaria o resultado da rodada, não o layout.
+                     *
+                     * Efeito colateral bem-vindo: o default (`foco: '1'`) passa a
+                     * ser a primeira pílula, que é onde se espera encontrá-lo.
+                     */
+                    options={[
+                      { value: '1', label: 'Cobertura' },
+                      { value: '0.5', label: 'Equilíbrio' },
+                      { value: '0', label: 'Só VPL' },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <RotuloParametro texto="Base de receita" tecnico="BASE_RECEITA" />
+                  <SegmentedControl
+                    aria-label="Base de receita"
+                    value={estado.baseReceita}
+                    onChange={(v) =>
+                      despachar({ tipo: 'set', patch: { baseReceita: v as BaseReceita } })
+                    }
+                    options={[
+                      { value: 'arrecadada', label: 'Arrecadada' },
+                      { value: 'faturada', label: 'Faturada' },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <RotuloParametro texto="Curva de adesão" tecnico="CURVA_ADOCAO" />
+                  <SegmentedControl
+                    aria-label="Curva de adoção"
+                    value={estado.curvaAdocao}
+                    onChange={(v) =>
+                      despachar({ tipo: 'set', patch: { curvaAdocao: v as CurvaAdocao } })
+                    }
+                    options={[
+                      { value: 'scurve', label: 'Curva S' },
+                      { value: 'linear', label: 'Linear' },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <RotuloParametro texto="Estratégia de cobertura" tecnico="PENALIDADE_COBERTURA" />
+                  <SegmentedControl
+                    aria-label="Estratégia de cobertura"
+                    value={estado.penalidade}
+                    onChange={(v) =>
+                      despachar({ tipo: 'set', patch: { penalidade: v as Penalidade } })
+                    }
+                    /**
+                     * NOMES DO ITEM 15. O `value` decide o que o solver faz
+                     * depois de bater a meta contratual — 'meta' para ali
+                     * (sobra vira VPL); 'meta+cobertura' usa a sobra para
+                     * cobrir ALÉM do contrato (`otimizador_capex_v62.py:556-563`).
+                     * Só o `label` mudou; os `value` continuam os mesmos textos
+                     * que o motor compara.
+                     */
+                    options={[
+                      { value: 'meta+cobertura', label: 'Contrato + cobertura extra' },
+                      { value: 'meta', label: 'Cumprir o contrato' },
+                    ]}
+                  />
+                </div>
+                <div className="flex items-center gap-2 sm:col-span-2">
+                <label className="flex items-center gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={estado.usarCts}
+                    onChange={(e) => despachar({ tipo: 'set', patch: { usarCts: e.target.checked } })}
+                    className="h-4 w-4 rounded border-ink-300 text-water-600 focus:ring-water-600/25"
+                  />
+                  <span className="text-[12.5px] text-ink-700">
+                    Considerar coletores de tempo seco (CTS)
+                  </span>
+                </label>
+                {/* O "?" fica FORA do `<label>` do checkbox pelo mesmo motivo
+                    de sempre: dentro, ele entraria no nome do campo. */}
+                <BotaoAjuda chave="USAR_CTS" texto="Usar CTS" />
+                </div>
+                <div className="flex items-center gap-2 sm:col-span-2">
+                <label className="flex items-center gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={estado.coberturaSoResidencial}
+                    onChange={(e) =>
+                      despachar({
+                        tipo: 'set',
+                        patch: { coberturaSoResidencial: e.target.checked },
+                      })
+                    }
+                    className="h-4 w-4 rounded border-ink-300 text-water-600 focus:ring-water-600/25"
+                  />
+                  <span className="text-[12.5px] text-ink-700">
+                    Contar cobertura só sobre ligações residenciais
+                  </span>
+                </label>
+                <BotaoAjuda
+                  chave="COBERTURA_SO_RESIDENCIAL"
+                  texto="Medir a meta só em ligações residenciais"
+                />
+                </div>
+              </div>
+            )}
+          </Cartao>
+
           <Cartao titulo="Orçamento">
             <div className="mb-3">
               <SegmentedControl
@@ -378,143 +529,6 @@ export function Simular() {
               </div>
             )}
           </Cartao>
-
-          <Cartao>
-            <button
-              type="button"
-              onClick={() => setAvancado((v) => !v)}
-              aria-expanded={avancado}
-              className="flex w-full items-center justify-between text-left"
-            >
-              <span className="text-[13px] font-bold text-ink-800">Parâmetros do motor</span>
-              <span className="text-[11.5px] font-semibold text-water-600">
-                {avancado ? 'Ocultar' : 'Mostrar'}
-              </span>
-            </button>
-            <p className="mt-1 text-[11.5px] leading-snug text-ink-500">
-              Os valores padrão são os que a equipe roda hoje — mudar um deles muda o resultado de
-              quem só clicar Iniciar.
-            </p>
-
-            {avancado && (
-              <div className="mt-3.5 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <RotuloParametro
-                    texto={`Objetivo — ${rotuloFoco(numOuNulo(estado.foco) ?? 0)}`}
-                    tecnico="FOCO_COBERTURA"
-                  />
-                  <SegmentedControl
-                    aria-label="Objetivo"
-                    value={estado.foco}
-                    onChange={(v) => despachar({ tipo: 'set', patch: { foco: v } })}
-                    /**
-                     * ORDEM PEDIDA PELA AEGEA (item 16): Cobertura, Equilíbrio,
-                     * Só VPL — o inverso da anterior. Só a ORDEM mudou: os
-                     * `value` ('1' | '0.5' | '0') são o que viaja como
-                     * `foco_cobertura` e o motor lê como número de 0 a 1, então
-                     * mexer neles mudaria o resultado da rodada, não o layout.
-                     *
-                     * Efeito colateral bem-vindo: o default (`foco: '1'`) passa a
-                     * ser a primeira pílula, que é onde se espera encontrá-lo.
-                     */
-                    options={[
-                      { value: '1', label: 'Cobertura' },
-                      { value: '0.5', label: 'Equilíbrio' },
-                      { value: '0', label: 'Só VPL' },
-                    ]}
-                  />
-                </div>
-                <div>
-                  <RotuloParametro texto="Base de receita" tecnico="BASE_RECEITA" />
-                  <SegmentedControl
-                    aria-label="Base de receita"
-                    value={estado.baseReceita}
-                    onChange={(v) =>
-                      despachar({ tipo: 'set', patch: { baseReceita: v as BaseReceita } })
-                    }
-                    options={[
-                      { value: 'arrecadada', label: 'Arrecadada' },
-                      { value: 'faturada', label: 'Faturada' },
-                    ]}
-                  />
-                </div>
-                <div>
-                  <RotuloParametro texto="Curva de adesão" tecnico="CURVA_ADOCAO" />
-                  <SegmentedControl
-                    aria-label="Curva de adoção"
-                    value={estado.curvaAdocao}
-                    onChange={(v) =>
-                      despachar({ tipo: 'set', patch: { curvaAdocao: v as CurvaAdocao } })
-                    }
-                    options={[
-                      { value: 'scurve', label: 'Curva S' },
-                      { value: 'linear', label: 'Linear' },
-                    ]}
-                  />
-                </div>
-                <div>
-                  <RotuloParametro texto="Penalidade" tecnico="PENALIDADE_COBERTURA" />
-                  <SegmentedControl
-                    aria-label="Penalidade de cobertura"
-                    value={estado.penalidade}
-                    onChange={(v) =>
-                      despachar({ tipo: 'set', patch: { penalidade: v as Penalidade } })
-                    }
-                    /**
-                     * NOMES DO ITEM 15. O `value` decide o que o solver faz
-                     * depois de bater a meta contratual — 'meta' para ali
-                     * (sobra vira VPL); 'meta+cobertura' usa a sobra para
-                     * cobrir ALÉM do contrato (`otimizador_capex_v62.py:556-563`).
-                     * Só o `label` mudou; os `value` continuam os mesmos textos
-                     * que o motor compara.
-                     */
-                    options={[
-                      { value: 'meta+cobertura', label: 'Contrato + cobertura extra' },
-                      { value: 'meta', label: 'Cumprir o contrato' },
-                    ]}
-                  />
-                </div>
-                <div className="flex items-center gap-2 sm:col-span-2">
-                <label className="flex items-center gap-2.5">
-                  <input
-                    type="checkbox"
-                    checked={estado.usarCts}
-                    onChange={(e) => despachar({ tipo: 'set', patch: { usarCts: e.target.checked } })}
-                    className="h-4 w-4 rounded border-ink-300 text-water-600 focus:ring-water-600/25"
-                  />
-                  <span className="text-[12.5px] text-ink-700">
-                    Considerar coletores de tempo seco (CTS)
-                  </span>
-                </label>
-                {/* O "?" fica FORA do `<label>` do checkbox pelo mesmo motivo
-                    de sempre: dentro, ele entraria no nome do campo. */}
-                <BotaoAjuda chave="USAR_CTS" texto="Usar CTS" />
-                </div>
-                <div className="flex items-center gap-2 sm:col-span-2">
-                <label className="flex items-center gap-2.5">
-                  <input
-                    type="checkbox"
-                    checked={estado.coberturaSoResidencial}
-                    onChange={(e) =>
-                      despachar({
-                        tipo: 'set',
-                        patch: { coberturaSoResidencial: e.target.checked },
-                      })
-                    }
-                    className="h-4 w-4 rounded border-ink-300 text-water-600 focus:ring-water-600/25"
-                  />
-                  <span className="text-[12.5px] text-ink-700">
-                    Contar cobertura só sobre ligações residenciais
-                  </span>
-                </label>
-                <BotaoAjuda
-                  chave="COBERTURA_SO_RESIDENCIAL"
-                  texto="Medir a meta só em ligações residenciais"
-                />
-                </div>
-              </div>
-            )}
-          </Cartao>
         </div>
 
         <aside className="flex min-w-0 flex-col gap-3">
@@ -631,7 +645,7 @@ function ResumoDaRodada({
           rotulo="Foco em cobertura"
           valor={`${foco.toFixed(2).replace('.', ',')} · ${rotuloFoco(foco)}`}
         />
-        <Item rotulo="Penalidade" valor={estado.penalidade} />
+        <Item rotulo="Estratégia de cobertura" valor={estado.penalidade} />
         <Item rotulo="Base de receita" valor={estado.baseReceita} />
         <Item
           rotulo="Curva de adesão"

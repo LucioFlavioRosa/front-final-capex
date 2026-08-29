@@ -38,8 +38,15 @@ const VOCE = 'você escolhe'
  *
  * "fixo nesta versão" usa o tom do travado porque é a mesma mensagem — este
  * valor não está na sua mão.
+ *
+ * "resultado da rodada" (os verbetes de `dicionarioResultado.ts`) ganha um tom
+ * PRÓPRIO, e não o do travado: as duas coisas de fato não estão na sua mão, mas
+ * por motivos opostos — uma é decisão de outra pessoa, a outra é consequência
+ * calculada. Pintá-las igual apagaria justamente a distinção que o painel
+ * existe para ensinar.
  */
 export function tomDaOrigem(origem: string): Tom {
+  if (origem.includes('resultado')) return 'azul'
   return origem.includes('fixo') || origem.includes('Databricks') ? 'neutro' : 'ambar'
 }
 
@@ -110,7 +117,7 @@ export const DICIONARIO_RODADA: Record<string, Verbete> = {
     exemplo: 'Cobertura em 1º lugar',
   },
   PENALIDADE_COBERTURA: {
-    rotulo: 'Penalidade',
+    rotulo: 'Estratégia de cobertura',
     tec: 'PENALIDADE_COBERTURA',
     origem: VOCE,
     tipo: 'meta+cobertura · meta',

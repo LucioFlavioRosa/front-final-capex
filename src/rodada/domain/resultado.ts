@@ -158,6 +158,16 @@ export interface RunMeta {
   statusTexto: string
   parametros: ParametrosRodada
   kpis: KpisGlobais
+  /**
+   * O pedido completo — mais de vinte chaves, contra os seis de `parametros`
+   * (item 14 do feedback de 26/08: "quais são os parâmetros?"). Mesmo campo de
+   * `RunResumo.pedido`, disponível aqui para o painel de parâmetros aparecer em
+   * qualquer nível do resultado, e não só no modal do histórico.
+   *
+   * `null` pelo mesmo motivo de lá: rodada publicada sem passar pela fila não
+   * tem `run_request`, e a tela diz isso em vez de inventar.
+   */
+  pedido?: Pedido | null
 }
 
 export interface KpisGlobais {
@@ -211,11 +221,11 @@ export interface KpisGlobais {
  * era a unica coisa viva nelas.)
  */
 
-/** Situacao de uma obra na topologia e nas tabelas — dirige a cor. */
+/** Situacao de uma obra no fluxo de escoamento e nas tabelas — dirige a cor. */
 export type SituacaoObra = 'construida' | 'nao-construida' | 'terceiro' | 'sem-obra'
 
 /**
- * Estrutura que aparece como no da topologia. A CTS e visualmente distinta
+ * Estrutura que aparece como no do fluxo de escoamento. A CTS e visualmente distinta
  * (cabecalho azul, selo "· CTS", "↔ sub-bacia pareada") porque e uma decisao de
  * negocio diferente, nao uma sub-bacia qualquer.
  */
@@ -345,6 +355,53 @@ export interface PainelGlobal {
   fimCapex: number
 }
 
+/** Uma sub-bacia específica dentro de uma `CategoriaExplicabilidade`. */
+export interface SubBaciaExplicabilidade {
+  subBaciaId: string
+  cidadeId: string
+  sistemaId: string
+  vazaoPresa: number
+}
+
+/** Um motivo do plano não conectar 100% das sub-bacias, e quantas ele explica. */
+export interface CategoriaExplicabilidade {
+  categoria: string
+  subbacias: number
+  vazaoPresa: number
+  /** As sub-bacias desta categoria, maior vazão presa primeiro. */
+  itens: SubBaciaExplicabilidade[]
+}
+
+/** Uma obra que, não construída, trava mais de uma sub-bacia — o gargalo. */
+export interface EloExplicabilidade {
+  obraId: string
+  componente: string
+  cidadeId: string
+  sistemaId: string
+  subBaciaId: string
+  bloqueia: number
+  /**
+   * A soma da vazão de TODAS as sub-bacias que este elo prende — o critério de
+   * ordenação da lista (item 15 do feedback de 26/08), no lugar de `bloqueia`
+   * (contagem). "Quanto destrava" é a pergunta de quem decide onde investir;
+   * "quantas linhas cita" não era.
+   */
+  vazaoLiberada: number
+}
+
+/**
+ * Resumo agregado de "por que não fatura", nível global — porta de entrada
+ * para a explicabilidade que hoje só existe por sub-bacia (`Explicacao`, nível
+ * 4). Responde ANTES de abrir uma sub-bacia específica: quais motivos mais
+ * aparecem no plano, e quais obras travam mais gente.
+ */
+export interface ExplicabilidadeGlobal {
+  naoFaturando: number
+  totalSubbacias: number
+  categorias: CategoriaExplicabilidade[]
+  elos: EloExplicabilidade[]
+}
+
 /** Serie de EBITDA + total, da unidade ou de uma cidade. */
 export interface PainelEbitda {
   anos: EbitdaAno[]
@@ -364,6 +421,14 @@ export interface CidadeLinha {
   metasAtingidas: number
   metasTotal: number
   sistemas: number
+  /**
+   * A série de cobertura × meta desta cidade (item 17 do feedback de 26/08) —
+   * o mesmo par que `Cidade.tsx` já usa em `GraficoCobertura`, agora também no
+   * cartão-gráfico do nível 1. Vem junto da lista para não abrir N requisições
+   * ao montar a grade de cartões.
+   */
+  cobertura: PontoCobertura[]
+  metas: MetaCobertura[]
 }
 
 // ===========================================================================
@@ -460,10 +525,10 @@ export interface CidadeDetalhe {
 }
 
 // ===========================================================================
-//  NIVEL 3 — topologia do sistema
+//  NIVEL 3 — fluxo de escoamento do sistema
 // ===========================================================================
 
-/** Um componente dentro de um no da topologia. */
+/** Um componente dentro de um no do fluxo de escoamento. */
 export interface ComponenteNo {
   /** Nome canonico do componente — as duas regras estao no topo do arquivo:
    *  "Linha de recalque" e o nome, e transporte NUNCA e agrupado. */
@@ -480,7 +545,7 @@ export interface ComponenteNo {
   prazoMeses: number | null
 }
 
-export interface NoTopologia {
+export interface NoFluxo {
   id: string
   tipo: TipoEstrutura
   vazao: number
@@ -493,7 +558,7 @@ export interface NoTopologia {
   componentes: ComponenteNo[]
 }
 
-export interface EteTopologia {
+export interface EteFluxo {
   id: string
   nome: string
   /** Capacidade instalada. Zero e possivel — e o caso que gera ocupacao nula. */
@@ -506,7 +571,7 @@ export interface EteTopologia {
   modulos: ComponenteNo[]
 }
 
-export interface Topologia {
+export interface Fluxo {
   sistemaId: string
   sistemaNome: string
   cidadeId: string
@@ -514,8 +579,8 @@ export interface Topologia {
   subbacias: number
   faturando: number
   capexConstruido: number
-  nos: NoTopologia[]
-  ete: EteTopologia
+  nos: NoFluxo[]
+  ete: EteFluxo
   /** Mesmo recorte do painel global, só que deste sistema (validação de 18/08). */
   elementosPorAno: ElementoDoAno[]
 }
@@ -569,6 +634,59 @@ export interface ElementoLinha {
   anoInicio: number | null
   /** Meses de execucao — o que sustenta o "terceiro · prazo Nm". */
   prazoMeses: number | null
+}
+
+/**
+ * Uma linha da lista de obras do NÍVEL 1 — item 3 do feedback de 26/08:
+ * "lista de obras, por ordem de execução sugerida".
+ *
+ * "Ordem de execução" É o mês que o otimizador publicou (`anoInicio`), lido em
+ * ordem crescente — não um ranking de prioridade por retorno, que o motor não
+ * calcula. Difere de `ElementoLinha` (nível 4, escopo de uma sub-bacia só) por
+ * carregar cidade/sistema/sub-bacia: é a mesma obra vista do topo da rodada.
+ */
+export interface ObraLinha {
+  obraId: string
+  componente: string
+  situacao: SituacaoObra
+  cidadeId: string
+  sistemaId: string
+  /** `null` para ETE e módulo de ETE — não têm sub-bacia própria. */
+  subBaciaId: string | null
+  capex: number
+  quantidade: number | null
+  unidade: string | null
+  anoInicio: number | null
+  prazoMeses: number | null
+}
+
+/** A página da lista de obras — paginada de propósito (ver `ObraLinha`). */
+export interface ObrasPagina {
+  total: number
+  itens: ObraLinha[]
+}
+
+/**
+ * O CRONOGRAMA DE OBRAS — quantas de cada componente entram em cada ano.
+ *
+ * É o item 3 na leitura corrigida em 27/08: o pedido é ver o plano de execução
+ * como gráfico ("quais obras serão executadas ano a ano"), e não navegar uma
+ * lista ordenada por data. A lista (`ObrasPagina`) virou o detalhe de UM ano,
+ * aberto ao clicar numa barra.
+ *
+ * Só obras que ENTRAM no plano: as não construídas não têm ano de execução.
+ */
+export interface AnoDeObras {
+  ano: number
+  obras: number
+  capex: number
+  /** Quantas daquelas obras são de terceiro — acontecem sem CAPEX da Aegea. */
+  obrasTerceiro: number
+  porComponente: { componente: string; obras: number; capex: number }[]
+}
+
+export interface CronogramaDeObras {
+  anos: AnoDeObras[]
 }
 
 export interface SubBaciaDetalhe {

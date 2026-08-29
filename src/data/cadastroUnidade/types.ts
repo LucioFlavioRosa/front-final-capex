@@ -153,6 +153,23 @@ export interface AbaDef {
    */
   zebraPor?: string
   /**
+   * A COLUNA QUE AGRUPA LINHAS QUE DEVERIAM TER O MESMO VALOR.
+   *
+   * Liga o botão "repetir nas linhas de…" da grade. Existe por causa do fim de
+   * concessão (item 12 do feedback de 26/08): ele é definido POR CONTRATO, e a
+   * ficha o guarda por cidade — então uma empresa com sete cidades tem sete
+   * células que precisam concordar, e nada além da atenção de quem digita
+   * garante que concordem.
+   *
+   * Não muda o modelo: o motor continua lendo o ano por cidade, que é o que
+   * permite uma cidade sair do contrato antes das irmãs. O que o botão faz é
+   * poupar seis digitações e o erro que a sexta convida.
+   *
+   * Ausente = aba sem o botão, que é o caso de todas as outras: replicar preço
+   * unitário entre sub-bacias é justamente o que NÃO se quer.
+   */
+  replicarPor?: string
+  /**
    * OS EIXOS DA BARRA DE ESCOPO nesta aba — ver `EscopoAba`.
    *
    * Ausente = aba sem barra. É o caso de `unidade-regional` (uma linha só) e das
