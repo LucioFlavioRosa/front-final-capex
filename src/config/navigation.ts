@@ -4,7 +4,14 @@ import { PAPEIS_CADASTRO, PAPEIS_OPERACIONAIS, type Papel } from '../auth/papeis
 export interface NavItem {
   /** Rótulo curto usado no menu principal */
   label: string
-  /** Rótulo completo usado nos cards da Home */
+  /**
+   * Rótulo completo, usado nos cards da Home.
+   *
+   * NÃO é o `label` repetido: no menu o contexto ("estou na plataforma") já está
+   * dado e o rótulo curto basta; no card da Home ele precisa se explicar
+   * sozinho, ao lado de outros dois. Onde os dois eram idênticos, o par não
+   * estava fazendo trabalho nenhum.
+   */
   title: string
   path: string
   icon: Icon
@@ -31,11 +38,16 @@ export interface NavItem {
  */
 export const NAV_ITEMS: NavItem[] = [
   {
-    label: 'Cadastro SES',
-    title: 'Cadastro SES',
+    label: 'Cadastro',
+    title: 'Cadastro da unidade',
     path: '/cadastro',
     icon: TreeStructure,
-    description: 'Selecione a unidade e complete as abas da base — origem unidade em destaque.',
+    // Escrito do lado de quem usa, e não do lado do sistema: "abas da base" e
+    // "origem unidade em destaque" são vocabulário interno, e a oração depois do
+    // travessão fazia um segundo trabalho que não era dela. O que a pessoa faz
+    // aqui é preencher o cadastro de uma unidade até ele fechar — e o que ela
+    // ganha com isso é poder simular.
+    description: 'Preencha o cadastro de uma unidade até ele fechar 100% e liberar a simulação.',
     // O financeiro entra aqui em leitura (a matriz do documento dá a ele
     // consulta de cadastro); a escrita é negada pelo backend, não pelo menu.
     papeis: PAPEIS_CADASTRO,
@@ -50,7 +62,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     label: 'Resultados',
-    title: 'Resultados',
+    title: 'Resultados das rodadas',
     path: '/resultados',
     icon: ChartLineUp,
     description: 'Histórico de rodadas e o drill-down de cidade até a obra.',

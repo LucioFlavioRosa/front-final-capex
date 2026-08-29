@@ -14,7 +14,7 @@
 
 import { SCHEMA } from './schema'
 import type { AbaDef, Row } from './types'
-import { contarAba } from '../../lib/cadastroCalc'
+import { contarAba } from '../../domain/calc'
 
 export interface Bloco {
   nome: string

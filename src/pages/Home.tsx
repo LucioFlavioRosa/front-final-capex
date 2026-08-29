@@ -1,11 +1,31 @@
+/**
+ * A HOME — o que aconteceu por último, e o cadastro está pronto para a próxima?
+ *
+ * REDESENHADA EM 29/08/2026, e a mudança é de hierarquia antes de ser de forma.
+ *
+ * A versão anterior abria com "Olá, Fulano." como o maior e mais pesado texto da
+ * página, e a resposta que a pessoa veio buscar — em que pé está o trabalho —
+ * ficava no parágrafo abaixo, menor e a 80% de opacidade. A hierarquia
+ * tipográfica dizia o contrário da hierarquia de informação. A saudação desceu
+ * para eyebrow, onde uma cortesia cabe, e o VEREDITO subiu para o h1.
+ *
+ * O bloco visual de abertura era o VPL a 60px numa faixa navy com uma curva
+ * turquesa animada ao fundo. Isso é a abertura de qualquer dashboard; não dizia
+ * o que este produto faz, que é ordenar obras no tempo. Virou o horizonte do
+ * plano — ver `HorizonteDoPlano`.
+ *
+ * E as três superfícies brancas da página usavam três raios e três
+ * comportamentos de sombra para o que o olho lê como o mesmo objeto. Agora todas
+ * são `.carta`, que é a classe que o `index.css` criou exatamente para isso.
+ */
 import { NavLink, useNavigate } from 'react-router-dom'
 import { ArrowRight, Warning } from '@phosphor-icons/react'
 import { NAV_ITEMS } from '../config/navigation'
-import { Band, BandStat } from '../components/ui/Band'
 import { Button } from '../components/ui/Button'
 import { useAuth } from '../auth/AuthContext'
 import { useHome } from './homeDados'
-import { dec } from '../lib/format'
+import { HorizonteDoPlano } from './HorizonteDoPlano'
+import { dec, int } from '../lib/format'
 
 /** Destaque por módulo. Cadastro lê uma cor editável (--color-mod-cadastro). */
 const moduleClasses: Record<string, string> = {
@@ -35,8 +55,8 @@ export function Home() {
 
   const primeiroNome = (user?.name || user?.email || '').split(/[ @.]/)[0]
   const saudacao = primeiroNome
-    ? `Olá, ${primeiroNome[0].toUpperCase()}${primeiroNome.slice(1)}.`
-    : 'Olá.'
+    ? `Olá, ${primeiroNome[0].toUpperCase()}${primeiroNome.slice(1)}`
+    : 'Olá'
 
   const ultima = data?.ultima ?? null
   const kpis = data?.meta?.kpis ?? null
@@ -44,34 +64,40 @@ export function Home() {
   const resumo = unidade?.resumo
   // De `/prontidao`, e nao da unidade — ver o comentario em `homeDados.ts`.
   const completude = data?.completude ?? null
+  const nomeUnidade = ultima?.unidadeNome ?? unidade?.nome ?? 'a unidade'
+
+  /**
+   * O VEREDITO — o h1.
+   *
+   * Uma frase que fecha, e não um rótulo: quem abre esta tela quer saber se pode
+   * simular. "Faltam 6%" e "está pronta" são respostas; "Cadastro: 94%" é um
+   * dado que a pessoa ainda precisa interpretar.
+   */
+  let veredito = 'Carregando o histórico…'
+  if (isError) veredito = 'Não foi possível falar com o servidor.'
+  else if (data && !ultima) veredito = 'Nenhuma simulação publicada ainda.'
+  else if (ultima) {
+    if (completude === 100) veredito = `A ${nomeUnidade} está pronta para simular.`
+    else if (completude == null) veredito = `A ${nomeUnidade} está cadastrada.`
+    else veredito = `Faltam ${dec(100 - completude, 0)}% do cadastro da ${nomeUnidade}.`
+  }
+
+  let detalhe = ''
+  if (isError) detalhe = 'Recarregue a página.'
+  else if (data && !ultima) detalhe = 'Comece pelo cadastro da unidade.'
+  else if (ultima) detalhe = `Última rodada ${quando(ultima.dataHora)}.`
 
   return (
     <section className="max-w-content mx-auto px-4 py-8 md:px-6">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-6">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-[.1em] text-ink-water">
-            Otimizador de CAPEX · esgotamento sanitário
-          </div>
-          <h1 className="mt-2 text-[30px] font-extrabold leading-tight tracking-tight text-water-600">
             {saudacao}
+          </div>
+          <h1 className="mt-2 max-w-2xl text-[30px] font-extrabold leading-tight tracking-tight text-water-600">
+            {veredito}
           </h1>
-          <p className="mt-2 max-w-xl text-water-600/80">
-            {isPending && 'Carregando o histórico…'}
-            {isError && 'Não foi possível falar com o servidor. Recarregue a página.'}
-            {data && !ultima && 'Nenhuma simulação publicada ainda — comece pelo cadastro da unidade.'}
-            {ultima && unidade && (
-              <>
-                A unidade{' '}
-                <strong className="font-semibold text-water-600">{ultima.unidadeNome}</strong>{' '}
-                {completude === 100
-                  ? 'está pronta para simular'
-                  : completude == null
-                    ? 'está cadastrada'
-                    : `está com ${completude}% do cadastro preenchido`}
-                . Última rodada {quando(ultima.dataHora)}.
-              </>
-            )}
-          </p>
+          {detalhe && <p className="mt-2 text-[13.5px] text-ink-500">{detalhe}</p>}
         </div>
         <div className="flex gap-2.5">
           <Button sweep onClick={() => navigate('/cadastro')}>
@@ -80,53 +106,60 @@ export function Home() {
         </div>
       </div>
 
-      <div className="grid items-start gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
-        <Band className="col-span-2 min-w-0 p-6" flow>
+      <div
+        className="grid items-start gap-4"
+        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}
+      >
+        <div className="carta col-span-2 min-w-0 p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <div className="band-mut text-[10.5px] font-semibold uppercase tracking-[.09em]">
-                Última simulação
-              </div>
+              <h2 className="text-[11px] font-semibold uppercase tracking-[.09em] text-ink-water">
+                Horizonte do plano
+              </h2>
               <div className="mt-1.5 flex items-baseline gap-2.5">
-                <span className="text-[17px] font-bold tracking-tight">
+                <span className="text-[17px] font-bold tracking-tight text-ink-900">
                   {ultima?.nome || ultima?.unidadeNome || '—'}
                 </span>
-                <span className="band-mut font-mono text-xs">{ultima?.runId ?? ''}</span>
+                <span className="font-mono text-xs text-ink-400">{ultima?.runId ?? ''}</span>
               </div>
             </div>
             {ultima && (
-              <span className="flex items-center gap-1.5 rounded-full border border-aegea-400/45 bg-aegea-400/15 px-2.5 py-1 text-[11.5px] font-semibold text-aegea-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-aegea-400" />
+              <span className="flex items-center gap-1.5 rounded-full border border-aegea-500/30 bg-aegea-50 px-2.5 py-1 text-[11.5px] font-semibold text-aegea-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-aegea-500" />
                 {ultima.status}
               </span>
             )}
           </div>
 
-          {kpis ? (
-            <div className="mt-5 flex flex-wrap gap-9">
-              <BandStat label="VPL" value={dinheiro(kpis.vpl)} size="hero" />
-              <div className="border-l band-line pl-9">
-                <BandStat label="CAPEX" value={dinheiro(kpis.capexTotal)} size="lg" />
-                <div className="band-mut mt-1.5 text-[11.5px]">
-                  cobertura ao fim: {dec(kpis.coberturaFimPct, 1)}%
-                </div>
-              </div>
-              <div className="border-l band-line pl-9">
-                <BandStat label="Obras sequenciadas" value={String(kpis.obrasConstruidas)} size="lg" />
-                <div className="band-mut mt-1.5 text-[11.5px]">
-                  de {kpis.obrasTotal} candidatas · {kpis.subbaciasFaturando} de {kpis.subbaciasTotal}{' '}
-                  sub-bacias faturando
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="band-mut mt-5 text-[12.5px]">
-              {isPending ? 'Carregando…' : 'Sem resultado publicado para exibir.'}
+          {/* Os fatos do plano ANTES do desenho, e pequenos: eles são a legenda
+              da forma, não a manchete. Era o inverso — o VPL a 60px e a forma
+              inexistente. */}
+          {kpis && (
+            <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2">
+              <Fato rotulo="VPL" valor={dinheiro(kpis.vpl)} />
+              <Fato
+                rotulo="CAPEX"
+                valor={dinheiro(kpis.capexTotal)}
+                nota={`cobertura ao fim: ${dec(kpis.coberturaFimPct, 1)}%`}
+              />
+              <Fato
+                rotulo="Obras sequenciadas"
+                valor={int(kpis.obrasConstruidas)}
+                nota={`de ${int(kpis.obrasTotal)} candidatas · ${int(kpis.subbaciasFaturando)} de ${int(kpis.subbaciasTotal)} sub-bacias faturando`}
+              />
             </div>
           )}
-        </Band>
 
-        <div className="min-w-0 rounded-2xl border border-ink-200 bg-white p-5">
+          <div className="mt-5">
+            <HorizonteDoPlano
+              anos={data?.cronograma ?? []}
+              carregando={isPending}
+              runId={ultima?.runId ?? null}
+            />
+          </div>
+        </div>
+
+        <div className="carta min-w-0 p-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-[15px] font-bold tracking-tight text-ink-900">Status do cadastro</h2>
             <span className="font-mono text-xs font-semibold text-aegea-700">
@@ -135,7 +168,7 @@ export function Home() {
           </div>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink-200">
             <div
-              className="h-full origin-left animate-grow rounded-full bg-gradient-to-r from-water-600 to-aegea-400"
+              className="h-full origin-left animate-grow rounded-full bg-water-600"
               style={{ width: `${completude ?? 0}%` }}
             />
           </div>
@@ -170,22 +203,43 @@ export function Home() {
               <NavLink
                 key={item.path}
                 to={item.path}
-                className="min-w-0 rounded-[14px] border border-ink-200 bg-white p-5 text-left transition-all duration-hover ease-saida hover:border-water-200 hover:shadow-elev"
+                className="carta min-w-0 p-5 text-left transition-all duration-hover ease-saida hover:border-water-200 hover:shadow-elev"
               >
                 <div className="flex items-center justify-between">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-[10px] ${moduleClasses[item.path]}`}>
+                  <div
+                    className={`flex h-9 w-9 items-center justify-center rounded-[10px] ${moduleClasses[item.path]}`}
+                  >
                     <IconCmp weight="fill" className="text-xl" />
                   </div>
                   <ArrowRight className="text-ink-500" />
                 </div>
-                <h3 className="mt-2.5 text-[15px] font-bold tracking-tight text-body-text">{item.title}</h3>
-                <p className="mt-1 text-[12.5px] leading-relaxed text-ink-500">{item.description}</p>
+                <h3 className="mt-2.5 text-[15px] font-bold tracking-tight text-body-text">
+                  {item.title}
+                </h3>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-ink-500">
+                  {item.description}
+                </p>
               </NavLink>
             )
           })}
         </div>
       </div>
     </section>
+  )
+}
+
+/** Um fato do plano: rótulo miúdo, valor em mono, nota opcional embaixo. */
+function Fato({ rotulo, valor, nota }: { rotulo: string; valor: string; nota?: string }) {
+  return (
+    <div>
+      <div className="text-[10.5px] font-semibold uppercase tracking-[.09em] text-ink-400">
+        {rotulo}
+      </div>
+      <div className="mt-1 font-mono text-[19px] font-semibold leading-none tracking-tight text-ink-900">
+        {valor}
+      </div>
+      {nota && <div className="mt-1.5 text-[11.5px] text-ink-500">{nota}</div>}
+    </div>
   )
 }
 

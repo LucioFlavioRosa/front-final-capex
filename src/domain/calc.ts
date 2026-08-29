@@ -1,6 +1,6 @@
 import { SCHEMA, UNIDADE_POR_COMPONENTE } from '../data/cadastroUnidade/schema'
 import type { Row } from '../data/cadastroUnidade/types'
-import { sistemaDaCts, tipoDoNo, type Dados } from './cadastroFluxo'
+import { sistemaDaCts, tipoDoNo, type Dados } from './fluxo'
 
 /** Converte texto pt-BR ("3.214" / "0,091") em número; null se inválido. */
 export function toNum(v: string | undefined): number | null {

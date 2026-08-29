@@ -27,7 +27,7 @@
 
 import { useState } from 'react'
 import { CaretDown, CaretRight, WarningCircle, XCircle } from '@phosphor-icons/react'
-import type { Problema } from '../../../lib/cadastroValidacao'
+import type { Problema } from '../../../domain/validacao'
 
 /** Quantos problemas ficam à vista antes de o painel virar lista recolhida. */
 const VISIVEIS_SEM_EXPANDIR = 2

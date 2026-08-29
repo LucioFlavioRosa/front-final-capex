@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { AbaCell } from './AbaCell'
+import { AbaCell, ehColunaDeCodigo } from './AbaCell'
 
 /**
  * N7/N8 (18/08/2026): `somenteLeitura` passou a carregar PERMISSÃO, não só o
@@ -70,5 +70,35 @@ describe('AbaCell — o <select> desabilita por PERMISSÃO, não por foco', () =
   it('sem a prop, o padrão é fechar', () => {
     montar({ somenteLeitura: true })
     expect(screen.getByRole('combobox')).toBeDisabled()
+  })
+})
+
+/**
+ * CÓDIGO EM MONO (29/08/2026) — `cts_002`, `d1b1_1_1`, `d1s1`.
+ *
+ * A regra é derivada do NOME da coluna, e não declarada no schema, porque `_id`
+ * é a convenção do modelo inteiro: as 15 abas são as 15 tabelas do backend com
+ * os mesmos nomes de coluna. Uma lista declarada envelheceria a cada tabela
+ * nova; a convenção não.
+ */
+describe('ehColunaDeCodigo', () => {
+  it('coluna de id é código', () => {
+    for (const col of ['cts_id', 'sub_bacia_id', 'sistema_id', 'componente_sistema_id']) {
+      expect(ehColunaDeCodigo(col)).toBe(true)
+    }
+  })
+
+  it('NOME de componente não é código', () => {
+    // Nome é texto que se lê, não código que se compara caractere a caractere —
+    // e em mono ele fica largo e piora a leitura numa grade estreita.
+    for (const col of ['sub_bacia_name', 'sistema_name', 'cidade_name']) {
+      expect(ehColunaDeCodigo(col)).toBe(false)
+    }
+  })
+
+  it('coluna de dado comum não é código', () => {
+    for (const col of ['preco_por_ligacao', 'tempo_execucao', 'obra_obrigatoria_ano', 'nova']) {
+      expect(ehColunaDeCodigo(col)).toBe(false)
+    }
   })
 })

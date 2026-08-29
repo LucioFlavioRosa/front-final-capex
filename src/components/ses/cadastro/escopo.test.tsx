@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { SCHEMA } from '../../../data/cadastroUnidade/schema'
 import type { AbaDef, Row } from '../../../data/cadastroUnidade/types'
-import type { Dados } from '../../../lib/cadastroFluxo'
+import type { Dados } from '../../../domain/fluxo'
 import {
   casaComEscopo,
   chaveSistema,
@@ -10,10 +10,10 @@ import {
   sistemaDaLinhaEscopo,
   sistemaPadraoDoFluxo,
   sistemasVisiveis,
-} from '../../../lib/cadastroEscopo'
+} from '../../../domain/escopo'
 import { ADMIN_UNIDADE } from '../../../auth/papeis'
 import { BLOCOS } from '../../../data/cadastroUnidade/blocos'
-import { espelharColunas, opcoesDaCelula } from '../../../lib/cadastroFluxo'
+import { espelharColunas, opcoesDaCelula } from '../../../domain/fluxo'
 import { AbaGrid } from './AbaGrid'
 import { Unifilar } from './Unifilar'
 

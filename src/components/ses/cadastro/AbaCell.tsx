@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { CIDADE_EDITAVEL_EM, PLACEHOLDER, SELECTS } from '../../../data/cadastroUnidade/schema'
-import { computeCalc } from '../../../lib/cadastroCalc'
-import { opcoesDaCelula, rotuloNo, type Dados } from '../../../lib/cadastroFluxo'
+import { computeCalc } from '../../../domain/calc'
+import { opcoesDaCelula, rotuloNo, type Dados } from '../../../domain/fluxo'
 import type { Cidade, Origem, Row } from '../../../data/cadastroUnidade/types'
 
 /**
@@ -110,6 +110,35 @@ const CELULA_BASE = 'rounded-md px-2 py-1 text-sm w-full min-w-0 border transiti
 /** Alinhamento de coluna numérica — ver `AbaCellProps.numerica`. */
 const CELULA_NUM = 'text-right font-mono tabular-nums text-[12.5px]'
 /**
+ * CÓDIGO — `cts_002`, `d1b1_1_1`, `d1s1`. Mono, e alinhado à esquerda.
+ *
+ * Não é enfeite: código é feito para ser COMPARADO caractere a caractere, e é
+ * isso que as pessoas fazem com ele o dia inteiro nesta grade — conferir se a
+ * linha é a `d1b1_1_1` ou a `d1b1_1_2`, procurar um id que veio da planilha,
+ * colar um da topologia. Em proporcional, `l`/`1`/`I` e `0`/`O` colapsam, e a
+ * largura variável impede o olho de usar a POSIÇÃO como pista. Em mono os
+ * caracteres se alinham na vertical e a diferença salta.
+ *
+ * Sem `tabular-nums` de propósito: isto é texto, não número, e o alinhamento
+ * continua à esquerda — código não tem ordem de grandeza para comparar.
+ */
+const CELULA_CODIGO = 'font-mono text-[12.5px] tracking-[-.01em]'
+
+/**
+ * A coluna guarda um código?
+ *
+ * Derivado do NOME, e não declarado no schema, pela mesma razão de
+ * `ehColunaNumerica` viver nos dados: as 15 abas são as 15 tabelas do backend
+ * com os mesmos nomes de coluna, e ali `_id` é a convenção do modelo inteiro.
+ * Declarar coluna por coluna seria uma lista para envelhecer a cada tabela nova.
+ *
+ * `_name` fica de FORA: nome de componente é texto que se lê, não código que se
+ * compara — e em mono ele fica largo e piora a leitura numa grade estreita.
+ */
+export function ehColunaDeCodigo(col: string): boolean {
+  return col.endsWith('_id')
+}
+/**
  * Célula em modo de LEITURA. Repete `px-2 py-1` e a borda de 1px (transparente)
  * do campo de propósito: com a mesma caixa, o texto não pula de lugar no instante
  * em que a célula entra em edição e o `<input>` toma o lugar dele.
@@ -194,7 +223,10 @@ function CampoEdicao({ valor, placeholder, classe, onChange }: {
 
 export function AbaCell({ abaKey, col, origem, row, cidades, dados, onChange, somenteLeitura = false, bloqueada = somenteLeitura, numerica = false }: AbaCellProps) {
   const v = row[col] ?? ''
-  const num = numerica ? ` ${CELULA_NUM}` : ''
+  // Numérica vence: uma coluna que termina em `_id` mas guarda número (o ano,
+  // por exemplo) já é comparada por grandeza, e o alinhamento à direita é a
+  // pista mais forte das duas.
+  const num = numerica ? ` ${CELULA_NUM}` : ehColunaDeCodigo(col) ? ` ${CELULA_CODIGO}` : ''
 
   if (abaKey === 'ete-capex' && CAMPOS_SO_ETE_NOVA.includes(col) && row.nova !== 'Sim') {
     return (

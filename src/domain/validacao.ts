@@ -12,8 +12,8 @@
  */
 
 import type { Row } from '../data/cadastroUnidade/types'
-import { toNum } from './cadastroCalc'
-import { caminhoAteEte, sistemaDoNo, tipoDoNo } from './cadastroFluxo'
+import { toNum } from './calc'
+import { caminhoAteEte, sistemaDoNo, tipoDoNo } from './fluxo'
 
 export type NivelProblema = 'critico' | 'aviso'
 

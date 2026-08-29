@@ -1,6 +1,6 @@
 import { useId, useMemo, useState } from 'react'
 import type { Row } from '../../../data/cadastroUnidade/types'
-import { ehCts, type Dados } from '../../../lib/cadastroFluxo'
+import { ehCts, type Dados } from '../../../domain/fluxo'
 
 /**
  * ADICIONAR UMA CTS AO SISTEMA.

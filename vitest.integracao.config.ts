@@ -30,6 +30,18 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: false,
+    /**
+     * UM ARQUIVO POR VEZ. Todos escrevem na MESMA uB1, e cada um desfaz o que fez
+     * no fim — o que só funciona se ninguém estiver mexendo no meio.
+     *
+     * Em paralelo já era corrida (o `adicionarCts` muda o número de linhas da
+     * topologia enquanto outro arquivo a lê), e com a gravação do sistema INTEIRO
+     * a corrida deixou de ser só teste vermelho: o corpo é a lista completa do
+     * sistema, então salvar a partir de uma leitura velha expulsa o componente que
+     * outro arquivo acabou de colocar. Serializar é a única forma de o resultado
+     * não depender de quem chegar primeiro.
+     */
+    fileParallelism: false,
     include: ['src/**/*.integracao.test.{ts,tsx}'],
     css: false,
     /**

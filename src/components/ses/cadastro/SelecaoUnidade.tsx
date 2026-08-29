@@ -194,7 +194,7 @@ export function SelecaoUnidade() {
           </div>
         </div>
 
-        <Band flow={false} className="flex min-w-0 flex-col justify-between p-[18px]">
+        <Band className="flex min-w-0 flex-col justify-between p-[18px]">
           <div>
             <div className="band-mut mb-3 text-[10.5px] font-semibold uppercase tracking-[.09em]">Recorte selecionado</div>
             {/* Só o que tem fonte real. Contagens de cidade/CTS/sub-bacia saíram

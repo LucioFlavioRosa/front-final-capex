@@ -32,7 +32,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CaretDown, X } from '@phosphor-icons/react'
 import type { Row } from '../../../data/cadastroUnidade/types'
-import { totalGeral } from '../../../lib/cadastroCalc'
+import { totalGeral } from '../../../domain/calc'
 import { progressoPorBloco } from '../../../data/cadastroUnidade/blocos'
 import { ListaAbasProgresso } from './ListaAbasProgresso'
 

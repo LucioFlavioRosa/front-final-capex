@@ -17,7 +17,7 @@
  */
 
 import { CheckCircle, WarningCircle, XCircle } from '@phosphor-icons/react'
-import type { Problema } from '../../../lib/cadastroValidacao'
+import type { Problema } from '../../../domain/validacao'
 
 interface PainelProblemasProps {
   problemas: Problema[]

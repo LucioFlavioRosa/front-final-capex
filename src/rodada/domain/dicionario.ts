@@ -1,6 +1,6 @@
 /**
  * O DICIONÁRIO DOS PARÂMETROS DA RODADA — o equivalente, aqui, ao dicionário de
- * dados do Cadastro (`domain/dict.ts`).
+ * dados do Cadastro (`domain/dicionario.ts`).
  *
  * A tela de nova simulação dispara algo que vai existir para sempre no
  * histórico, e cada controle muda o plano de investimento de um jeito que não é

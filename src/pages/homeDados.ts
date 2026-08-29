@@ -18,6 +18,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { UnidadeResumo } from '@/lib/organizacaoApi'
+import type { CronogramaDeObras, AnoDeObras } from '@/rodada/domain/resultado'
 
 interface RunResumo {
   runId: string
@@ -71,6 +72,15 @@ export interface HomeDados {
   completude: number | null
   /** Quantas rodadas existem no histórico — o rodapé do card. */
   total: number
+  /**
+   * OS ANOS DO PLANO — a forma do cronograma, que é a abertura da Home.
+   *
+   * É uma quarta ida ao servidor, e ela se paga: a pergunta que a Home responde
+   * deixou de ser "quanto valeu" e passou a ser "como o plano se distribui no
+   * tempo", que é o que este produto faz. Vem no mesmo `Promise.all` das outras
+   * três, então não acrescenta um passo em série.
+   */
+  cronograma: AnoDeObras[]
 }
 
 const VAZIO: HomeDados = {
@@ -79,6 +89,7 @@ const VAZIO: HomeDados = {
   unidade: null,
   completude: null,
   total: 0,
+  cronograma: [],
 }
 
 export function useHome() {
@@ -92,10 +103,11 @@ export function useHome() {
       const ultima = runs.find((r) => r.publicada) ?? null
       if (!ultima) return { ...VAZIO, total: runs.length }
 
-      const [meta, unidade, prontidao] = await Promise.all([
+      const [meta, unidade, prontidao, cronograma] = await Promise.all([
         api.get<RunMeta>(`/api/runs/${ultima.runId}/meta`),
         api.get<Unidade>(`/api/unidades/${ultima.unidadeId}`),
         api.get<Prontidao>(`/api/unidades/${ultima.unidadeId}/prontidao`),
+        api.get<CronogramaDeObras>(`/api/runs/${ultima.runId}/obras/cronograma`),
       ])
       return {
         ultima,
@@ -103,6 +115,7 @@ export function useHome() {
         unidade,
         completude: prontidao.completude,
         total: runs.length,
+        cronograma: cronograma.anos,
       }
     },
     // A Home é a primeira tela: cinco minutos evitam refetch a cada volta para

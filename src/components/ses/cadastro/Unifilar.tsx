@@ -49,7 +49,7 @@ import {
   unifilarDoSistema,
   type NoUnifilar,
   type UnifilarSistema,
-} from '../../../lib/cadastroFluxo'
+} from '../../../domain/fluxo'
 
 const BOX_H = 56
 const GAP_Y = 50

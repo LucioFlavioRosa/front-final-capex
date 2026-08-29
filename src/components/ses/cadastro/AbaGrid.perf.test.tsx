@@ -16,7 +16,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { AbaGrid } from './AbaGrid'
 import { SCHEMA } from '@/data/cadastroUnidade/schema'
-import type { Dados } from '@/lib/cadastroFluxo'
+import type { Dados } from '@/domain/fluxo'
 import type { Row } from '@/data/cadastroUnidade/types'
 
 // A grade consulta o papel de quem olha para decidir o que é editável. Aqui o

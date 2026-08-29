@@ -2,10 +2,10 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Question, Trash } from '@phosphor-icons/react'
 import type { AbaDef, Cidade, ColDef, Origem, Row } from '../../../data/cadastroUnidade/types'
 import { CIDADE_EDITAVEL_EM, COLUNA_AJUDA, LARGURA_ACOES, colunaLabel, colunaLargura, ehAditiva, larguraDaGrade } from '../../../data/cadastroUnidade/schema'
-import { DICT } from '../../../domain/dict'
-import { computeCalc } from '../../../lib/cadastroCalc'
-import { colunasDoEscopo } from '../../../lib/cadastroEscopo'
-import type { Dados } from '../../../lib/cadastroFluxo'
+import { DICT } from '../../../domain/dicionario'
+import { computeCalc } from '../../../domain/calc'
+import { colunasDoEscopo } from '../../../domain/escopo'
+import type { Dados } from '../../../domain/fluxo'
 import { Tooltip } from '../../ui/Tooltip'
 import { useAuth } from '../../../auth/AuthContext'
 import { podeEditarCampoCadastro } from '../../../auth/permissoesCadastro'
@@ -137,6 +137,16 @@ function AjudaColuna({ col, coldef }: { col: string; coldef: ColDef }) {
   )
 }
 
+/** A ação de linha de uma aba. Monte com `useMemo` — ver `AbaGridProps.acaoDeLinha`. */
+export interface AcaoDeLinha {
+  /** O texto do botão. */
+  rotulo: string
+  /** Em que linhas ele aparece. */
+  visivelEm: (row: Row) => boolean
+  /** O que ele faz, pelo índice da linha. */
+  ao: (ri: number) => void
+}
+
 interface AbaGridProps {
   aba: AbaDef
   rows: Row[]
@@ -169,13 +179,20 @@ interface AbaGridProps {
    * POSIÇÃO do componente, não sobre a linha — a linha continua existindo, e o
    * componente volta para a lista dos sem sistema.
    *
-   * Vem em três pedaços, e não num objeto, porque objeto literal nasceria novo a
-   * cada render e derrubaria o `memo` de `AbaGridRow` — o mesmo defeito que já
-   * custou 300ms por tecla aqui.
+   * VINHA EM TRÊS PROPS, e o comentário de então dizia por quê: objeto literal
+   * nasceria novo a cada render e derrubaria o `memo` de `AbaGridRow` — defeito
+   * que já custou 300ms por tecla aqui. O medo era legítimo e a conclusão não:
+   * o problema não é o objeto, é o objeto NASCER no JSX. Vindo de um `useMemo`
+   * sobre referências estáveis, ele é tão estável quanto as três props eram —
+   * elas dependiam exatamente das mesmas referências.
+   *
+   * Três props para um conceito só também mentiam sobre o domínio: no único
+   * chamador as três eram ternários sobre a MESMA condição, ou seja, a mesma
+   * decisão escrita três vezes, com três chances de escrevê-la diferente.
+   *
+   * `undefined` é "esta aba não tem ação de linha".
    */
-  acaoRotulo?: string
-  acaoVisivelEm?: (row: Row) => boolean
-  onAcaoLinha?: (ri: number) => void
+  acaoDeLinha?: AcaoDeLinha
   /** Escrita em lote — o colar de uma seleção de várias células. */
   onCells: (edicoes: { ri: number; col: string; value: string }[]) => void
   /** Avisa a tela quando o filtro é limpo por efeito colateral (ex.: nova linha). */
@@ -462,14 +479,14 @@ const SEM_CADASTRO = {} as Dados
 export function AbaGrid({
   aba, rows, cidades, dados, onCell, onAddRow, onDelRow, onCells, onAviso,
   filtroEscopo, onLimparEscopo, onFocoLinha, focarLinha,
-  edicaoLiberada = true, acaoRotulo, acaoVisivelEm, onAcaoLinha,
+  edicaoLiberada = true, acaoDeLinha,
 }: AbaGridProps) {
   // Papel de quem está olhando — decide, campo a campo, o que `podeEditarCelula`
   // libera. `[]` (deslogado/carregando) não edita nada, que é o default seguro.
   // A coluna de ações existe se a aba cria linhas OU se a tela deu uma ação de
   // linha. Antes ela dependia só de `addRow`, e uma ação sem `addRow` ficava
   // sem lugar para aparecer.
-  const temAcoes = !!aba.addRow || !!onAcaoLinha
+  const temAcoes = !!aba.addRow || !!acaoDeLinha
   const { user } = useAuth()
   const papeis = user?.papeis ?? []
 
@@ -953,9 +970,9 @@ export function AbaGrid({
                   onDelRow={onDelRow}
                   // PRIMITIVO, calculado aqui: a linha recebe `sim/nao`, e não
                   // a função que decide — assim o `memo` dela compara booleano.
-                  acaoRotulo={acaoRotulo}
-                  mostrarAcao={!!acaoVisivelEm?.(row)}
-                  onAcao={onAcaoLinha}
+                  acaoRotulo={acaoDeLinha?.rotulo}
+                  mostrarAcao={!!acaoDeLinha?.visivelEm(row)}
+                  onAcao={acaoDeLinha?.ao}
                   edicaoLiberada={edicaoLiberada}
                   faixaClara={zebra?.[ri].clara ?? false}
                   novoBloco={zebra?.[ri].novoBloco ?? false}

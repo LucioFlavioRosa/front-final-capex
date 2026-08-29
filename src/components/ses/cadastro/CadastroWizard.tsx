@@ -31,7 +31,7 @@ import {
   escopoInicial,
   opcoesEscopo,
   sistemaPadraoDoFluxo,
-} from '../../../lib/cadastroEscopo'
+} from '../../../domain/escopo'
 import { useCadastro } from './CadastroContext'
 import { Button } from '../../ui/Button'
 import { useToast } from '../../ui/Toaster'
@@ -42,8 +42,8 @@ import { PainelTopologia } from './PainelTopologia'
 import { UsaSistemaCts } from './UsaSistemaCts'
 import { AdicionarCts } from './AdicionarCts'
 import { Unifilar, type DestaqueUnifilar } from './Unifilar'
-import { validarTopologia } from '../../../lib/cadastroValidacao'
-import { ehCts } from '../../../lib/cadastroFluxo'
+import { validarTopologia } from '../../../domain/validacao'
+import { ehCts } from '../../../domain/fluxo'
 
 /**
  * OS BANNERS VERDES "DADOS REAIS" SAÍRAM (07/08/2026), junto da legenda de
@@ -320,6 +320,24 @@ export function CadastroWizard() {
     [dadosDoCadastro],
   )
 
+  /**
+   * A AÇÃO DE LINHA DA ABA — só o Fluxo tem uma, e só para CTS colocada.
+   *
+   * `useMemo` e não literal no JSX: a `AbaGrid` compara esta prop por
+   * referência para poupar o `memo` das linhas, e um objeto nascendo a cada
+   * render devolveria os 300ms por tecla que já custaram caro aqui. As três
+   * dependências são estáveis (`ehFluxo` é booleano, as outras duas são
+   * `useCallback`), então o objeto só troca quando a aba troca.
+   */
+  const acaoDoFluxo = useMemo(
+    () =>
+      ehFluxo
+        ? { rotulo: 'tirar do sistema', visivelEm: ehCtsColocada, ao: aoTirarDoSistema }
+        : undefined,
+    [ehFluxo, ehCtsColocada, aoTirarDoSistema],
+  )
+
+
   const aoMudarUsaCts = useCallback(
     (marcado: boolean) => {
       const ri = (sistemasDoCadastro ?? []).findIndex((r) => r.sistema_id === escopo.sistemaId)
@@ -488,10 +506,7 @@ export function CadastroWizard() {
         onCells={aoEditarCelulas}
         onAviso={aoAvisar}
         edicaoLiberada={editando}
-        // Só a aba do Fluxo tem ação de linha, e só para CTS colocada.
-        acaoRotulo={ehFluxo ? 'tirar do sistema' : undefined}
-        acaoVisivelEm={ehFluxo ? ehCtsColocada : undefined}
-        onAcaoLinha={ehFluxo ? aoTirarDoSistema : undefined}
+        acaoDeLinha={acaoDoFluxo}
         filtroEscopo={filtroEscopo}
         onLimparEscopo={limparEscopo}
         onFocoLinha={ehFluxo ? aoFocarLinha : undefined}

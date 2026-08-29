@@ -11,8 +11,8 @@
 import { beforeAll, describe, it } from 'vitest'
 import { lerCadastro } from '@/lib/cadastroApi'
 import { SCHEMA } from '@/data/cadastroUnidade/schema'
-import { casaComEscopo, escopoInicial, opcoesEscopo } from '@/lib/cadastroEscopo'
-import type { Dados } from '@/lib/cadastroFluxo'
+import { casaComEscopo, escopoInicial, opcoesEscopo } from '@/domain/escopo'
+import type { Dados } from '@/domain/fluxo'
 import type { Row } from '@/data/cadastroUnidade/types'
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'

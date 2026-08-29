@@ -1,9 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState, type ReactNode, useRef} from 'react'
 import { SCHEMA, cidadesDoCadastro, nomeCidade } from '../../../data/cadastroUnidade/schema'
-import { lerCadastro, salvarCadastro } from '../../../lib/cadastroApi'
+import { lerCadastro, salvarCadastro, CadastroSemLeitura } from '../../../lib/cadastroApi'
+import type { BaseDoCadastro } from '../../../lib/cadastroApi'
 import { ApiError } from '../../../lib/api'
-import { garantirFaixaZero } from '../../../lib/cadastroCalc'
-import { espelharColunas } from '../../../lib/cadastroFluxo'
+import { garantirFaixaZero } from '../../../domain/calc'
+import { espelharColunas } from '../../../domain/fluxo'
 import type { UnidadeState } from '../../../data/cadastroUnidade/types'
 
 export type Fase = 'selecao' | 'wizard' | 'revisao' | 'sucesso'
@@ -338,9 +339,32 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
     if (!unidadeId) return
     let cancelado = false
 
+    /**
+     * A BASE MORRE AQUI, ANTES DA LEITURA — e é o que impede diff contra dado
+     * velho.
+     *
+     * Sem esta linha, uma leitura que falha (o 404 abaixo é engolido de
+     * propósito) deixa de pé a base da leitura ANTERIOR. Para outra unidade a
+     * guarda de `unidadeId` dentro de `salvarCadastro` recusa; para a MESMA
+     * unidade relida, ela passa — e o diff rodaria contra um retrato que não
+     * corresponde mais ao que a tela tem, o que em topologia significa mandar
+     * remoção de componente que ninguém tirou.
+     *
+     * O `Map` que existia antes em `cadastroApi` tinha o mesmo furo e nunca foi
+     * limpo; a diferença é que agora a posse é explícita e dá para fechá-lo.
+     * Sem base, `salvar()` levanta `CadastroSemLeitura`, que é a resposta certa:
+     * recusar em vez de adivinhar.
+     */
+    base.current = null
+
     lerCadastro(unidadeId)
       .then((registro) => {
-        if (!cancelado) dispatch({ type: 'HIDRATAR', unidadeId, dados: registro.dados })
+        if (cancelado) return
+        // A base vai para uma REF, e nao para o estado: ela e o payload inteiro
+        // do servidor, nao e desenhada e nao deve disparar render. Guardar por
+        // referencia mantem o custo em zero e a posse explicita.
+        base.current = registro.base
+        dispatch({ type: 'HIDRATAR', unidadeId, dados: registro.dados })
       })
       .catch((erro) => {
         if (erro instanceof ApiError && erro.status === 404) return
@@ -352,6 +376,15 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
     }
   }, [unidadeId])
 
+  /**
+   * A LINHA-BASE do diff — o que o servidor devolveu na ultima leitura.
+   *
+   * Era um `Map` dentro de `cadastroApi`, lido por `salvarCadastro` pelas
+   * costas; agora e um valor de quem le, entregue por quem salva. A ref se
+   * limpa sozinha ao trocar de unidade, porque o efeito de leitura roda de novo
+   * — e `salvarCadastro` ainda confere o `unidadeId` da base antes de gravar.
+   */
+  const base = useRef<BaseDoCadastro | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [salvoEm, setSalvoEm] = useState<Date | null>(null)
   const unidadeAtual = state.unidade
@@ -381,10 +414,12 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
     if (!unidadeAtual) return
     setSalvando(true)
     try {
-      await salvarCadastro(unidadeAtual)
+      if (!base.current) throw new CadastroSemLeitura(unidadeAtual.id)
+      await salvarCadastro(unidadeAtual, base.current)
       setSalvoEm(new Date())
       try {
         const registro = await lerCadastro(unidadeAtual.id)
+        base.current = registro.base
         dispatch({ type: 'HIDRATAR', unidadeId: unidadeAtual.id, dados: registro.dados })
       } catch (erro) {
         console.error('Salvou, mas falhou ao reler o cadastro:', erro)

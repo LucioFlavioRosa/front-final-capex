@@ -21,7 +21,7 @@
 
 import { X } from '@phosphor-icons/react'
 import { Combobox } from '../../ui/Combobox'
-import { type Escopo, type OpcoesEscopo, sistemasVisiveis } from '../../../lib/cadastroEscopo'
+import { type Escopo, type OpcoesEscopo, sistemasVisiveis } from '../../../domain/escopo'
 
 interface Props {
   opcoes: OpcoesEscopo

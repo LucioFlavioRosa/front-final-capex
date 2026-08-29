@@ -10,7 +10,7 @@
  * origem CTS não tinha filtro nenhum — a lista atravessava sistemas.
  */
 import { describe, expect, it } from 'vitest'
-import { opcoesDestino, sistemaDoNo, type Dados } from './cadastroFluxo'
+import { opcoesDestino, sistemaDoNo, type Dados } from './fluxo'
 
 /**
  * Dois sistemas, cada um com sub-bacias, uma CTS e uma ETE.

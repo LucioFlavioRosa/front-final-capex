@@ -25,7 +25,7 @@
  */
 
 import type { AbaDef, Cidade, EscopoAba, FonteCidade, FonteSistema, Row } from '../data/cadastroUnidade/types'
-import { type Dados, type Sistema, sistemaDoNo, sistemasDoFluxo } from './cadastroFluxo'
+import { type Dados, type Sistema, sistemaDoNo, sistemasDoFluxo } from './fluxo'
 
 const txt = (v: unknown): string => String(v ?? '').trim()
 
