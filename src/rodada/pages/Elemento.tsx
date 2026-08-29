@@ -17,6 +17,7 @@ import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
 import { VAZIO, brl, brlMi, dataCurta, inteiro, pct, vazao } from '@/rodada/lib/formato'
 import type { ReactNode } from 'react'
+import { useAbaResultado } from '@/rodada/layout/abaResultado'
 
 /**
  * Nível 5 — a folha da árvore. Sem gráfico.
@@ -28,6 +29,7 @@ import type { ReactNode } from 'react'
  */
 export function Elemento() {
   const { runId, obraId } = useParams<{ runId: string; obraId: string }>()
+  const aba = useAbaResultado()
   const meta = useRunMeta(runId)
   const obra = useObra(runId, obraId)
 
@@ -106,6 +108,8 @@ export function Elemento() {
                 }
               />
 
+              {aba === 'plano' && (
+              <>
               {/* O QUE A OBRA DESTRAVA — promovido de três linhas no meio da
                   ficha para bloco próprio.
                   O domínio já diz por quê: R$ 223 mil é caro ou barato depende
@@ -127,7 +131,20 @@ export function Elemento() {
                 </Cartao>
               </div>
 
-              <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+              </>
+              )}
+
+              {/* A FICHA e QUEM DEPENDE dividiam a linha. Agora cada uma
+                  responde numa aba: a ficha é o que a obra É (Plano), a lista de
+                  dependentes é quem ficou esperando por ela (Por quê).
+
+                  Esta parte eu propus como "precisa de backend" e estava
+                  errado: `o.dependencias` já traz as estruturas que dependem da
+                  obra, com vazão e rateio. O nível 5 tem aba Por quê hoje. */}
+              <div className={aba === 'plano'
+                ? 'mt-4 grid gap-4'
+                : 'mt-4 grid gap-4'}>
+                {aba === 'plano' && (
                 <Cartao titulo="Ficha">
                   <dl className="m-0 grid grid-cols-1 gap-0">
                     <Campo rotulo="Componente" valor={o.componente} />
@@ -163,7 +180,9 @@ export function Elemento() {
                     </p>
                   )}
                 </Cartao>
+                )}
 
+                {aba === 'porque' && (
                 <Cartao
                   tabela
                   titulo="Quem depende desta obra"
@@ -225,6 +244,7 @@ export function Elemento() {
                     </div>
                   )}
                 </Cartao>
+                )}
               </div>
             </>
           )

@@ -19,6 +19,7 @@ import {
   GraficoReceitaSubBacia,
 } from '@/rodada/components/graficos'
 import { useRunMeta, useSubBacia } from '@/rodada/api/queries'
+import { useAbaResultado } from '@/rodada/layout/abaResultado'
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
 import { VAZIO, brlMi, inteiro, vazao } from '@/rodada/lib/formato'
@@ -43,6 +44,7 @@ import type { Explicacao } from '@/rodada/domain/resultado'
 export function SubBacia() {
   const { runId, subId } = useParams<{ runId: string; subId: string }>()
   const meta = useRunMeta(runId)
+  const aba = useAbaResultado()
   const sub = useSubBacia(runId, subId)
 
   useCrumbs(
@@ -134,15 +136,23 @@ export function SubBacia() {
               </div>
             )}
 
-            <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-              <div className="flex min-w-0 flex-col gap-4">
-                <GraficoFluxoEscoamento parcelas={s.cascata} escopo={s.id} />
-                <GraficoReceitaSubBacia anos={s.receita} />
+            {/* A EXPLICAÇÃO DEIXOU DE DIVIDIR A LINHA com os gráficos.
+                Ela era meia coluna no fim de uma página longa; na aba própria é
+                a tela inteira, que é o peso que ela merece — é a única peça do
+                produto que responde "por que ESTA sub-bacia", em português, com
+                o contrafactual do "se fosse ligada agora" ao lado. */}
+            {aba === 'porque' ? (
+              <div className="mt-5">
+                <PainelExplicacao explicacao={s.explicacao} runId={runId} />
               </div>
-              <PainelExplicacao explicacao={s.explicacao} runId={runId} />
-            </div>
+            ) : (
+              <>
+                <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                  <GraficoFluxoEscoamento parcelas={s.cascata} escopo={s.id} />
+                  <GraficoReceitaSubBacia anos={s.receita} />
+                </div>
 
-            <SecaoElementos anos={s.elementosPorAno} />
+                <SecaoElementos anos={s.elementosPorAno} />
 
             <TituloSecao nota="clique para abrir a ficha da obra">Componentes</TituloSecao>
             {s.elementos.length === 0 ? (
@@ -200,6 +210,8 @@ export function SubBacia() {
                   </table>
                 </div>
               </Cartao>
+            )}
+              </>
             )}
           </>
         )}

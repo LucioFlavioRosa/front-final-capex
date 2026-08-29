@@ -1,0 +1,70 @@
+/**
+ * O CONTROLE DAS DUAS ABAS, na casca — e não em cada nível.
+ *
+ * Ele mora aqui por duas razões. A primeira é continuidade: a aba sobrevive à
+ * descida, e quem está caçando o motivo de uma sub-bacia desce três níveis sem
+ * sair do modo. A segunda é de natureza — escolher a aba é dizer QUE PERGUNTA se
+ * está fazendo, e isso pertence à moldura, não ao conteúdo.
+ *
+ * Segmentado, e não as abas de sublinhado que o cadastro usa: lá elas separam
+ * PARTES do mesmo assunto (as tabelas de um bloco), aqui separam dois MODOS de
+ * olhar a mesma rodada. Forma diferente para relação diferente.
+ */
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { lerAba, PARAM_ABA, type AbaResultado } from '@/rodada/layout/abaResultado'
+
+const ABAS: { id: AbaResultado; rotulo: string; descricao: string }[] = [
+  { id: 'plano', rotulo: 'Plano', descricao: 'o que entrou' },
+  { id: 'porque', rotulo: 'Por quê', descricao: 'o que ficou de fora' },
+]
+
+export function AbasResultado() {
+  const [params] = useSearchParams()
+  const { pathname } = useLocation()
+  const atual = lerAba(params)
+
+  /** O mesmo caminho, trocando só a aba. `plano` não escreve parâmetro. */
+  const href = (aba: AbaResultado) => {
+    const novo = new URLSearchParams(params)
+    if (aba === 'plano') novo.delete(PARAM_ABA)
+    else novo.set(PARAM_ABA, aba)
+    const busca = novo.toString()
+    return busca ? `${pathname}?${busca}` : pathname
+  }
+
+  return (
+    <div
+      role="tablist"
+      aria-label="O que olhar nesta rodada"
+      className="mb-5 inline-flex gap-1 rounded-full border border-ink-200 bg-white p-1 shadow-soft"
+    >
+      {ABAS.map((aba) => {
+        const ativa = aba.id === atual
+        return (
+          <Link
+            key={aba.id}
+            to={href(aba.id)}
+            role="tab"
+            aria-selected={ativa}
+            /* `replace` para a troca de aba não encher o histórico: alternar
+               cinco vezes e apertar Voltar deve sair do nível, não desfazer os
+               cinco cliques. Descer de nível continua empilhando normalmente. */
+            replace
+            className={`rounded-full px-4 py-2 text-[13.5px] font-bold transition-colors duration-hover ease-saida ${
+              ativa
+                ? 'bg-water-600 text-white'
+                : 'text-ink-600 hover:bg-water-50 hover:text-ink-900'
+            }`}
+          >
+            {aba.rotulo}
+            <span
+              className={`ml-2 font-normal ${ativa ? 'text-white/70' : 'text-ink-400'}`}
+            >
+              {aba.descricao}
+            </span>
+          </Link>
+        )
+      })}
+    </div>
+  )
+}

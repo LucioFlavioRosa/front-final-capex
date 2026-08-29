@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { Outlet, useNavigate, useParams } from 'react-router-dom'
 import { CrumbsProvider, useCrumbsAtuais } from '@/rodada/state/Crumbs'
 import { ArvoreEscopo } from '@/rodada/layout/ArvoreEscopo'
+import { AbasResultado } from '@/rodada/layout/AbasResultado'
 import { ProvedorContextoTrilho } from '@/components/layout/ContextoCabecalho'
 import { Modal } from '@/components/ui/Modal'
 import { PainelDicionario, ProvedorDicionario } from '@/rodada/components/Dicionario'
@@ -101,6 +102,11 @@ function Interna() {
           <div className="max-w-content mx-auto grid items-start gap-6 px-4 py-8 md:px-6 lg:grid-cols-[286px_minmax(0,1fr)]">
             <ArvoreEscopo runId={runId} />
             <div className="min-w-0">
+              {/* As abas ficam ACIMA do `Outlet`, dentro da coluna de conteúdo:
+                  são da rodada inteira, mas não da árvore de escopo ao lado —
+                  a árvore diz ONDE você está, as abas dizem O QUE você está
+                  perguntando, e as duas coisas se combinam livremente. */}
+              <AbasResultado />
               <Outlet />
             </div>
             <PainelDicionario verbetes={VERBETES} />

@@ -10,6 +10,7 @@ import {
 } from '@/rodada/components/pecas'
 import { SecaoElementos } from '@/rodada/components/SecaoElementos'
 import { SecaoPorQue } from '@/rodada/components/SecaoPorQue'
+import { useAbaResultado } from '@/rodada/layout/abaResultado'
 import {
   GraficoCapexComponente,
   GraficoFluxoEscoamento,
@@ -59,6 +60,7 @@ export function Global() {
   const ebitda = useEbitda(runId)
   const cidades = useCidades(runId)
   const explicabilidade = useExplicabilidade(runId)
+  const aba = useAbaResultado()
   const trilha = useTrilhaCompleta(runId, meta.data?.nome)
 
   return (
@@ -82,12 +84,57 @@ export function Global() {
                   <BotaoExportar />
                 </>
               }
-              destaque={{
-                rotulo: 'VPL do plano',
-                valor: brlMi(m.kpis.vpl),
-                ajuda: 'VPL_PLANO',
-              }}
-              itens={[
+              /**
+               * O NÚMERO EM DESTAQUE MUDA COM A ABA, e é o coração da divisão.
+               *
+               * No Plano a pergunta é "quanto vale", e o VPL responde. Em Por
+               * quê a pergunta é "quanto ficou de fora", e o VPL não responde
+               * nada — repeti-lo ali seria dizer que as duas abas olham a mesma
+               * coisa, que é exatamente o que a separação veio desfazer.
+               */
+              destaque={
+                aba === 'plano'
+                  ? { rotulo: 'VPL do plano', valor: brlMi(m.kpis.vpl), ajuda: 'VPL_PLANO' }
+                  : {
+                      rotulo: 'Sub-bacias fora do plano',
+                      valor: inteiro(m.kpis.subbaciasTotal - m.kpis.subbaciasFaturando),
+                    }
+              }
+              itens={aba === 'porque' ? [
+                {
+                  rotulo: 'Obras não construídas',
+                  valor: deTotal(m.kpis.obrasTotal - m.kpis.obrasConstruidas, m.kpis.obrasTotal),
+                },
+                {
+                  rotulo: 'Metas contratuais não cumpridas',
+                  valor: deTotal(m.kpis.metasTotal - m.kpis.metasAtingidas, m.kpis.metasTotal),
+                },
+                {
+                  rotulo: 'Cobertura que faltou',
+                  valor: pct(100 - m.kpis.coberturaFimPct),
+                },
+                {
+                  /**
+                   * ORÇAMENTO QUE SOBROU — o número mais diagnóstico da aba.
+                   *
+                   * Se sobrou dinheiro, o que travou as sub-bacias NÃO foi o
+                   * orçamento: foi retorno, obrigação de cadeia ou janela. É a
+                   * primeira coisa que alguém pergunta ao ver 1.099 fora, e a
+                   * resposta muda inteiramente o que se faz a seguir — pedir
+                   * mais CAPEX não adianta quando ele não foi gasto.
+                   *
+                   * O mesmo dado no Plano se chama "uso do orçamento" e responde
+                   * outra pergunta ("coube?"). Mesmo número, leitura invertida —
+                   * é o que justifica ele aparecer nas duas abas.
+                   */
+                  rotulo: 'Orçamento que sobrou',
+                  valor: pct(
+                    m.parametros.orcamento
+                      ? 100 - (m.kpis.capexTotal / m.parametros.orcamento) * 100
+                      : null,
+                  ),
+                },
+              ] : [
                 { rotulo: 'CAPEX total', valor: brlMi(m.kpis.capexTotal), ajuda: 'CAPEX_TOTAL' },
                 { rotulo: 'OPEX total', valor: brlMi(m.kpis.opexTotal), ajuda: 'OPEX_TOTAL' },
                 {
@@ -185,13 +232,18 @@ export function Global() {
                 Sem `vazio` — a ausência de dado é o próprio sinal de "sem
                 nada a explicar" (100% fatura), e `SecaoPorQue` já trata isso
                 devolvendo `null`. */}
-            <Estado
-              consulta={explicabilidade}
-              rotulo="Carregando a explicabilidade…"
-              tituloErro="Não foi possível carregar a explicabilidade desta rodada."
-            >
-              {(ex) => <SecaoPorQue dados={ex} runId={runId} />}
-            </Estado>
+            {aba === 'porque' && (
+              <Estado
+                consulta={explicabilidade}
+                rotulo="Carregando a explicabilidade…"
+                tituloErro="Não foi possível carregar a explicabilidade desta rodada."
+              >
+                {(ex) => <SecaoPorQue dados={ex} runId={runId} />}
+              </Estado>
+            )}
+
+            {aba === 'plano' && (
+              <>
 
             {/* "SINTO FALTA DE DUAS INFORMAÇÕES COM DESTAQUE" — itens 3 e 4 do
                 feedback de 26/08, nas leituras corrigidas em 27/08:
@@ -289,6 +341,8 @@ export function Global() {
                 </div>
               )}
             </Estado>
+              </>
+            )}
           </>
         )}
       </Estado>

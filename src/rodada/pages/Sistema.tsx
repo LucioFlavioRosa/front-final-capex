@@ -15,7 +15,10 @@ import {
   ValorOcupacao,
 } from '@/rodada/components/pecas'
 import { SecaoElementos } from '@/rodada/components/SecaoElementos'
-import { useFluxo, useRunMeta } from '@/rodada/api/queries'
+import { SecaoPorQue } from '@/rodada/components/SecaoPorQue'
+import { recortarPorSistema } from '@/rodada/domain/explicabilidade'
+import { useAbaResultado } from '@/rodada/layout/abaResultado'
+import { useExplicabilidadeDaCidade, useFluxo, useRunMeta } from '@/rodada/api/queries'
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
 import { VAZIO, brlMi, deTotal, inteiro, ocupacaoEte, vazao } from '@/rodada/lib/formato'
@@ -34,7 +37,17 @@ import type { EteFluxo, Fluxo, NoFluxo } from '@/rodada/domain/resultado'
 export function Sistema() {
   const { runId, sistemaId } = useParams<{ runId: string; sistemaId: string }>()
   const meta = useRunMeta(runId)
+  const aba = useAbaResultado()
   const fluxo = useFluxo(runId, sistemaId)
+  /**
+   * A explicabilidade do nível 3 vem da CIDADE e é recortada aqui — não há rota
+   * de sistema, e não precisa haver: os itens já trazem `sistemaId`. Só busca
+   * quando a aba pede, para o Plano não pagar por um payload que ele não usa.
+   */
+  const explicabilidade = useExplicabilidadeDaCidade(
+    aba === 'porque' ? runId : undefined,
+    aba === 'porque' ? fluxo.data?.cidadeId : undefined,
+  )
 
   useCrumbs(
     fluxo.data
@@ -70,8 +83,14 @@ export function Sistema() {
                   <BotaoExportar />
                 </>
               }
+              /**
+               * SEM DINHEIRO NESTE NÍVEL, de propósito. O sistema não é unidade
+               * econômica — quem se paga ou não é a sub-bacia, e o CAPEX deste
+               * sistema já aparece na tabela de sistemas da cidade, na linha de
+               * onde a pessoa clicou para chegar aqui. A natureza do nível 3 é
+               * hidráulica: capacidade, vazão, quem escoa para onde.
+               */
               itens={[
-                { rotulo: 'CAPEX construído', valor: brlMi(t.capexConstruido) },
                 { rotulo: 'Sub-bacias', valor: inteiro(t.subbacias) },
                 {
                   /* "FATURANDO" SOZINHO NÃO DIZ DE QUÊ (item 19 de 26/08): num
@@ -100,14 +119,26 @@ export function Sistema() {
               }
             />
 
-            <TituloSecao nota="clique num nó para descer">Fluxo de escoamento</TituloSecao>
-            <Diagrama fluxo={t} runId={runId} />
+            {aba === 'plano' ? (
+              <>
+                <TituloSecao nota="clique num nó para descer">Fluxo de escoamento</TituloSecao>
+                <Diagrama fluxo={t} runId={runId} />
 
-            <div className="mt-4">
-              <TabelaSubBacias nos={t.nos} sistemaNome={t.sistemaNome} runId={runId} />
-            </div>
+                <div className="mt-4">
+                  <TabelaSubBacias nos={t.nos} sistemaNome={t.sistemaNome} runId={runId} />
+                </div>
 
-            <SecaoElementos anos={t.elementosPorAno} />
+                <SecaoElementos anos={t.elementosPorAno} />
+              </>
+            ) : (
+              explicabilidade.data && (
+                <SecaoPorQue
+                  dados={recortarPorSistema(explicabilidade.data, t.sistemaId, t.subbacias)}
+                  runId={runId}
+                  titulo="Sub-bacias deste sistema fora do plano"
+                />
+              )
+            )}
           </>
         )}
       </Estado>

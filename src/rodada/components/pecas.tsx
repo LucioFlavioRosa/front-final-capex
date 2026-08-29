@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/Badge'
 import { BotaoAjuda } from '@/rodada/components/Dicionario'
 import { ocupacaoEte } from '@/rodada/lib/formato'
 import type { SituacaoObra, StatusRodada } from '@/rodada/domain/resultado'
+import { useHrefComAba } from '@/rodada/layout/abaResultado'
 
 /**
  * Peças que os seis níveis de resultado repetem.
@@ -193,9 +194,14 @@ export function Cartao({
  * segunda coisa que se faz nesta tela — e precisa ser alcançável por teclado.
  */
 export function CelulaLink({ to, children }: { to: string; children: ReactNode }) {
+  /* A ABA VIAJA JUNTO na descida. Sem isto, o primeiro clique numa cidade
+     jogaria de volta no Plano quem estava em "Por quê" — e a continuidade é
+     justamente o motivo de a aba morar na URL. Fica aqui, e não em cada
+     chamador, porque todo drill-down passa por este componente. */
+  const comAba = useHrefComAba()
   return (
     <Link
-      to={to}
+      to={comAba(to)}
       className="font-semibold text-water-600 transition-colors duration-hover ease-saida hover:text-water-700 hover:underline"
     >
       {children}
