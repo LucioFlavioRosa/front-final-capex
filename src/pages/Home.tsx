@@ -64,6 +64,11 @@ export function Home() {
   const resumo = unidade?.resumo
   // De `/prontidao`, e nao da unidade — ver o comentario em `homeDados.ts`.
   const completude = data?.completude ?? null
+  const pendencias = data?.pendencias ?? null
+  // Cadastro FECHADO é zero pendência. O percentual só entra quando o servidor
+  // manda um — hoje ele não manda, e era isso que deixava o veredito no ramo
+  // mais fraco para toda unidade.
+  const fechado = completude === 100 || pendencias === 0
   const nomeUnidade = ultima?.unidadeNome ?? unidade?.nome ?? 'a unidade'
 
   /**
@@ -77,9 +82,14 @@ export function Home() {
   if (isError) veredito = 'Não foi possível falar com o servidor.'
   else if (data && !ultima) veredito = 'Nenhuma simulação publicada ainda.'
   else if (ultima) {
-    if (completude === 100) veredito = `A ${nomeUnidade} está pronta para simular.`
-    else if (completude == null) veredito = `A ${nomeUnidade} está cadastrada.`
-    else veredito = `Faltam ${dec(100 - completude, 0)}% do cadastro da ${nomeUnidade}.`
+    if (fechado) veredito = `A ${nomeUnidade} está pronta para simular.`
+    else if (completude != null) veredito = `Faltam ${dec(100 - completude, 0)}% do cadastro da ${nomeUnidade}.`
+    else if (pendencias != null)
+      veredito =
+        pendencias === 1
+          ? `Falta 1 campo no cadastro da ${nomeUnidade}.`
+          : `Faltam ${int(pendencias)} campos no cadastro da ${nomeUnidade}.`
+    else veredito = `A ${nomeUnidade} está cadastrada.`
   }
 
   let detalhe = ''
@@ -131,31 +141,36 @@ export function Home() {
             )}
           </div>
 
-          {/* Os fatos do plano ANTES do desenho, e pequenos: eles são a legenda
-              da forma, não a manchete. Era o inverso — o VPL a 60px e a forma
-              inexistente. */}
-          {kpis && (
-            <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2">
-              <Fato rotulo="VPL" valor={dinheiro(kpis.vpl)} />
-              <Fato
-                rotulo="CAPEX"
-                valor={dinheiro(kpis.capexTotal)}
-                nota={`cobertura ao fim: ${dec(kpis.coberturaFimPct, 1)}%`}
-              />
-              <Fato
-                rotulo="Obras sequenciadas"
-                valor={int(kpis.obrasConstruidas)}
-                nota={`de ${int(kpis.obrasTotal)} candidatas · ${int(kpis.subbaciasFaturando)} de ${int(kpis.subbaciasTotal)} sub-bacias faturando`}
+          {/* FATOS À ESQUERDA, FORMA À DIREITA.
+              Empilhados um sob o outro e com a faixa ao lado, os dois dividem a
+              largura da carta. Estavam em linha, com a faixa embaixo: a carta é
+              larga, a faixa de um plano de dois anos não a preenche, e o que
+              sobrava era um bloco solto no meio de muito branco. Os fatos são a
+              legenda da forma, não a manchete — daí ficarem menores que ela em
+              peso, mas ao lado dela em espaço. */}
+          <div className="mt-4 flex flex-wrap items-start gap-x-10 gap-y-6">
+            {kpis && (
+              <div className="flex flex-col gap-4">
+                <Fato rotulo="VPL" valor={dinheiro(kpis.vpl)} />
+                <Fato
+                  rotulo="CAPEX"
+                  valor={dinheiro(kpis.capexTotal)}
+                  nota={`cobertura ao fim: ${dec(kpis.coberturaFimPct, 1)}%`}
+                />
+                <Fato
+                  rotulo="Obras sequenciadas"
+                  valor={int(kpis.obrasConstruidas)}
+                  nota={`de ${int(kpis.obrasTotal)} candidatas · ${int(kpis.subbaciasFaturando)} de ${int(kpis.subbaciasTotal)} sub-bacias faturando`}
+                />
+              </div>
+            )}
+            <div className="min-w-[280px] flex-1">
+              <HorizonteDoPlano
+                anos={data?.cronograma ?? []}
+                carregando={isPending}
+                runId={ultima?.runId ?? null}
               />
             </div>
-          )}
-
-          <div className="mt-5">
-            <HorizonteDoPlano
-              anos={data?.cronograma ?? []}
-              carregando={isPending}
-              runId={ultima?.runId ?? null}
-            />
           </div>
         </div>
 
@@ -163,15 +178,26 @@ export function Home() {
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-[15px] font-bold tracking-tight text-ink-900">Status do cadastro</h2>
             <span className="font-mono text-xs font-semibold text-aegea-700">
-              {completude == null ? '—' : `${completude}%`}
+              {completude != null
+                ? `${completude}%`
+                : pendencias != null
+                  ? pendencias === 0
+                    ? 'completo'
+                    : `${int(pendencias)} pendências`
+                  : '—'}
             </span>
           </div>
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink-200">
-            <div
-              className="h-full origin-left animate-grow rounded-full bg-water-600"
-              style={{ width: `${completude ?? 0}%` }}
-            />
-          </div>
+          {/* A BARRA SÓ EXISTE COM PERCENTUAL. Sem ele ela ficava zerada e
+              parecia defeito — uma barra vazia afirma "0% preenchido", que é
+              falso; o certo é não afirmar nada. */}
+          {completude != null && (
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink-200">
+              <div
+                className="h-full origin-left animate-grow rounded-full bg-water-600"
+                style={{ width: `${completude}%` }}
+              />
+            </div>
+          )}
           <div className="mt-4 flex flex-col">
             <StatusRow label="Sub-bacias" value={resumo?.subBacias} />
             <StatusRow label="ETEs" value={resumo?.etes} />
@@ -180,7 +206,7 @@ export function Home() {
           </div>
           {/* Chip âmbar mantém a cor semântica no fundo/borda; o texto usa amber-800 para
               chegar a 6.4:1 — `text-warning` sobre `bg-warning/10` fica em 2.9:1. */}
-          {completude != null && completude < 100 && (
+          {!fechado && (completude != null || pendencias != null) && (
             <div className="mt-3.5 flex items-start gap-2 rounded-[9px] border border-warning/30 bg-warning/10 px-3 py-2.5">
               <Warning weight="fill" className="mt-0.5 flex-none text-amber-700" />
               <span className="text-xs text-amber-800">

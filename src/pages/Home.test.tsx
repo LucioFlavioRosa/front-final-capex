@@ -28,18 +28,28 @@ beforeAll(() => servidor.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => servidor.resetHandlers())
 afterAll(() => servidor.close())
 
-/** A completude não está na fixture; cada teste diz a sua. */
-function comCompletude(completude: number) {
+/**
+ * A prontidão da unidade. `pendencias` é o que o endpoint devolve de verdade;
+ * `completude` é opcional e hoje NÃO vem — por isso os dois viajam separados
+ * aqui, e `pendencias: 0` sozinho já significa cadastro fechado.
+ */
+function comProntidao({ pendencias, completude }: { pendencias: number; completude?: number }) {
   servidor.use(
     http.get('/api/unidades/:id/prontidao', () =>
-      HttpResponse.json({ unidadeId: '56', unidadeNome: 'ÁGUAS DO RIO 01', pendencias: 0, faltando: [], completude }),
+      HttpResponse.json({
+        unidadeId: '56',
+        unidadeNome: 'ÁGUAS DO RIO 01',
+        pendencias,
+        faltando: [],
+        ...(completude === undefined ? {} : { completude }),
+      }),
     ),
   )
 }
 
 describe('Home', () => {
   it('a MANCHETE é o veredito do trabalho, não a saudação', async () => {
-    comCompletude(94)
+    comProntidao({ pendencias: 38, completude: 94 })
     renderizar(<Home />)
 
     // O `h1` já existe durante o carregamento (com "Carregando o histórico…"),
@@ -53,7 +63,7 @@ describe('Home', () => {
   })
 
   it('cadastro fechado vira uma frase que autoriza, e não um número', async () => {
-    comCompletude(100)
+    comProntidao({ pendencias: 0 })
     renderizar(<Home />)
     await waitFor(() =>
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('está pronta para simular'),
@@ -61,7 +71,7 @@ describe('Home', () => {
   })
 
   it('o horizonte do plano traz um item por ano, legível sem enxergar a barra', async () => {
-    comCompletude(94)
+    comProntidao({ pendencias: 38, completude: 94 })
     renderizar(<Home />)
 
     // A lista É a tabela equivalente: cada ano carrega contagem e CAPEX no nome
@@ -71,6 +81,18 @@ describe('Home', () => {
     expect(anos).toHaveLength(1) // a fixture do cronograma tem um ano
     expect(lista).toHaveTextContent('2028')
     expect(lista).toHaveTextContent('2 obras')
+  })
+
+  it('sem percentual, o veredito sai das PENDÊNCIAS — que é o que o servidor manda', async () => {
+    // `/prontidao` não devolve `completude`. Enquanto não devolver, contar
+    // campos que faltam responde melhor que "está cadastrada", que não diz nada.
+    comProntidao({ pendencias: 38 })
+    renderizar(<Home />)
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+        'Faltam 38 campos no cadastro',
+      ),
+    )
   })
 
   it('sem rodada publicada, o horizonte convida em vez de mostrar quadro vazio', async () => {

@@ -60,7 +60,20 @@ interface Unidade {
  * consulta que ele já faz para as pendências — não custa ida a mais ao banco.
  */
 interface Prontidao {
-  completude: number
+  /**
+   * QUANTOS CAMPOS FALTAM. É o que o endpoint devolve de verdade.
+   *
+   * Havia um `completude: number` aqui, e ele NUNCA CHEGOU: `/prontidao` serve
+   * `pendencias` e `porGrupo`, não um percentual. O efeito era mudo — a Home
+   * caía no ramo "não sei o percentual" para toda unidade, mostrando `—` e uma
+   * barra de progresso zerada que parece defeito, e o título dizia "está
+   * cadastrada" mesmo para unidade com cadastro fechado.
+   *
+   * `completude` fica declarado como OPCIONAL porque o backend pode passar a
+   * mandá-lo; enquanto não mandar, quem responde é `pendencias`.
+   */
+  pendencias: number
+  completude?: number
 }
 
 export interface HomeDados {
@@ -68,8 +81,10 @@ export interface HomeDados {
   ultima: RunResumo | null
   meta: RunMeta | null
   unidade: Unidade | null
-  /** Percentual do cadastro preenchido, de `/prontidao`. `null` se não veio. */
+  /** Percentual do cadastro preenchido — só quando o servidor manda. */
   completude: number | null
+  /** Campos que faltam para a unidade poder simular. Zero é cadastro fechado. */
+  pendencias: number | null
   /** Quantas rodadas existem no histórico — o rodapé do card. */
   total: number
   /**
@@ -88,6 +103,7 @@ const VAZIO: HomeDados = {
   meta: null,
   unidade: null,
   completude: null,
+  pendencias: null,
   total: 0,
   cronograma: [],
 }
@@ -113,7 +129,8 @@ export function useHome() {
         ultima,
         meta,
         unidade,
-        completude: prontidao.completude,
+        completude: prontidao.completude ?? null,
+        pendencias: prontidao.pendencias ?? null,
         total: runs.length,
         cronograma: cronograma.anos,
       }
