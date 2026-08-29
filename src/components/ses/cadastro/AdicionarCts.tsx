@@ -1,6 +1,6 @@
 import { useId, useMemo, useState } from 'react'
 import type { Row } from '../../../data/cadastroUnidade/types'
-import { tipoDoNo, type Dados } from '../../../lib/cadastroFluxo'
+import { ehCts, type Dados } from '../../../lib/cadastroFluxo'
 
 /**
  * ADICIONAR UMA CTS AO SISTEMA.
@@ -53,7 +53,7 @@ export function AdicionarCts({
   const id = useId()
 
   const disponiveis = useMemo(
-    () => topo.filter((t) => !t.sistema_id && tipoDoNo(dados, t.componente_sistema_id ?? '') === 'cts'),
+    () => topo.filter((t) => !t.sistema_id && ehCts(dados, t)),
     [topo, dados],
   )
 

@@ -356,12 +356,39 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
   const [salvoEm, setSalvoEm] = useState<Date | null>(null)
   const unidadeAtual = state.unidade
 
+  /**
+   * SALVA E RELÊ — as duas coisas, e a segunda não é zelo.
+   *
+   * Há dado que só o servidor sabe montar, e a CTS recém-colocada é o caso: o
+   * botão "Adicionar CTS" escreve o `sistema_id` na linha do Fluxo, e mais nada,
+   * porque a FICHA dela (`cts-operacional`) vem de `GET /unidades/{u}/cts`, que
+   * serve as CTS DA UNIDADE — e uma CTS livre não era de unidade nenhuma quando
+   * a tela carregou.
+   *
+   * Sem reler, a CTS ficava meio existente na tela depois de salva: sem tipo na
+   * coluna `componente_tipo` (que `tipoDoNo` deriva da aba onde há ficha), fora
+   * da lista de destinos dos outros componentes (`opcoesDestino` monta a lista
+   * a partir de `cts-operacional`) e ausente da aba "Dados da CTS", que é
+   * justamente onde se ia preencher o resto dela. Três sintomas, uma causa.
+   *
+   * A releitura é a MESMA de `lerCadastro` na carga, e por isso não inventa
+   * nada: o que volta é o que o servidor tem, agora com a CTS dentro da unidade.
+   *
+   * Falha na releitura NÃO desfaz o salvo — ele já aconteceu. O estado fica como
+   * estava e a próxima carga resolve; avisar "não salvou" seria mentira.
+   */
   const salvar = useCallback(async () => {
     if (!unidadeAtual) return
     setSalvando(true)
     try {
       await salvarCadastro(unidadeAtual)
       setSalvoEm(new Date())
+      try {
+        const registro = await lerCadastro(unidadeAtual.id)
+        dispatch({ type: 'HIDRATAR', unidadeId: unidadeAtual.id, dados: registro.dados })
+      } catch (erro) {
+        console.error('Salvou, mas falhou ao reler o cadastro:', erro)
+      }
     } finally {
       // No finally, e não depois do await: sem isso uma falha deixaria o botão
       // travado em "Salvando…" para sempre, sem caminho de volta a não ser

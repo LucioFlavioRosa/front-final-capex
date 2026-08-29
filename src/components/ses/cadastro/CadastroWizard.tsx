@@ -43,7 +43,7 @@ import { UsaSistemaCts } from './UsaSistemaCts'
 import { AdicionarCts } from './AdicionarCts'
 import { Unifilar, type DestaqueUnifilar } from './Unifilar'
 import { validarTopologia } from '../../../lib/cadastroValidacao'
-import { tipoDoNo } from '../../../lib/cadastroFluxo'
+import { ehCts } from '../../../lib/cadastroFluxo'
 
 /**
  * OS BANNERS VERDES "DADOS REAIS" SAÍRAM (07/08/2026), junto da legenda de
@@ -169,12 +169,16 @@ export function CadastroWizard() {
   const ehFluxo = aba.key === ABA_DO_FLUXO
 
   /**
-   * Oculto por ora (pedido de 21/08): não vamos usar CTS no fluxo de
-   * escoamento no momento. A lógica de `UsaSistemaCts`/`AdicionarCts`
-   * (`aoMudarUsaCts`, `aoAdicionarCts`, `ctsDoSistema` etc.) fica intacta —
-   * é só a UI que sai, para religar bastando trocar esta flag.
+   * A CTS APARECE NO FLUXO. Ficou oculta entre 21 e 29/08 por pedido daquela
+   * data ("não vamos usar CTS no fluxo de escoamento no momento") — a lógica
+   * seguiu intacta o tempo todo, era só a UI que saía.
+   *
+   * Voltou porque a regra que ela expõe é a que se quer usar: marcada, a caixa
+   * "usa sistema de CTS" limita o sistema a UMA CTS; desmarcada, ele aceita
+   * quantas forem colocadas. Sem esses dois controles não há onde marcar nem
+   * onde adicionar, e a regra existe só no servidor.
    */
-  const mostrarCtsNoFluxo: boolean = false
+  const mostrarCtsNoFluxo: boolean = true
 
   /**
    * EDITAR É UM ATO DECLARADO, e não o estado natural da tela.
@@ -261,9 +265,7 @@ export function CadastroWizard() {
     // Pelo TIPO do componente, e nao pela aba `cts-operacional`: aquela lista as
     // CTS cadastradas, entao usa-la para reconhecer uma CTS seria circular.
     return (topoDoCadastro ?? []).filter(
-      (t) =>
-        t.sistema_id === escopo.sistemaId
-        && tipoDoNo(dadosDoCadastro, t.componente_sistema_id ?? '') === 'cts',
+      (t) => t.sistema_id === escopo.sistemaId && ehCts(dadosDoCadastro, t),
     ).length
   }, [topoDoCadastro, dadosDoCadastro, escopo.sistemaId])
 
@@ -314,10 +316,7 @@ export function CadastroWizard() {
 
   /** A ação de linha só existe para CTS que ESTÁ num sistema. */
   const ehCtsColocada = useCallback(
-    (row: Row) =>
-      !!dadosDoCadastro
-      && !!row.sistema_id
-      && tipoDoNo(dadosDoCadastro, row.componente_sistema_id ?? '') === 'cts',
+    (row: Row) => !!dadosDoCadastro && !!row.sistema_id && ehCts(dadosDoCadastro, row),
     [dadosDoCadastro],
   )
 
