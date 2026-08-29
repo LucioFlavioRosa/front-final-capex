@@ -387,39 +387,46 @@ function Desenho({
         role="img"
         aria-label="Representação unifilar do fluxo de escoamento do sistema"
       >
-        <defs>
-          <marker id="uni-seta" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-            <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8" />
-          </marker>
-          <marker id="uni-seta-foco" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-            <path d="M0,0 L10,5 L0,10 z" fill="rgb(var(--color-primary))" />
-          </marker>
-        </defs>
-
+        {/* SEM PONTA DE SETA. O desenho é estritamente de cima para baixo — o
+            nível de cada caixa vem da ordenação topológica, e toda ligação desce
+            —, então a direção já está dita pelo layout. Numa linha fina a seta
+            ajudava; num cano de 11px ela vira um bico deformado na juntada. */}
         {uni.arestas.map((a) => {
-          const largura = espessura ? espessura(a.vazao) : 1.75
-          const semDado = a.vazao == null
+          const largura = espessura ? espessura.largura(a.vazao) : 3
+          const cor = espessura ? espessura.cor(a.vazao) : COR_SEM_DADO
           const de = pos.get(a.de)
           const para = pos.get(a.para)
           if (!de || !para) return null
-          // A seta da linha em foco: é a que a célula "destino" daquela linha
-          // acabou de escolher, então ela é o dado que está sendo editado.
+          // A ligação em foco é a que a célula "destino" daquela linha acabou de
+          // escolher — o dado que está sendo editado agora.
           const focada = !!destaque && a.de === destaque.origem && a.para === destaque.destino
           const x1 = de.x + caixa.w / 2
           const y1 = de.y + BOX_H
           const x2 = para.x + caixa.w / 2
           const y2 = para.y
           const meio = (y1 + y2) / 2
+          const curva = `M${x1},${y1} C${x1},${meio} ${x2},${meio} ${x2},${y2}`
           return (
+            <g key={`${a.de}->${a.para}`}>
+              {/* A CAMISA DO CANO. Dois traços na mesma curva: este, mais largo e
+                  na cor do painel, e o de cima com a cor da vazão. Serve para o
+                  cruzamento — sem ele, dois canos que se cruzam viram uma mancha
+                  só e não dá para seguir nenhum dos dois com o olho. É o mesmo
+                  recurso de mapa de metrô. Em foco a camisa vira navy, e aí ela
+                  também é o anel de seleção. */}
+              <path
+                d={curva}
+                fill="none"
+                stroke={focada ? 'rgb(var(--color-primary))' : '#f8fafc'}
+                strokeWidth={largura + (focada ? 5 : 3.5)}
+                strokeLinecap="round"
+              />
             <path
-              key={`${a.de}->${a.para}`}
-              d={`M${x1},${y1} C${x1},${meio} ${x2},${meio} ${x2},${y2}`}
+              d={curva}
               fill="none"
-              stroke={focada ? 'rgb(var(--color-primary))' : '#94a3b8'}
-              strokeWidth={focada ? Math.max(largura, 2.75) : largura}
-              strokeDasharray={semDado ? '5 4' : undefined}
+              stroke={cor}
+              strokeWidth={largura}
               strokeLinecap="round"
-              markerEnd={focada ? 'url(#uni-seta-foco)' : 'url(#uni-seta)'}
             >
               {/* O número por trás da espessura. Espessura ordena; só o valor
                   responde "quanto", e o desenho não tem espaço para rotular
@@ -436,6 +443,7 @@ function Desenho({
                 {` · ${a.de} → ${a.para}`}
               </title>
             </path>
+            </g>
           )
         })}
 
@@ -526,41 +534,53 @@ function Desenho({
 }
 
 /**
- * A ESPESSURA DA LIGAÇÃO É A VAZÃO QUE PASSA POR ELA.
+ * AS LIGAÇÕES SÃO CANOS, e o cano diz quanta água passa por ele.
  *
- * O desenho mostrava toda ligação com o mesmo traço, e com isso dizia que todas
- * carregam a mesma coisa — o que é falso e esconde exatamente o que importa
- * olhar num fluxo de escoamento: onde está o volume. Um tronco que recebe doze
- * sub-bacias e um ramo de cabeceira desenhados iguais fazem o desenho parecer um
- * organograma.
+ * Duas codificações do MESMO número, de propósito: a espessura e a cor. Chama-se
+ * codificação redundante, e não é desperdício — a espessura ordena bem quando as
+ * linhas estão lado a lado, e a cor sobrevive quando estão longe uma da outra ou
+ * quando a diferença de largura é pequena demais para o olho.
  *
- * LINEAR na largura, e não em área nem em raiz: é a convenção de diagrama de
- * fluxo (Sankey), e é a que deixa comparar duas linhas lado a lado sem conversão
- * mental. O piso de 1,6px existe porque uma vazão pequena ainda precisa ser
- * clicável e visível; o teto de 9px porque acima disso a linha compete com as
- * caixas e o desenho vira mancha.
+ * A RAMPA É A SEQUENCIAL DA CASA (`--viz-seq-1..5`, azul claro → azul de marca),
+ * a mesma que o resto do produto usa para magnitude. Uma matiz só, do claro ao
+ * escuro: é a regra de escala sequencial, e arco-íris aqui inventaria categorias
+ * onde só existe "mais" e "menos".
  *
- * VAZÃO DESCONHECIDA NÃO É VAZÃO ZERO, e por isso não vira a linha mais fina:
- * ela sai TRACEJADA, na largura do piso. Sem essa distinção, um cadastro pela
- * metade pareceria um sistema com muitos ramos irrelevantes — e a pessoa
- * concluiria sobre o desenho o oposto do que o dado permite.
+ * NÃO HÁ MAIS TRACEJADO. A vazão desconhecida virava linha pontilhada, e o
+ * pontilhado disputava atenção com o desenho e ainda parecia defeito. Ela agora é
+ * um cano CINZA, cheio, na largura do piso: fora da rampa azul, ninguém o
+ * confunde com pouca vazão — e é a mesma leitura sem o ruído.
+ *
+ * LINEAR na largura (convenção de diagrama de fluxo). O piso de 2px existe para
+ * o cano pequeno continuar clicável; o teto de 11px porque acima disso ele
+ * compete com as caixas.
  */
-const TRACO_MIN = 1.6
-const TRACO_MAX = 9
-const TRACO_SEM_DADO = 1.3
+const CANO_MIN = 2
+const CANO_MAX = 11
+const CANO_SEM_DADO = 2.5
+/** A rampa sequencial da casa — `--viz-seq-1..5` em `index.css`. */
+const RAMPA = ['#b8c3ed', '#8a9ce1', '#5c75d5', '#2e4ec9', '#01209b']
+/** Fora da rampa de propósito: "não sei" não é um degrau de "quanto". */
+const COR_SEM_DADO = '#cbd5e1'
 
-function escalaDeVazao(arestas: { vazao: number | null }[]) {
+interface EscalaDoCano {
+  largura: (v: number | null) => number
+  cor: (v: number | null) => string
+}
+
+function escalaDeVazao(arestas: { vazao: number | null }[]): EscalaDoCano | null {
   const conhecidas = arestas.map((a) => a.vazao).filter((v): v is number => v != null && v > 0)
   if (!conhecidas.length) return null
   const min = Math.min(...conhecidas)
   const max = Math.max(...conhecidas)
-  return (v: number | null): number => {
-    if (v == null || v <= 0) return TRACO_SEM_DADO
-    // Sistema em que todas as ligações carregam o mesmo: espessura média, e não
-    // a máxima — a máxima afirmaria "esta é a mais grossa do sistema", e não há
-    // "mais grossa" quando são todas iguais.
-    if (max === min) return (TRACO_MIN + TRACO_MAX) / 2
-    return TRACO_MIN + ((v - min) / (max - min)) * (TRACO_MAX - TRACO_MIN)
+  /** 0 quando é a menor vazão do sistema, 1 quando é a maior. */
+  const posicao = (v: number) => (max === min ? 0.5 : (v - min) / (max - min))
+  return {
+    largura: (v) => (v == null || v <= 0 ? CANO_SEM_DADO : CANO_MIN + posicao(v) * (CANO_MAX - CANO_MIN)),
+    cor: (v) =>
+      v == null || v <= 0
+        ? COR_SEM_DADO
+        : RAMPA[Math.min(RAMPA.length - 1, Math.round(posicao(v) * (RAMPA.length - 1)))],
   }
 }
 
@@ -587,23 +607,29 @@ function Legenda() {
         </li>
       ))}
 
-      {/* A ESPESSURA É UMA CODIFICAÇÃO, e codificação sem legenda é ornamento:
-          quem não sabe que a linha grossa quer dizer mais vazão lê o desenho
-          como estilo. As duas amostras mostram a escala; a tracejada mostra que
-          "não sei" tem marca própria, e não é o mesmo que "pouco". */}
+      {/* O CANO É UMA CODIFICAÇÃO, e codificação sem legenda é ornamento: quem
+          não sabe que o cano grosso e escuro quer dizer mais vazão lê o desenho
+          como estilo. A amostra mostra a rampa inteira, do menor ao maior do
+          SISTEMA — a escala é relativa a ele, não à unidade. */}
       <li className="flex items-center gap-1.5 text-[11px] text-ink-500">
-        <span className="inline-flex w-[16px] flex-col justify-center gap-[3px]" aria-hidden="true">
-          <span className="h-[1.5px] w-full rounded-full bg-ink-400" />
-          <span className="h-[5px] w-full rounded-full bg-ink-400" />
+        <span className="inline-flex items-center gap-[2px]" aria-hidden="true">
+          {RAMPA.map((c, i) => (
+            <span
+              key={c}
+              className="rounded-full"
+              style={{ background: c, width: 6, height: 2 + i * 2 }}
+            />
+          ))}
         </span>
-        espessura = vazão que passa
+        cano = vazão que passa (do menor ao maior do sistema)
       </li>
       <li className="flex items-center gap-1.5 text-[11px] text-ink-500">
         <span
-          className="h-0 w-[16px] border-t-[1.5px] border-dashed border-ink-400"
+          className="rounded-full"
+          style={{ background: COR_SEM_DADO, width: 16, height: 2.5 }}
           aria-hidden="true"
         />
-        vazão ainda não preenchida
+        sem vazão informada
       </li>
     </ul>
   )
