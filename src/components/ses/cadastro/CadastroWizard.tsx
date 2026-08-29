@@ -114,6 +114,44 @@ const MIN_LINHAS_PARA_ESCOPO = 15
  */
 const CROMO_DA_GRADE = 20
 
+/**
+ * QUANTO TEXTO CABE ANTES DA TABELA.
+ *
+ * A descrição de algumas abas tem oito linhas — a do Fluxo explica o que é cada
+ * linha, o que é o destino, de onde vêm os nomes, o que o desenho ao lado mostra
+ * e como escolher o sistema. É bom texto, e é texto de manual: some com a
+ * segunda leitura, e a partir daí só empurra a grade para baixo. Somado ao
+ * painel de problemas e à barra de escopo, a superfície de TRABALHO da aba
+ * começava abaixo da dobra.
+ *
+ * Então a explicação continua ali, recolhida em duas linhas, e abre a pedido.
+ * Descrição curta não ganha controle nenhum — botão que não faz falta é ruído.
+ */
+const DESC_LONGA = 220
+
+function DescricaoDaAba({ texto }: { texto: string }) {
+  const [aberta, setAberta] = useState(false)
+  const longa = texto.length > DESC_LONGA
+  return (
+    <div className="mt-1 max-w-3xl">
+      <p className={`text-[12.5px] text-ink-500 ${longa && !aberta ? 'line-clamp-2' : ''}`}>
+        {texto}
+      </p>
+      {longa && (
+        <button
+          type="button"
+          onClick={() => setAberta((v) => !v)}
+          aria-expanded={aberta}
+          className="mt-1 text-[12px] font-semibold text-water-600 underline-offset-2 hover:underline"
+        >
+          {aberta ? 'menos' : 'como funciona esta aba'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+
 export function CadastroWizard() {
   const {
     state, irFase, setCell, setCells, addRow, delRow, importarPlanilha,
@@ -818,7 +856,7 @@ export function CadastroWizard() {
                 <aba.icone weight="fill" className="text-water-600" />
                 {aba.titulo}
               </h2>
-              <p className="mt-1 max-w-3xl text-[12.5px] text-ink-500">{aba.desc}</p>
+              <DescricaoDaAba texto={aba.desc} />
             </div>
 
             {/* A BARRA DE ESCOPO fica DENTRO do cartão, entre a descrição e o

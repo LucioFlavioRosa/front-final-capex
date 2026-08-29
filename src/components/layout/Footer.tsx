@@ -36,7 +36,12 @@ export function Footer() {
 
   return (
     <footer className="footer-surface mt-auto">
-      <div className="max-w-content mx-auto flex flex-wrap items-start gap-x-16 gap-y-12 px-4 py-20 md:px-6">
+      {/* py-10, e nao py-20. Esta e uma ferramenta interna: ninguem navega por
+          rodape institucional, e com 80px em cima e embaixo ele ocupava ~40% da
+          viewport em toda tela de conteudo curto — a selecao de unidade termina
+          aos 510px e o rodape ia dos 520 aos 950. Generosidade de landing page
+          num lugar onde o assunto e a tabela acima dele. */}
+      <div className="max-w-content mx-auto flex flex-wrap items-start gap-x-12 gap-y-8 px-4 py-10 md:px-6">
         <div
           aria-label="aegea"
           role="img"
@@ -44,7 +49,7 @@ export function Footer() {
         />
 
         {colunas.map((coluna) => (
-          <div key={coluna.titulo} className="flex flex-col gap-6">
+          <div key={coluna.titulo} className="flex flex-col gap-3.5">
             <h2 className="text-[13.5px] font-extrabold uppercase tracking-[.02em] text-white">
               {coluna.titulo}
             </h2>

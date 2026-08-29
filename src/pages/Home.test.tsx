@@ -1,111 +1,67 @@
 /**
- * A HIERARQUIA DA HOME — o que é manchete e o que é cortesia.
+ * A HOME NÃO BUSCA DADO — e é isso que o teste prende.
  *
- * Até 29/08/2026 o maior e mais pesado texto da página era "Olá, Fulano.", e a
- * resposta que a pessoa veio buscar ficava no parágrafo abaixo. Estes testes
- * prendem a inversão, porque ela é exatamente o tipo de coisa que volta sozinha
- * na próxima mexida: trocar um `<h1>` por um `<div>` não quebra build, não
- * quebra tipo, e ninguém percebe até alguém abrir a tela.
+ * Ela já mostrou VPL, horizonte do plano e status do cadastro, e para isso fazia
+ * quatro chamadas de API antes de desenhar. A decisão de 29/08/2026 foi tirar
+ * tudo: esse dado tem casa própria, e a entrada não é lugar de resumo.
  *
- * O que se afirma aqui é sobre PAPEL, não sobre pixel: quem é o `h1`. Tamanho e
- * peso são classes do Tailwind e mudam de tempos em tempos; o papel não deve.
+ * O que se afirma aqui é o CONTRATO da tela, não a aparência: nenhuma rede, e as
+ * três portas de entrada presentes com destino certo. Se alguém reintroduzir um
+ * `useQuery` aqui — que é o jeito natural de "só mostrar um numerozinho" — o
+ * primeiro teste fica vermelho antes de a tela chegar em ninguém.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { http, HttpResponse } from 'msw'
-import { screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { screen } from '@testing-library/react'
 import { renderizar } from '@/testes/render'
-import { servidor } from '@/testes/servidor'
+import { NAV_ITEMS } from '@/config/navigation'
 
-// A Home só usa o nome de quem entrou; montar o AuthProvider de verdade traria
-// MSAL para um teste que não é sobre login.
 vi.mock('@/auth/AuthContext', () => ({
   useAuth: () => ({ user: { name: 'Lúcio Flávio', email: 'lucio@exemplo.com' } }),
 }))
 
 const { Home } = await import('./Home')
 
-beforeAll(() => servidor.listen({ onUnhandledRequest: 'error' }))
-afterEach(() => servidor.resetHandlers())
-afterAll(() => servidor.close())
-
-/**
- * A prontidão da unidade. `pendencias` é o que o endpoint devolve de verdade;
- * `completude` é opcional e hoje NÃO vem — por isso os dois viajam separados
- * aqui, e `pendencias: 0` sozinho já significa cadastro fechado.
- */
-function comProntidao({ pendencias, completude }: { pendencias: number; completude?: number }) {
-  servidor.use(
-    http.get('/api/unidades/:id/prontidao', () =>
-      HttpResponse.json({
-        unidadeId: '56',
-        unidadeNome: 'ÁGUAS DO RIO 01',
-        pendencias,
-        faltando: [],
-        ...(completude === undefined ? {} : { completude }),
-      }),
-    ),
-  )
-}
+let chamadas: string[] = []
+beforeEach(() => {
+  chamadas = []
+  vi.stubGlobal('fetch', (...args: unknown[]) => {
+    chamadas.push(String(args[0]))
+    return Promise.reject(new Error('a Home não deve buscar nada'))
+  })
+})
+afterEach(() => vi.unstubAllGlobals())
 
 describe('Home', () => {
-  it('a MANCHETE é o veredito do trabalho, não a saudação', async () => {
-    comProntidao({ pendencias: 38, completude: 94 })
+  it('não faz nenhuma chamada de rede', async () => {
     renderizar(<Home />)
+    await screen.findByRole('heading', { level: 1 })
+    expect(chamadas).toEqual([])
+  })
 
-    // O `h1` já existe durante o carregamento (com "Carregando o histórico…"),
-    // então esperar o PAPEL aparecer não basta — espera-se o veredito.
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Faltam 6% do cadastro'),
-    )
-    // A saudação continua na tela — mas como cortesia, e não como manchete.
+  it('a manchete diz o que o produto faz, e a saudação é cortesia', async () => {
+    renderizar(<Home />)
+    const titulo = await screen.findByRole('heading', { level: 1 })
+    expect(titulo).toHaveTextContent('Em que ordem construir')
+    expect(titulo).not.toHaveTextContent('Olá')
     expect(screen.getByText('Olá, Lúcio')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 1 })).not.toHaveTextContent('Olá')
   })
 
-  it('cadastro fechado vira uma frase que autoriza, e não um número', async () => {
-    comProntidao({ pendencias: 0 })
+  it('as três portas de entrada estão lá, cada uma para a sua rota', () => {
     renderizar(<Home />)
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('está pronta para simular'),
-    )
+    for (const item of NAV_ITEMS) {
+      const link = screen.getByRole('link', { name: new RegExp(item.title, 'i') })
+      expect(link).toHaveAttribute('href', item.path)
+    }
   })
 
-  it('o horizonte do plano traz um item por ano, legível sem enxergar a barra', async () => {
-    comProntidao({ pendencias: 38, completude: 94 })
+  it('as fotos das ETEs têm texto alternativo que descreve a cena', () => {
+    // `alt` vazio deixaria a arte muda para leitor de tela; `alt="foto"` seria
+    // pior, porque ocupa o lugar da descrição sem descrever.
     renderizar(<Home />)
-
-    // A lista É a tabela equivalente: cada ano carrega contagem e CAPEX no nome
-    // acessível. Sem isso o quadro seria uma imagem muda para leitor de tela.
-    const lista = await screen.findByRole('list', { name: /Obras por ano do plano/i })
-    const anos = within(lista).getAllByRole('listitem')
-    expect(anos).toHaveLength(1) // a fixture do cronograma tem um ano
-    expect(lista).toHaveTextContent('2028')
-    expect(lista).toHaveTextContent('2 obras')
-  })
-
-  it('sem percentual, o veredito sai das PENDÊNCIAS — que é o que o servidor manda', async () => {
-    // `/prontidao` não devolve `completude`. Enquanto não devolver, contar
-    // campos que faltam responde melhor que "está cadastrada", que não diz nada.
-    comProntidao({ pendencias: 38 })
-    renderizar(<Home />)
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-        'Faltam 38 campos no cadastro',
-      ),
-    )
-  })
-
-  it('sem rodada publicada, o horizonte convida em vez de mostrar quadro vazio', async () => {
-    servidor.use(http.get('/api/runs', () => HttpResponse.json([])))
-    renderizar(<Home />)
-
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-        'Nenhuma simulação publicada ainda',
-      ),
-    )
-    expect(
-      screen.getByText(/O horizonte aparece aqui depois da primeira simulação/i),
-    ).toBeInTheDocument()
+    const fotos = screen.getAllByRole('img')
+    expect(fotos).toHaveLength(2)
+    for (const foto of fotos) {
+      expect(foto.getAttribute('alt') ?? '').toMatch(/estação de tratamento/i)
+    }
   })
 })
