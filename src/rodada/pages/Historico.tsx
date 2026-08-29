@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Star, MagnifyingGlass } from '@phosphor-icons/react'
+import { Plus, Star, MagnifyingGlass, ArrowsLeftRight } from '@phosphor-icons/react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { useToast } from '@/components/ui/Toaster'
 import { Estado } from '@/rodada/components/Estado'
 import { DetalhesDaSimulacao } from '@/rodada/components/DetalhesDaSimulacao'
+import { CompararSimulacoes } from '@/rodada/components/CompararSimulacoes'
 import { Aviso, Tag, TagStatus, Tile } from '@/rodada/components/pecas'
 import {
   useAlternarFavorita,
@@ -116,6 +117,30 @@ function Lista({ runs }: { runs: RunResumo[] }) {
   const [soFavoritas, setSoFavoritas] = useState(false)
   const [selecionadaId, setSelecionadaId] = useState<string | null>(runs[0]?.runId ?? null)
 
+  /**
+   * COMPARAR SIMULAÇÕES — item 2 do feedback, definido em 27/08.
+   *
+   * `modoComparar` liga as caixas de seleção na tabela; `paraComparar` guarda
+   * os ids escolhidos. São dois estados e não um (`Set` vazio = modo desligado)
+   * porque entrar no modo e ainda não ter escolhido nada é um estado legítimo,
+   * com UI própria — a barra explicando "escolha ao menos 2".
+   *
+   * Guarda ID e não a rodada inteira: a lista se repesca sozinha enquanto há
+   * rodada em voo, e guardar o objeto deixaria a seleção apontando para uma
+   * versão velha do card.
+   */
+  const [modoComparar, setModoComparar] = useState(false)
+  const [paraComparar, setParaComparar] = useState<Set<string>>(new Set())
+  const [comparando, setComparando] = useState(false)
+
+  const alternarComparar = (runId: string) =>
+    setParaComparar((atual) => {
+      const novo = new Set(atual)
+      if (novo.has(runId)) novo.delete(runId)
+      else novo.add(runId)
+      return novo
+    })
+
   const alternarFavorita = useAlternarFavorita()
 
   const visiveis = useMemo(() => {
@@ -141,6 +166,13 @@ function Lista({ runs }: { runs: RunResumo[] }) {
     }
     return ordenadas
   }, [runs, busca, ordem, soFavoritas])
+
+  // A ORDEM DAS COLUNAS É A DA LISTA VISÍVEL, e não a de clique: quem ordenou
+  // por VPL espera ler as colunas na mesma ordem em que acabou de vê-las.
+  const runsComparadas = useMemo(
+    () => visiveis.filter((r) => paraComparar.has(r.runId)),
+    [visiveis, paraComparar],
+  )
 
   const selecionada = visiveis.find((r) => r.runId === selecionadaId) ?? visiveis[0]
   const comResultado = runs.filter((r) => r.metricas).length
@@ -188,7 +220,44 @@ function Lista({ runs }: { runs: RunResumo[] }) {
         >
           <Star weight={soFavoritas ? 'fill' : 'regular'} /> Só favoritas
         </Button>
+        <Button
+          pill
+          variant={modoComparar ? 'primary' : 'secondary'}
+          aria-pressed={modoComparar}
+          onClick={() => {
+            // Sair do modo LIMPA a seleção: reentrar com quatro rodadas ainda
+            // marcadas de dez minutos atrás é uma surpresa, não uma memória útil.
+            setModoComparar((v) => !v)
+            if (modoComparar) setParaComparar(new Set())
+          }}
+        >
+          <ArrowsLeftRight weight="bold" /> Comparar simulações
+        </Button>
       </div>
+
+      {/* A BARRA DE COMPARAÇÃO só existe no modo — e explica o mínimo (2) em vez
+          de só desabilitar o botão sem dizer por quê. */}
+      {modoComparar && (
+        <div className="mb-[18px] flex flex-wrap items-center gap-3 rounded-[14px] border border-water-300 bg-water-50 px-4 py-3">
+          <span className="text-[12.5px] text-ink-700">
+            {paraComparar.size === 0
+              ? 'Marque ao menos 2 simulações na lista para comparar.'
+              : paraComparar.size === 1
+                ? '1 simulação marcada — falta pelo menos mais uma.'
+                : `${paraComparar.size} simulações marcadas.`}
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            {paraComparar.size > 0 && (
+              <Button pill variant="secondary" onClick={() => setParaComparar(new Set())}>
+                Limpar seleção
+              </Button>
+            )}
+            <Button pill disabled={paraComparar.size < 2} onClick={() => setComparando(true)}>
+              Comparar {paraComparar.size >= 2 ? `(${paraComparar.size})` : ''}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {visiveis.length === 0 ? (
         <div className="carta p-14 text-center">
@@ -216,6 +285,11 @@ function Lista({ runs }: { runs: RunResumo[] }) {
               <caption className="sr-only">Rodadas de simulação</caption>
               <thead>
                 <tr>
+                  {modoComparar && (
+                    <th scope="col" className="w-9">
+                      <span className="sr-only">Comparar</span>
+                    </th>
+                  )}
                   <th scope="col" className="w-9">
                     <span className="sr-only">Favorita</span>
                   </th>
@@ -235,9 +309,21 @@ function Lista({ runs }: { runs: RunResumo[] }) {
                   <tr
                     key={r.runId}
                     data-sel={r.runId === selecionada?.runId ? '1' : undefined}
-                    onClick={() => setSelecionadaId(r.runId)}
+                    onClick={() => (modoComparar ? alternarComparar(r.runId) : setSelecionadaId(r.runId))}
                     className="cursor-pointer"
                   >
+                    {modoComparar && (
+                      <td className="pr-0">
+                        <input
+                          type="checkbox"
+                          checked={paraComparar.has(r.runId)}
+                          onChange={() => alternarComparar(r.runId)}
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label={`Comparar ${r.nome || r.runId.slice(0, 8)}`}
+                          className="h-4 w-4 rounded border-ink-300 text-water-600 focus:ring-water-600/25"
+                        />
+                      </td>
+                    )}
                     <td className="pr-0">
                       {/* A ESTRELA, na coluna que é dela. Update otimista: vira
                           antes da resposta; se o servidor recusar, o onError do
@@ -307,6 +393,10 @@ function Lista({ runs }: { runs: RunResumo[] }) {
             />
           )}
         </div>
+      )}
+
+      {comparando && runsComparadas.length >= 2 && (
+        <CompararSimulacoes runs={runsComparadas} aoFechar={() => setComparando(false)} />
       )}
     </>
   )

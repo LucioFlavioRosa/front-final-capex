@@ -43,6 +43,19 @@ const rows: Row[] = Array.from({ length: LINHAS }, (_, i) => {
 const dados = { 'sistema-topologia': rows } as unknown as Dados
 const nada = () => {}
 
+/**
+ * LINHAS DE DADO, e não todo `<tr>` do corpo.
+ *
+ * O `tbody` também carrega linhas de CROMO: a "Nova linha" fantasma do fim
+ * (quando a aba tem `addRow`) e o "Nenhuma linha" do estado vazio. As duas têm
+ * uma célula só, com `colSpan`; linha de dado tem uma por coluna.
+ *
+ * Contar `tbody tr` cru faria este teste medir o cromo junto — e ele mede
+ * quantas linhas o recorte deixou passar.
+ */
+const linhasDeDado = (c: HTMLElement) =>
+  [...c.querySelectorAll('tbody tr')].filter((tr) => tr.querySelectorAll('td').length > 1).length
+
 describe('a grade monta já recortada', () => {
   it('renderiza só as linhas do escopo, e não as 800', () => {
     const { container } = render(
@@ -62,7 +75,7 @@ describe('a grade monta já recortada', () => {
       />,
     )
 
-    const montadas = container.querySelectorAll('tbody tr').length
+    const montadas = linhasDeDado(container)
     const esperadas = rows.filter((r) => r.sistema_id === DO_SISTEMA).length
 
     expect(esperadas).toBeGreaterThan(0)
@@ -84,6 +97,6 @@ describe('a grade monta já recortada', () => {
         onAviso={nada}
       />,
     )
-    expect(container.querySelectorAll('tbody tr').length).toBe(LINHAS)
+    expect(linhasDeDado(container)).toBe(LINHAS)
   })
 })

@@ -1,10 +1,13 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 interface TooltipProps {
   content: React.ReactNode;
   children: React.ReactElement;
 }
+
+/** Passar por cima sem ler não deve abrir nada — só quem PARA ganha a dica. */
+const ATRASO_MS = 180;
 
 /**
  * Posição calculada em `position: fixed` e renderizada via portal em
@@ -18,6 +21,16 @@ interface TooltipProps {
  * perto do topo da tabela — era exatamente o efeito visto no print (o texto
  * aparecia partido ao meio). `fixed` + portal tira a dica de dentro da
  * hierarquia da tabela, então nenhum contêiner com scroll consegue recortá-la.
+ *
+ * ATRASO E FADE (achado 1.8 da revisão de UX): sem os dois, atravessar a
+ * grade com o mouse — 22 colunas, dica em cabeçalho e célula — disparava e
+ * matava uma caixa por coluna. Os 180ms são o que separa "passei por cima" de
+ * "parei para ler"; é isso, mais do que a transição em si, que faz o tooltip
+ * parar de piscar.
+ *
+ * FOCO ABRE NA HORA, sem atraso: quem chega por Tab já demonstrou intenção — e
+ * antes disto o gatilho era só de ponteiro, então a navegação por teclado
+ * (o modo documentado do `AbaGrid`) nunca via a explicação da coluna.
  */
 export const Tooltip: React.FC<TooltipProps> = ({ content, children }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -27,6 +40,9 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children }) => {
     acima: true,
   });
   const anchorRef = useRef<HTMLSpanElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => () => clearTimeout(timer.current), []);
 
   const mostrar = () => {
     const rect = anchorRef.current?.getBoundingClientRect()
@@ -43,24 +59,38 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children }) => {
     setIsVisible(true)
   }
 
+  const agendar = () => {
+    clearTimeout(timer.current)
+    timer.current = setTimeout(mostrar, ATRASO_MS)
+  }
+
+  const cancelar = () => {
+    clearTimeout(timer.current)
+    setIsVisible(false)
+  }
+
   return (
     <span
       ref={anchorRef}
-      className="relative inline-block"
-      onMouseEnter={mostrar}
-      onMouseLeave={() => setIsVisible(false)}
+      tabIndex={0}
+      className="relative inline-block rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-water-500/50"
+      onMouseEnter={agendar}
+      onMouseLeave={cancelar}
+      onFocus={mostrar}
+      onBlur={cancelar}
     >
       {children}
       {isVisible &&
         createPortal(
           <div
+            role="tooltip"
             style={{
               position: 'fixed',
               top: pos.top,
               left: pos.left,
               transform: `translate(-50%, ${pos.acima ? '-100%' : '0'})`,
             }}
-            className="pointer-events-none z-50 w-64 rounded-lg bg-gray-800 p-3 text-sm text-white shadow-lg
+            className="pointer-events-none z-50 w-64 animate-fade-in rounded-lg bg-gray-800 p-3 text-sm text-white shadow-lg
               prose prose-invert prose-p:mb-2 prose-strong:text-white"
           >
             {content}

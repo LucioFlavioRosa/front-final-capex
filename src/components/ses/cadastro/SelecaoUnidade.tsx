@@ -56,6 +56,7 @@ export function SelecaoUnidade() {
       ? [restrito.regionalId]
       : []
     : (regionais.data ?? []).map((r) => r.id)
+  const nomeRegional = Object.fromEntries((regionais.data ?? []).map((r) => [r.id, r.nome]))
   const listaUnidades = restrito
     ? unidadeRestrita.data
       ? [unidadeRestrita.data]
@@ -145,7 +146,7 @@ export function SelecaoUnidade() {
                   r === regionalAtual ? 'border-water-600 bg-water-50 font-semibold text-water-700' : 'border-ink-200 bg-white'
                 }`}
               >
-                {r}
+                {nomeRegional[r] ?? r}
               </button>
             ))}
           </div>

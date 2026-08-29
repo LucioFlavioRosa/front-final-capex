@@ -1,22 +1,25 @@
 import { useParams } from 'react-router-dom'
 import { Estado } from '@/rodada/components/Estado'
 import { BotaoExportar } from '@/rodada/components/BotaoExportar'
+import { BotaoParametros } from '@/rodada/components/PainelParametros'
 import {
-  Cartao,
-  CelulaLink,
   FaixaKpi,
   ItemRodape,
   TituloSecao,
   Trilha,
 } from '@/rodada/components/pecas'
 import { SecaoElementos } from '@/rodada/components/SecaoElementos'
+import { SecaoPorQue } from '@/rodada/components/SecaoPorQue'
 import {
   GraficoCapexComponente,
   GraficoFluxoEscoamento,
   GraficoDesembolso,
   GraficoEbitda,
 } from '@/rodada/components/graficos'
-import { useCidades, useEbitda, usePainel, useRunMeta } from '@/rodada/api/queries'
+import { GraficoCronogramaObras } from '@/rodada/components/GraficoCronogramaObras'
+import { GraficoMetaCobertura } from '@/rodada/components/GraficoMetaCobertura'
+import { CartoesCidades } from '@/rodada/components/CartoesCidades'
+import { useCidades, useEbitda, useExplicabilidade, usePainel, useRunMeta } from '@/rodada/api/queries'
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
 import { brlMi, dataHora, deTotal, inteiro, pct } from '@/rodada/lib/formato'
@@ -36,6 +39,10 @@ import { brlMi, dataHora, deTotal, inteiro, pct } from '@/rodada/lib/formato'
  *                virar uma surpresa na implementação.
  *   `/ebitda`  → quadro próprio.
  *   `/cidades` → a tabela de drill-down.
+ *   `/explicabilidade` → o resumo de "por que não fatura 100%", logo após a
+ *                faixa de KPIs — usuários reportavam que descer até a
+ *                sub-bacia (nível 4) só para entender o motivo do otimizador
+ *                não era intuitivo. Quadro próprio, carrega e falha sozinho.
  */
 export function Global() {
   const { runId } = useParams<{ runId: string }>()
@@ -50,6 +57,7 @@ export function Global() {
   const painel = usePainel(runId)
   const ebitda = useEbitda(runId)
   const cidades = useCidades(runId)
+  const explicabilidade = useExplicabilidade(runId)
   const trilha = useTrilhaCompleta(runId, meta.data?.nome)
 
   return (
@@ -67,29 +75,91 @@ export function Global() {
               nivel="Nível 1 · Geral"
               titulo={m.nome || `Rodada ${m.runId.slice(0, 8)}`}
               subtitulo={m.statusTexto}
-              acoes={<BotaoExportar />}
-              destaque={{ rotulo: 'VPL do plano', valor: brlMi(m.kpis.vpl) }}
+              acoes={
+                <>
+                  <BotaoParametros meta={meta.data} />
+                  <BotaoExportar />
+                </>
+              }
+              destaque={{
+                rotulo: 'VPL do plano',
+                valor: brlMi(m.kpis.vpl),
+                ajuda: 'VPL_PLANO',
+              }}
               itens={[
-                { rotulo: 'CAPEX total', valor: brlMi(m.kpis.capexTotal) },
-                { rotulo: 'OPEX total', valor: brlMi(m.kpis.opexTotal) },
-                { rotulo: 'Receita', valor: brlMi(m.kpis.receitaTotal) },
+                { rotulo: 'CAPEX total', valor: brlMi(m.kpis.capexTotal), ajuda: 'CAPEX_TOTAL' },
+                { rotulo: 'OPEX total', valor: brlMi(m.kpis.opexTotal), ajuda: 'OPEX_TOTAL' },
                 {
-                  rotulo: 'Obras',
+                  /**
+                   * A BASE VAI NO RÓTULO (item 16 do feedback de 26/08).
+                   *
+                   * Ela já estava na tela — no rodapé, a três linhas daqui —,
+                   * mas o número dizia só "Receita", e arrecadada e faturada
+                   * são valores diferentes do mesmo plano: a arrecadada já
+                   * desconta inadimplência. Quem printa este card e manda por
+                   * e-mail manda um número sem a régua dele.
+                   *
+                   * Servidor antigo (ou rodada sem `params_extra`) não manda a
+                   * base: aí o rótulo volta a ser "Receita" seco, em vez de
+                   * afirmar uma das duas.
+                   */
+                  rotulo: m.parametros.baseReceita
+                    ? `Receita (${m.parametros.baseReceita})`
+                    : 'Receita',
+                  valor: brlMi(m.kpis.receitaTotal),
+                  ajuda: 'RECEITA_TOTAL',
+                },
+                {
+                  rotulo: 'Obras priorizadas',
                   valor: deTotal(m.kpis.obrasConstruidas, m.kpis.obrasTotal),
+                  ajuda: 'OBRAS_PRIORIZADAS',
                 },
                 {
-                  rotulo: 'Sub-bacias faturando',
+                  rotulo: 'Sub-bacias que passam a faturar',
                   valor: deTotal(m.kpis.subbaciasFaturando, m.kpis.subbaciasTotal),
+                  ajuda: 'SUBBACIAS_FATURANDO',
                 },
-                { rotulo: 'Cobertura final', valor: pct(m.kpis.coberturaFimPct) },
                 {
-                  // "NA JANELA" e correcao de rotulo, nao de conta: o numero JA
-                  // e so da janela de CAPEX. O motor nunca conta meta com ano
-                  // >= `anos_capex`, entao `metasTotal` ja exclui as de fora — e
-                  // "Metas atingidas" fazia o denominador parecer o contrato
-                  // inteiro. Ver o mesmo criterio no gráfico de cobertura.
-                  rotulo: 'Metas na janela',
+                  rotulo: 'Cobertura final',
+                  valor: pct(m.kpis.coberturaFimPct),
+                  ajuda: 'COBERTURA_FINAL',
+                },
+                {
+                  /**
+                   * O RÓTULO MUDOU DUAS VEZES, A CONTA NENHUMA.
+                   *
+                   * O numero JA e so da janela de CAPEX: o motor nunca conta
+                   * meta com ano >= `anos_capex`, entao `metasTotal` ja exclui
+                   * as de fora. "Metas atingidas" fazia o denominador parecer o
+                   * contrato inteiro; "Metas na janela" corrigiu isso e virou
+                   * jargao interno — a Aegea leu e nao entendeu a que se referia
+                   * (item 6 de 26/08).
+                   *
+                   * Agora o titulo diz o que se conta e a restricao de janela
+                   * vive no verbete, que e onde cabe uma frase inteira. Alargar
+                   * o denominador para o contrato continua fora de questao:
+                   * faria toda rodada de janela curta parecer fracasso.
+                   */
+                  rotulo: 'Metas contratuais cumpridas',
                   valor: deTotal(m.kpis.metasAtingidas, m.kpis.metasTotal),
+                  ajuda: 'METAS_CUMPRIDAS',
+                },
+                {
+                  /**
+                   * A OITAVA CÉLULA, que antes era um retângulo cinza vazio.
+                   *
+                   * `capexTotal / orcamento` é conta de tela porque os dois
+                   * lados já estão no payload — e é a leitura que falta para
+                   * interpretar o VPL: perto de 100% a verba foi o gargalo, e
+                   * aumentar o teto mudaria o plano. Orçamento ausente ou zero
+                   * cai em `pct(null)` → "—", que é o correto: sem teto
+                   * informado a razão não existe.
+                   */
+                  rotulo: 'Uso do orçamento',
+                  valor: pct(
+                    m.parametros.orcamento ? (m.kpis.capexTotal / m.parametros.orcamento) * 100 : null,
+                  ),
+                  ajuda: 'USO_ORCAMENTO',
                 },
               ]}
               rodape={
@@ -109,6 +179,30 @@ export function Global() {
                 </>
               }
             />
+
+            {/* Quadro próprio: vem de outro endpoint, carrega e falha sozinho.
+                Sem `vazio` — a ausência de dado é o próprio sinal de "sem
+                nada a explicar" (100% fatura), e `SecaoPorQue` já trata isso
+                devolvendo `null`. */}
+            <Estado
+              consulta={explicabilidade}
+              rotulo="Carregando a explicabilidade…"
+              tituloErro="Não foi possível carregar a explicabilidade desta rodada."
+            >
+              {(ex) => <SecaoPorQue dados={ex} runId={runId} />}
+            </Estado>
+
+            {/* "SINTO FALTA DE DUAS INFORMAÇÕES COM DESTAQUE" — itens 3 e 4 do
+                feedback de 26/08, nas leituras corrigidas em 27/08:
+
+                  3. o CRONOGRAMA de obras (aqui), e não uma lista ordenada;
+                  4. a cobertura CONTRA META por cidade, num quadro só com
+                     filtro (logo abaixo, junto das cidades a que ela pertence).
+
+                Os dois carregam e falham por conta própria — cada um vem de um
+                endpoint diferente do painel. */}
+            <TituloSecao nota="clique num ano para ver as obras">Plano de obras</TituloSecao>
+            <GraficoCronogramaObras runId={runId} />
 
             <TituloSecao>Painel da rodada</TituloSecao>
             {/* O bloco INTEIRO tem um estado, porque o payload é um só. */}
@@ -134,7 +228,11 @@ export function Global() {
                       séries com eixo duplo, e em meia largura os rótulos
                       colidem. */}
                   <div className="flex flex-col gap-4">
-                    <GraficoFluxoEscoamento parcelas={p.cascata} escopo="plano inteiro" />
+                    <GraficoFluxoEscoamento
+                      parcelas={p.cascata}
+                      escopo="plano inteiro"
+                      baseReceita={m.parametros.baseReceita}
+                    />
                     <GraficoDesembolso anos={p.anos} />
 
                     {/* O EBITDA vem de OUTRO endpoint, então carrega e falha
@@ -150,7 +248,14 @@ export function Global() {
                         texto: 'Não há anos de EBITDA materializados para esta rodada.',
                       }}
                     >
-                      {(e) => <GraficoEbitda anos={e.anos} total={e.total} escopo="plano inteiro" />}
+                      {(e) => (
+                        <GraficoEbitda
+                          anos={e.anos}
+                          total={e.total}
+                          escopo="plano inteiro"
+                          baseReceita={m.parametros.baseReceita}
+                        />
+                      )}
                     </Estado>
 
                     <GraficoCapexComponente itens={p.capexPorComponente} />
@@ -173,49 +278,14 @@ export function Global() {
               }}
             >
               {(lista) => (
-                <Cartao tabela>
-                  <div className="min-w-0 overflow-x-auto">
-                    <table>
-                      <caption className="sr-only">Cidades da rodada</caption>
-                      <thead>
-                        <tr>
-                          <th scope="col">Cidade</th>
-                          <th scope="col" data-r>
-                            Cobertura final
-                          </th>
-                          <th scope="col" data-r>
-                            Metas
-                          </th>
-                          <th scope="col" data-r>
-                            CAPEX
-                          </th>
-                          <th scope="col" data-r>
-                            VPL
-                          </th>
-                          <th scope="col" data-r>
-                            Sistemas
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {lista.map((c) => (
-                          <tr key={c.id}>
-                            <td>
-                              <CelulaLink to={`/resultados/${runId}/cidades/${c.id}`}>
-                                {c.nome}
-                              </CelulaLink>
-                            </td>
-                            <td data-m>{pct(c.coberturaFimPct)}</td>
-                            <td data-m>{deTotal(c.metasAtingidas, c.metasTotal)}</td>
-                            <td data-m>{brlMi(c.capex)}</td>
-                            <td data-m>{brlMi(c.vpl)}</td>
-                            <td data-m>{inteiro(c.sistemas)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </Cartao>
+                <div className="flex flex-col gap-4">
+                  {/* O QUADRO DE META VEM ANTES DOS CARTÕES, e dentro do mesmo
+                      `Estado`: ele lê a MESMA lista (`cidades`), então separá-lo
+                      numa seção própria abriria um segundo estado de carga para
+                      o mesmo payload — e os dois piscariam fora de sincronia. */}
+                  <GraficoMetaCobertura cidades={lista} />
+                  <CartoesCidades runId={runId} cidades={lista} />
+                </div>
               )}
             </Estado>
           </>

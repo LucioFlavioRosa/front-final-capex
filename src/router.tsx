@@ -2,10 +2,10 @@ import { createBrowserRouter, createHashRouter } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { RequireAuth } from './components/auth/RequireAuth'
 import { RequirePapel, RotaPadrao } from './components/auth/RequirePapel'
+import { Home } from './pages/Home'
 import { PAPEIS_CADASTRO, PAPEIS_OPERACIONAIS } from './auth/papeis'
 import { Login } from './pages/Login'
 import { Cadastro } from './pages/Cadastro'
-import { Home } from './pages/Home'
 import { CascaResultado } from './rodada/layout/CascaResultado'
 import { Historico } from './rodada/pages/Historico'
 import { Global } from './rodada/pages/Global'
@@ -61,17 +61,19 @@ export const router = criarRouter([
            * defesa de verdade (essa é o backend); é o app parar de oferecer
            * uma tela que o servidor recusaria — ver `RequirePapel.tsx`.
            */
-          // A HOME É A RAIZ de novo. Ela ficou desligada enquanto mostrava
-          // números de exemplo — "uma home com números de exemplo rouba a
-          // atenção da única tela pronta para ser discutida", e estava certo.
-          // Hoje ela lê do backend: última rodada publicada, KPIs dela,
-          // completude e porte da unidade. Sem rodada, diz que não há, em vez de
-          // inventar.
+          // A HOME É A RAIZ. Ela ficou desligada enquanto mostrava números de
+          // exemplo — "uma home com números de exemplo rouba a atenção da única
+          // tela pronta para ser discutida", e estava certo. Hoje ela lê do
+          // backend: última rodada publicada, KPIs dela, completude e porte da
+          // unidade. Sem rodada, diz que não há, em vez de inventar.
           //
           // Sem `RequirePapel`: ela não é módulo, é o painel de quem entrou, e
           // qualquer papel a alcança. O que ela mostra já é recortado pelo
           // servidor, que só devolve rodada de unidade que a pessoa enxerga.
-          { path: '/', element: <Home /> },
+          //
+          // Para desligá-la de novo, o elemento vira `<RotaPadrao />` — a mesma
+          // função que resolve "caminho desconhecido" lá embaixo.
+          { index: true, element: <Home /> },
           {
             element: <RequirePapel papeis={PAPEIS_CADASTRO} />,
             children: [{ path: '/cadastro', element: <Cadastro /> }],

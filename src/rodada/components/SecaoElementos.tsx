@@ -254,7 +254,7 @@ function CardPanorama({
       // moldura parecer que também codifica algo.
       style={{
         borderTopColor: cor,
-        background: `color-mix(in srgb, ${cor} 4%, white)`,
+        background: `color-mix(in srgb, ${cor} 4%, var(--viz-surface))`,
       }}
       className="carta group flex flex-col gap-2 border-t-[3px] p-3.5 text-left transition-shadow duration-hover ease-saida hover:shadow-elev focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-water-500"
     >
@@ -289,7 +289,7 @@ function CardPanorama({
                   mais alta. É cálculo de EIXO, não de série: não muda traçado. */}
               <YAxis hide domain={[0, (max: number) => max * 1.02]} />
               <Tooltip
-                cursor={{ fill: 'rgba(1,32,155,.05)' }}
+                cursor={{ fill: COR.cursor }}
                 content={({ active, payload, label }) =>
                   active && payload?.length ? (
                     <div className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-[11px] shadow-elev">
@@ -344,7 +344,7 @@ function CardPanorama({
                         // Cor de TEXTO, nunca a da série: o azul-claro de um
                         // componente é ilegível como texto sobre o branco, e a
                         // identidade já está na barra logo abaixo do rótulo.
-                        fill="var(--ink-700)"
+                        fill="var(--viz-ink)"
                         fontSize={CORPO_ROTULO}
                         fontFamily="IBM Plex Mono, monospace"
                         fontWeight={value === maximo ? 700 : 500}
@@ -450,7 +450,7 @@ function PainelMetrica({
             }
           />
           <Tooltip
-            cursor={{ fill: 'rgba(1,32,155,.05)' }}
+            cursor={{ fill: COR.cursor }}
             content={({ active, payload, label }) =>
               active && payload?.length ? (
                 <div className="rounded-xl border border-ink-200 bg-white px-3 py-2 shadow-elev">
@@ -508,10 +508,8 @@ function tabelaDe(serie: SerieComponente) {
 
 const NOTA_PRECO = (
   <>
-    O preço unitário é o <strong>CAPEX do ano dividido pela quantidade daquele ano</strong> — não é
-    o preço de tabela do cadastro. Onde ele se descola, a diferença é <strong>mix</strong> (que
-    obras entraram naquele ano) ou erro de cadastro. Ano vazio é ausência de resposta, nunca preço
-    zero.
+    Preço unitário é o <strong>CAPEX do ano dividido pela quantidade do ano</strong> — não o preço
+    de tabela do cadastro. Ano vazio é ausência de resposta, nunca preço zero.
   </>
 )
 
@@ -522,8 +520,8 @@ function PainelDetalhe({ serie }: { serie: SerieComponente }) {
       subtitulo={`ano a ano, em ${serie.unidade ?? VAZIO} · CAPEX total ${brlMi(serie.capexTotal)}`}
       nota={
         <>
-          {NOTA_PRECO} Os dois painéis dividem o eixo de anos, mas não a escala vertical: comparar
-          altura entre eles não significa nada.
+          {NOTA_PRECO} Os dois painéis compartilham o eixo de anos, mas não a escala — não compare
+          altura entre eles.
         </>
       }
       tabela={tabelaDe(serie)}
@@ -557,8 +555,13 @@ function VistaPanorama({ series }: { series: SerieComponente[] }) {
 
   return (
     <>
+      {/*
+        `animate-fade-in` nos dois lados: Panorama e Detalhe são subárvores
+        genuinamente diferentes, então já remontam ao trocar — sem a classe
+        a troca era um corte seco (achado 13 da revisão de UX).
+      */}
       {detalhe ? (
-        <div className="flex flex-col gap-2.5">
+        <div className="flex animate-fade-in flex-col gap-2.5">
           <button
             type="button"
             onClick={() => setAberto(null)}
@@ -569,7 +572,7 @@ function VistaPanorama({ series }: { series: SerieComponente[] }) {
           <PainelDetalhe serie={detalhe} />
         </div>
       ) : (
-        <>
+        <div className="animate-fade-in">
           <div className="mb-3 flex flex-wrap items-center gap-3">
             <SegmentedControl
               options={METRICAS}
@@ -591,7 +594,7 @@ function VistaPanorama({ series }: { series: SerieComponente[] }) {
               />
             ))}
           </div>
-        </>
+        </div>
       )}
     </>
   )
@@ -614,8 +617,14 @@ export function SecaoElementos({ anos }: { anos: ElementoDoAno[] }) {
 
   return (
     <>
-      <TituloSecao nota="clique num componente para abrir">Elementos e preço unitário</TituloSecao>
-      <VistaPanorama series={series} />
+      <TituloSecao nota="clique num componente para abrir">Componentes e preço unitário</TituloSecao>
+      {/* `viz-root` aqui: o panorama (`CardPanorama`) desenha direto com
+          recharts, sem passar pelo `QuadroGrafico` — que é quem hoje carrega
+          a classe. Sem ela as variáveis `--viz-*` não resolvem e os cards
+          minimizados caem fora da paleta. */}
+      <div className="viz-root">
+        <VistaPanorama series={series} />
+      </div>
     </>
   )
 }

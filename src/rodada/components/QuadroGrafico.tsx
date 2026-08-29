@@ -1,4 +1,5 @@
 import { useId, useState, type ReactNode } from 'react'
+import { useIndicador } from '@/components/ui/useIndicador'
 
 /**
  * A moldura de todo quadro de gráfico.
@@ -40,6 +41,13 @@ interface QuadroGraficoProps {
   /** Recorte a que os números se referem, quando o quadro é reusado entre níveis. */
   escopo?: string
   nota?: ReactNode
+  /**
+   * Controle próprio do quadro, à esquerda do alternador Gráfico/Tabela — hoje
+   * o seletor de cidade do quadro de meta de cobertura. Fica na LINHA DO
+   * TÍTULO, e não acima do card, porque ele muda o que o quadro mostra: solto
+   * lá em cima ele pareceria filtrar a seção inteira.
+   */
+  acoes?: ReactNode
   tabela: DadosTabela
   children: ReactNode
 }
@@ -49,11 +57,15 @@ export function QuadroGrafico({
   subtitulo,
   escopo,
   nota,
+  acoes,
   tabela,
   children,
 }: QuadroGraficoProps) {
   const [verTabela, setVerTabela] = useState(false)
   const id = useId()
+  // A pílula ESCORREGA entre Gráfico/Tabela (`useIndicador`, a mesma técnica
+  // do Trilho) em vez de pular — repetida em ~10 quadros por tela.
+  const { containerRef, estilo } = useIndicador<HTMLDivElement>(String(verTabela))
 
   return (
     <figure aria-labelledby={`${id}-t`} className="carta m-0 overflow-hidden">
@@ -76,10 +88,13 @@ export function QuadroGrafico({
           )}
         </div>
 
+        <div className="flex shrink-0 items-center gap-2">
+        {acoes}
         <div
+          ref={containerRef}
           role="tablist"
           aria-label={`Ver "${titulo}" como`}
-          className="flex shrink-0 gap-1 rounded-full border border-ink-200 bg-ink-50 p-1"
+          className="relative flex shrink-0 gap-1 rounded-full border border-ink-200 bg-ink-50 p-1"
         >
           <button
             type="button"
@@ -87,9 +102,10 @@ export function QuadroGrafico({
             id={`${id}-btn-grafico`}
             aria-selected={!verTabela}
             aria-controls={`${id}-painel`}
+            data-indicador={!verTabela ? '1' : undefined}
             onClick={() => setVerTabela(false)}
-            className={`rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition-all duration-hover ease-saida ${
-              !verTabela ? 'bg-white text-water-700 shadow-soft' : 'text-ink-500 hover:text-ink-700'
+            className={`relative z-10 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors duration-hover ease-saida ${
+              !verTabela ? 'text-water-700' : 'text-ink-500 hover:text-ink-700'
             }`}
           >
             Gráfico
@@ -100,13 +116,22 @@ export function QuadroGrafico({
             id={`${id}-btn-tabela`}
             aria-selected={verTabela}
             aria-controls={`${id}-painel`}
+            data-indicador={verTabela ? '1' : undefined}
             onClick={() => setVerTabela(true)}
-            className={`rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition-all duration-hover ease-saida ${
-              verTabela ? 'bg-white text-water-700 shadow-soft' : 'text-ink-500 hover:text-ink-700'
+            className={`relative z-10 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors duration-hover ease-saida ${
+              verTabela ? 'text-water-700' : 'text-ink-500 hover:text-ink-700'
             }`}
           >
             Tabela
           </button>
+          {estilo && (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-1 rounded-full bg-white shadow-soft transition-[transform,width] duration-mover ease-saida"
+              style={{ width: estilo.width, transform: `translateX(${estilo.left}px)` }}
+            />
+          )}
+        </div>
         </div>
       </div>
 

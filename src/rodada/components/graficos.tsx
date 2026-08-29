@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import type { ReactNode } from 'react'
+import type { Key, ReactNode } from 'react'
 import { QuadroGrafico } from '@/rodada/components/QuadroGrafico'
 import {
   COR,
@@ -152,9 +152,20 @@ function Legenda({ itens }: { itens: { rotulo: string; cor: string; traco?: bool
 export function GraficoFluxoEscoamento({
   parcelas,
   escopo,
+  baseReceita,
 }: {
   parcelas: ParcelaFluxoEscoamento[]
   escopo: string
+  /**
+   * "arrecadada" | "faturada" — a régua da parcela de receita deste quadro.
+   *
+   * Vem junto com o rótulo do KPI de Receita (item 16 do feedback de 26/08):
+   * arrecadada já desconta inadimplência, faturada não, e um quadro que
+   * decompõe o VPL sem dizer qual das duas entrou deixa a maior barra sem
+   * unidade. Ausente em servidor antigo — aí a nota simplesmente não menciona
+   * a base, em vez de afirmar uma das duas.
+   */
+  baseReceita?: string
 }) {
   let acumulado = 0
   const dados = parcelas.map((p) => {
@@ -184,9 +195,14 @@ export function GraficoFluxoEscoamento({
       escopo={escopo}
       nota={
         <>
-          Turquesa <strong>entra</strong> (receita), azul <strong>sai</strong> (CAPEX, OPEX,
-          impostos), e a barra final é o resultado. É polaridade de caixa, não identidade — nenhuma
-          destas cores significa componente de obra.
+          Turquesa é receita <strong>entrando</strong>, azul é <strong>saída</strong> (CAPEX, OPEX,
+          impostos) — a cor aqui é direção do caixa, não componente de obra.
+          {baseReceita && (
+            <>
+              {' '}
+              A receita é a <strong>{baseReceita}</strong>.
+            </>
+          )}
         </>
       }
       tabela={{
@@ -206,7 +222,7 @@ export function GraficoFluxoEscoamento({
           <YAxis {...eixoBase} tickFormatter={tickBrl} width={52} />
           <ReferenceLine y={0} stroke={COR.eixo} />
           <Tooltip
-            cursor={{ fill: 'rgba(1,32,155,.05)' }}
+            cursor={{ fill: COR.cursor }}
             content={({ active, payload }) => (
               <Dica
                 ativo={active}
@@ -353,10 +369,8 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
       subtitulo="CAPEX, OPEX e receita, nominal · CAPEX acumulado no eixo direito"
       nota={
         <>
-          A linha do <strong>teto</strong> termina onde a janela de orçamento acaba: nos anos sem
-          teto o valor é <strong>ausente</strong>, não zero — e um teto de zero seria outra
-          afirmação. O <strong>acumulado</strong> (eixo à direita) é a soma corrida do CAPEX anual —
-          era um quadro próprio (Curva S, mês a mês) e passou a viver aqui.
+          A linha do <strong>teto</strong> some nos anos fora da janela de orçamento — ausente,
+          não zero. O <strong>acumulado</strong> (eixo à direita) é a soma corrida do CAPEX anual.
         </>
       }
       tabela={{
@@ -388,7 +402,7 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
             tick={{ ...eixoBase.tick, fill: COR_FLUXO.acumulado }}
           />
           <Tooltip
-            cursor={{ fill: 'rgba(1,32,155,.05)' }}
+            cursor={{ fill: COR.cursor }}
             content={({ active, payload, label }) => {
               const d = payload?.[0]?.payload as (typeof dados)[number] | undefined
               return (
@@ -522,10 +536,8 @@ export function GraficoCapexComponente({ itens }: { itens: CapexPorComponente[] 
       subtitulo={`CAPEX total ${brMi(ordenados.reduce((s, i) => s + i.capex, 0))}`}
       nota={
         <>
-          Cor única de propósito: a identidade de cada linha já está no rótulo à esquerda, e não
-          precisa competir com a paleta de componente — reservada para os gráficos onde vários
-          componentes aparecem JUNTOS na mesma série (Elementos por ano, Preço unitário). Na ETE a
-          quantidade é a <strong>capacidade acrescentada pelos módulos</strong>.
+          Cor única de propósito: o nome já identifica cada linha. Na ETE, a quantidade é a{' '}
+          <strong>capacidade acrescentada pelos módulos</strong>.
         </>
       }
       tabela={{
@@ -604,10 +616,13 @@ export function GraficoEbitda({
   anos,
   total,
   escopo,
+  baseReceita,
 }: {
   anos: EbitdaAno[]
   total: number
   escopo: string
+  /** A régua da receita — ver `GraficoFluxoEscoamento`. A margem é % dela. */
+  baseReceita?: string
 }) {
   // A margem nula não é plotada — mesmo tratamento do teto de CAPEX.
   const dados = anos.map((a) => ({ ano: a.ano, ebitda: a.ebitda, margem: a.margemPct }))
@@ -615,17 +630,15 @@ export function GraficoEbitda({
   return (
     <QuadroGrafico
       titulo="EBITDA e margem por ano"
-      subtitulo={`barras em R$ (eixo à esquerda), linha em % da receita (eixo à direita) · total ${brlMi(
-        total,
-      )}`}
+      subtitulo={`barras em R$ (eixo à esquerda), linha em % da receita${
+        baseReceita ? ` ${baseReceita}` : ''
+      } (eixo à direita) · total ${brlMi(total)}`}
       escopo={escopo}
       nota={
         <>
-          O EBITDA é <strong>saída calculada</strong> e{' '}
-          <strong>não entra na função objetivo</strong>: quem decide o plano é o VPL. Os primeiros
-          anos podem ser negativos porque o OPEX começa antes de as ligações faturarem. Os dois
-          eixos têm escalas independentes — a distância vertical entre a barra e a linha não
-          significa nada; para comparar valor com valor, use a aba Tabela.
+          O EBITDA é calculado a partir do plano, mas quem decide o plano é o <strong>VPL</strong>.
+          As barras e a linha usam eixos independentes — compare valores pela aba Tabela, não pela
+          altura.
         </>
       }
       tabela={{
@@ -658,7 +671,7 @@ export function GraficoEbitda({
           />
           <ReferenceLine yAxisId="reais" y={0} stroke={COR.eixo} />
           <Tooltip
-            cursor={{ fill: 'rgba(1,32,155,.05)' }}
+            cursor={{ fill: COR.cursor }}
             content={({ active, payload, label }) => {
               const d = payload?.[0]?.payload as (typeof dados)[number] | undefined
               return (
@@ -796,14 +809,13 @@ export function GraficoCobertura({
         fora.length > 0 ? (
           <>
             A meta de {fora.map((m) => m.ano).join(', ')} cai <strong>fora da janela de
-            investimento</strong>. O motor não a avaliou, então ela não conta como atingida nem
-            como perdida — aparece na aba Tabela como <em>fora da janela</em>, e não como “não”.
+            investimento</strong> e não foi avaliada — na aba Tabela aparece como{' '}
+            <em>fora da janela</em>, não como "não".
           </>
         ) : (
           <>
-            Cada ano de meta tem <strong>duas barras</strong>: o alvo contratual e o realizado. A
-            cor do realizado é o veredito — turquesa atingiu, vermelho não —, então a leitura não
-            depende de comparar alturas a olho.
+            Cada ano tem <strong>duas barras</strong> — alvo e realizado. A cor do realizado já é
+            o veredito: turquesa atingiu, vermelho não.
           </>
         )
       }
@@ -832,7 +844,7 @@ export function GraficoCobertura({
             tickFormatter={(v: number) => `${v}%`}
           />
           <Tooltip
-            cursor={{ fill: 'rgba(1,32,155,.05)' }}
+            cursor={{ fill: COR.cursor }}
             content={({ active, payload, label }) => {
               const d = payload?.[0]?.payload as (typeof dados)[number] | undefined
               return (
@@ -905,9 +917,8 @@ export function GraficoReceitaSubBacia({ anos }: { anos: ReceitaAno[] }) {
       subtitulo="direta e indireta"
       nota={
         <>
-          A <strong>indireta</strong> só existe no ano da conexão — nos demais anos não há segmento,
-          porque ela não se aplica. Zero e ausente são coisas diferentes, e a diferença aqui é
-          visível.
+          A <strong>indireta</strong> só aparece no ano da conexão — nos demais anos o segmento nem
+          existe, porque zero e ausente não são a mesma coisa.
         </>
       }
       tabela={{
@@ -921,7 +932,7 @@ export function GraficoReceitaSubBacia({ anos }: { anos: ReceitaAno[] }) {
           <XAxis dataKey="ano" {...eixoBase} />
           <YAxis {...eixoBase} tickFormatter={tickBrl} width={44} />
           <Tooltip
-            cursor={{ fill: 'rgba(1,32,155,.05)' }}
+            cursor={{ fill: COR.cursor }}
             content={({ active, payload, label }) => {
               const d = payload?.[0]?.payload as (typeof dados)[number] | undefined
               return (
@@ -971,6 +982,132 @@ export function GraficoReceitaSubBacia({ anos }: { anos: ReceitaAno[] }) {
           { rotulo: 'Receita indireta (ano da conexão)', cor: 'var(--viz-fluxo-entra)' },
         ]}
       />
+    </QuadroGrafico>
+  )
+}
+
+/**
+ * A CURVA DE COBERTURA DA UNIDADE — item 4 do feedback de 26/08, no nível 1
+ * ("a curva de cobertura que aquela simulação atinge").
+ *
+ * É uma LINHA, e não barras como `GraficoCobertura` (nível 2): lá o eixo X são
+ * os ANOS DE META, um punhado de pontos onde faz sentido comparar alvo ×
+ * realizado lado a lado. Aqui o eixo é a TRAJETÓRIA inteira do horizonte —
+ * a pergunta é "como a cobertura sobe", não "bateu a meta neste ano" —, e
+ * barras para vinte e cinco anos ficariam finas demais para ler.
+ *
+ * NÃO TEM ALVO PLOTADO, de propósito: a meta é contratual POR CIDADE, e uma
+ * "meta da unidade" não existe em nenhum contrato — desenhar uma linha de alvo
+ * agregado inventaria um número sem base. O que a série tem em vez disso são
+ * MARCADORES nos anos com meta avaliada, coloridos por quantas cidades
+ * cumpriram a delas naquele ano — a pergunta contratual, sem fingir que ela
+ * tem uma resposta única.
+ */
+export function GraficoCoberturaUnidade({
+  coberturaUnidade,
+  metasPorAno,
+  escopo,
+}: {
+  coberturaUnidade: PontoCobertura[]
+  metasPorAno: { ano: number; atingidas: number; total: number }[]
+  escopo: string
+}) {
+  const metaPorAno = new Map(metasPorAno.map((m) => [m.ano, m]))
+  const dados = coberturaUnidade.map((p) => ({
+    ano: p.ano,
+    coberturaPct: p.coberturaPct,
+    meta: metaPorAno.get(p.ano) ?? null,
+  }))
+
+  const totalMetas = metasPorAno.reduce((s, m) => s + m.total, 0)
+  const totalAtingidas = metasPorAno.reduce((s, m) => s + m.atingidas, 0)
+
+  return (
+    <QuadroGrafico
+      titulo="Cobertura da unidade"
+      subtitulo={
+        totalMetas > 0
+          ? `% agregado por ligações · ${totalAtingidas} de ${totalMetas} metas contratuais cumpridas na janela`
+          : '% agregado por ligações'
+      }
+      escopo={escopo}
+      nota={
+        <>
+          A trajetória é REAL — ligações cobertas ÷ universo, somadas de todas as cidades. Sem
+          alvo desenhado: a meta é <strong>contratual por cidade</strong>, e não existe uma meta
+          única da unidade. Os pontos maiores marcam os anos com meta avaliada; passe o mouse para
+          ver quantas cidades cumpriram a delas.
+        </>
+      }
+      tabela={{
+        colunas: ['Ano', 'Cobertura', 'Metas cumpridas no ano'],
+        linhas: dados.map((d) => [
+          d.ano,
+          pct(d.coberturaPct),
+          d.meta ? `${d.meta.atingidas} de ${d.meta.total}` : VAZIO,
+        ]),
+      }}
+    >
+      <ResponsiveContainer width="100%" height={ALTURA}>
+        <ComposedChart data={dados} margin={MARGEM}>
+          <CartesianGrid stroke={COR.grid} vertical={false} />
+          <XAxis dataKey="ano" {...eixoBase} />
+          <YAxis {...eixoBase} width={40} domain={[0, 100]} tickFormatter={(v: number) => `${v}%`} />
+          <Tooltip
+            cursor={{ stroke: COR.grid }}
+            content={({ active, payload, label }) => {
+              const d = payload?.[0]?.payload as (typeof dados)[number] | undefined
+              if (!d) return null
+              return (
+                <Dica
+                  ativo={active}
+                  titulo={`Ano ${label}`}
+                  linhas={[
+                    { rotulo: 'cobertura', valor: pct(d.coberturaPct), cor: COR.entra },
+                    ...(d.meta
+                      ? [
+                          {
+                            rotulo: 'metas cumpridas',
+                            valor: `${d.meta.atingidas} de ${d.meta.total}`,
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
+              )
+            }}
+          />
+          <Line
+            type="monotone"
+            dataKey="coberturaPct"
+            stroke={COR.entra}
+            strokeWidth={2}
+            dot={(props: {
+              cx?: number
+              cy?: number
+              payload?: (typeof dados)[number]
+              key?: Key | null
+            }) => {
+              const { cx, cy, payload: d, key } = props
+              if (cx == null || cy == null || !d) return <g key={key ?? undefined} />
+              const temMeta = !!d.meta
+              const cumpriuTudo = d.meta ? d.meta.atingidas === d.meta.total : false
+              return (
+                <circle
+                  key={key ?? undefined}
+                  cx={cx}
+                  cy={cy}
+                  r={temMeta ? 4.5 : 2.5}
+                  fill={temMeta ? (cumpriuTudo ? COR.entra : COR_META.perdida) : COR.entra}
+                  stroke="var(--viz-surface)"
+                  strokeWidth={temMeta ? 1.5 : 0}
+                />
+              )
+            }}
+            activeDot={{ r: 5 }}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
     </QuadroGrafico>
   )
 }

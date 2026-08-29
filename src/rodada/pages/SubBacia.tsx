@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom'
 import { Badge } from '@/components/ui/Badge'
 import { Estado } from '@/rodada/components/Estado'
 import { BotaoExportar } from '@/rodada/components/BotaoExportar'
+import { BotaoParametros } from '@/rodada/components/PainelParametros'
 import {
   Cartao,
   CelulaLink,
@@ -75,7 +76,12 @@ export function SubBacia() {
               subtitulo={
                 s.fatura ? undefined : 'Esta estrutura não fatura — a receita é de outro nó.'
               }
-              acoes={<BotaoExportar />}
+              acoes={
+                <>
+                  <BotaoParametros meta={meta.data} />
+                  <BotaoExportar />
+                </>
+              }
               destaque={{ rotulo: 'VPL', valor: brlMi(s.vpl) }}
               itens={[
                 { rotulo: 'Vazão', valor: vazao(s.vazao) },
@@ -98,7 +104,7 @@ export function SubBacia() {
                 a cadeia está — numa string não dá. */}
             {s.caminho.length > 0 && (
               <div className="mt-5">
-                <Cartao titulo="Caminho de escoamento até a ETE" nota="de montante para jusante">
+                <Cartao titulo="Fluxo de escoamento até a ETE" nota="de montante para jusante">
                   <ol className="m-0 flex list-none flex-wrap items-center gap-2 p-0">
                     {s.caminho.map((no, i) => (
                       <li key={`${no}-${i}`} className="flex items-center gap-2">

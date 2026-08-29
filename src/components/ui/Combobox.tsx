@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { CaretUpDown, MagnifyingGlass } from '@phosphor-icons/react'
+import { useSaidaMontada } from './useSaidaMontada'
 
 export interface ComboboxOption {
   value: string
@@ -23,6 +24,13 @@ export function Combobox({ options, value, onChange, placeholder = 'Buscar…', 
   const [query, setQuery] = useState('')
   const [activeIdx, setActiveIdx] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
+  const id = useId()
+  const listboxId = `${id}-listbox`
+  const opcaoId = (i: number) => `${id}-opt-${i}`
+
+  // 160ms: o tempo de `animate-scale-out` abaixo — segura o menu montado até
+  // a saída terminar, em vez de sumir no clique/Escape (achado 1.3).
+  const { montado, fechando } = useSaidaMontada(open, 160)
 
   const selected = options.find((o) => o.value === value)
 
@@ -68,6 +76,10 @@ export function Combobox({ options, value, onChange, placeholder = 'Buscar…', 
     <div ref={rootRef} className={`relative ${className}`} onKeyDown={onKeyDown}>
       <button
         type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listboxId}
+        aria-activedescendant={open && filtered[activeIdx] ? opcaoId(activeIdx) : undefined}
         onClick={() => (open ? setOpen(false) : openList())}
         className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border border-ink-200 bg-white text-left focus:border-water-500 focus:ring-2 focus:ring-water-500/30 outline-none transition duration-hover ease-saida"
       >
@@ -75,8 +87,14 @@ export function Combobox({ options, value, onChange, placeholder = 'Buscar…', 
         <CaretUpDown className="text-ink-400 flex-shrink-0" />
       </button>
 
-      {open && (
-        <div className="absolute z-20 mt-1.5 w-full bg-white rounded-xl border border-ink-200 shadow-elev overflow-hidden">
+      {montado && (
+        // z-40: acima do cabeçalho fixo (z-20/z-30) e da coluna congelada (z-30) da grade
+        // que costuma ficar logo abaixo deste combobox — ver AbaGrid.tsx.
+        <div
+          className={`absolute z-40 mt-1.5 w-full bg-white rounded-xl border border-ink-200 shadow-elev overflow-hidden ${
+            fechando ? 'animate-scale-out' : 'animate-scale-in'
+          }`}
+        >
           <div className="flex items-center gap-2 px-3 py-2 border-b border-ink-100">
             <MagnifyingGlass className="text-ink-400 flex-shrink-0" />
             <input
@@ -87,11 +105,14 @@ export function Combobox({ options, value, onChange, placeholder = 'Buscar…', 
               className="w-full text-sm outline-none"
             />
           </div>
-          <ul className="max-h-56 overflow-y-auto py-1" role="listbox">
+          <ul id={listboxId} className="max-h-56 overflow-y-auto py-1" role="listbox">
             {filtered.map((opt, i) => (
               <li key={opt.value}>
                 <button
                   type="button"
+                  id={opcaoId(i)}
+                  role="option"
+                  aria-selected={opt.value === value}
                   onClick={() => choose(opt)}
                   onMouseEnter={() => setActiveIdx(i)}
                   className={`w-full text-left px-3 py-2 text-sm ${

@@ -45,8 +45,21 @@ interface RunMeta {
 interface Unidade {
   id: string
   nome: string
-  completude: number
   resumo?: UnidadeResumo
+}
+
+/**
+ * A COMPLETUDE vem de `/prontidao`, e não de `/unidades/{id}`.
+ *
+ * Ela é volátil — muda a cada campo preenchido —, e `/unidades/{id}` é o
+ * endpoint do PORTE, cacheado por minutos em `organizacaoApi.ts`. Servida de lá,
+ * a Home mostraria um percentual velho, que é pior que nenhum: parece atual.
+ *
+ * `/prontidao` é o endpoint desenhado para isto, e a completude sai da mesma
+ * consulta que ele já faz para as pendências — não custa ida a mais ao banco.
+ */
+interface Prontidao {
+  completude: number
 }
 
 export interface HomeDados {
@@ -54,11 +67,19 @@ export interface HomeDados {
   ultima: RunResumo | null
   meta: RunMeta | null
   unidade: Unidade | null
+  /** Percentual do cadastro preenchido, de `/prontidao`. `null` se não veio. */
+  completude: number | null
   /** Quantas rodadas existem no histórico — o rodapé do card. */
   total: number
 }
 
-const VAZIO: HomeDados = { ultima: null, meta: null, unidade: null, total: 0 }
+const VAZIO: HomeDados = {
+  ultima: null,
+  meta: null,
+  unidade: null,
+  completude: null,
+  total: 0,
+}
 
 export function useHome() {
   return useQuery<HomeDados>({
@@ -71,11 +92,18 @@ export function useHome() {
       const ultima = runs.find((r) => r.publicada) ?? null
       if (!ultima) return { ...VAZIO, total: runs.length }
 
-      const [meta, unidade] = await Promise.all([
+      const [meta, unidade, prontidao] = await Promise.all([
         api.get<RunMeta>(`/api/runs/${ultima.runId}/meta`),
         api.get<Unidade>(`/api/unidades/${ultima.unidadeId}`),
+        api.get<Prontidao>(`/api/unidades/${ultima.unidadeId}/prontidao`),
       ])
-      return { ultima, meta, unidade, total: runs.length }
+      return {
+        ultima,
+        meta,
+        unidade,
+        completude: prontidao.completude,
+        total: runs.length,
+      }
     },
     // A Home é a primeira tela: cinco minutos evitam refetch a cada volta para
     // ela, e o dado dela não muda em segundos.

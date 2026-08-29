@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom'
 import { Badge } from '@/components/ui/Badge'
 import { Estado } from '@/rodada/components/Estado'
 import { BotaoExportar } from '@/rodada/components/BotaoExportar'
+import { BotaoParametros } from '@/rodada/components/PainelParametros'
 import {
   Cartao,
   CelulaLink,
@@ -72,6 +73,7 @@ export function Elemento() {
                   <>
                     <ChipSituacao situacao={o.situacao} />
                     {o.obrigatoria && <Badge tone="warning">Obrigatória</Badge>}
+                    <BotaoParametros meta={meta.data} />
                     <BotaoExportar />
                   </>
                 }

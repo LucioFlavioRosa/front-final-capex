@@ -52,6 +52,7 @@ type Action =
   | { type: 'IR_FASE'; fase: Fase }
   | { type: 'GARANTIR_FAIXA_ZERO' }
   | { type: 'HIDRATAR'; unidadeId: string; dados: UnidadeState['data'] }
+  | { type: 'IMPORTAR_PLANILHA'; dados: UnidadeState['data'] }
 
 /**
  * PREENCHIMENTO ACOMPANHADO — as colunas que uma escolha preenche junto.
@@ -227,6 +228,30 @@ function reducer(state: CadastroState, action: Action): CadastroState {
       }
     }
 
+    /**
+     * O UPLOAD do template preenchido — a volta do botão "Baixar template".
+     *
+     * MESCLA, e não substitui como `HIDRATAR`: o template só cobre as 12 abas
+     * visíveis do wizard (`template_excel.PLANILHAS`), e as três abas ocultas
+     * da hierarquia (Ano-base, Superintendências, Cidades atendidas — ver
+     * `ocultaNoWizard` em types.ts) não entram nele. Uma substituição total
+     * zeraria essas três em silêncio; a mescla troca só as abas que a
+     * planilha de fato trouxe, campo por campo.
+     *
+     * `cidades` é recalculado sobre o resultado da mescla, não sobre
+     * `action.dados` isolado — a aba `cidade-operacional` pode ter chegado
+     * junto (é uma das 12), e sem reler o estado completo o select de cidade
+     * ficaria com a lista de ANTES do import.
+     */
+    case 'IMPORTAR_PLANILHA': {
+      if (!state.unidade) return state
+      const data = { ...state.unidade.data, ...action.dados }
+      return {
+        ...state,
+        unidade: { ...state.unidade, data, cidades: cidadesDoCadastro(data) },
+      }
+    }
+
     case 'IR_PASSO':
       return { ...state, passo: action.passo }
 
@@ -247,6 +272,8 @@ interface CadastroContextValue {
   setCells: (abaKey: string, edicoes: { ri: number; col: string; value: string }[]) => void
   addRow: (abaKey: string) => void
   delRow: (abaKey: string, ri: number) => void
+  /** Mescla no estado o `dados` que voltou de `importarTemplateCadastro`. */
+  importarPlanilha: (dados: UnidadeState['data']) => void
   irPasso: (passo: number) => void
   irFase: (fase: Fase) => void
   /** Cria a faixa de cobertura 0 das cidades com uma paridade só (item 30). */
@@ -294,15 +321,13 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
   /**
    * Busca no banco o cadastro da unidade selecionada.
    *
-   * TUDO o que a tela mostra vem daqui — não há semente local nem exemplo. Uma
-   * unidade que existe no banco sempre traz as 15 abas montadas (`lerCadastro`
-   * as compõe das cinco rotas de leitura); uma que não existe não aparece na
-   * seleção, porque a lista de unidades também vem do servidor.
+   * É a metade que faltava da persistência: sem isto, reabrir o site mostraria
+   * de novo o `seed` local e daria a impressão de que nada foi salvo — ou pior,
+   * a impressão de que foi, já que o seed tem a mesma cara.
    *
-   * Por isso o 404 deixou de ser caminho normal: ele significa unidade fora do
-   * escopo de quem está logado, e não "ainda não salva". Continua sem toast —
-   * a tela fica sem dados e a mensagem certa é a da própria seleção —, mas vai
-   * para o console como as outras falhas.
+   * 404 é resultado esperado, não erro: significa que esta unidade nunca foi
+   * salva, e o `seed` é exatamente o que deve ficar na tela. Só falha de
+   * verdade vai para o console.
    *
    * `cancelado` cobre a troca rápida de unidade — o dispatch tardio de uma
    * requisição obsoleta é descartado aqui, e a guarda por id no reducer é a
@@ -355,6 +380,7 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
     setCells: (abaKey, edicoes) => dispatch({ type: 'SET_CELLS', abaKey, edicoes }),
     addRow: (abaKey) => dispatch({ type: 'ADD_ROW', abaKey }),
     delRow: (abaKey, ri) => dispatch({ type: 'DEL_ROW', abaKey, ri }),
+    importarPlanilha: (dados) => dispatch({ type: 'IMPORTAR_PLANILHA', dados }),
     irPasso: (passo) => dispatch({ type: 'IR_PASSO', passo }),
     irFase: (fase) => dispatch({ type: 'IR_FASE', fase }),
     garantirFaixaZeroParidade,

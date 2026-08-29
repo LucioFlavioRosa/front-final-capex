@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { MapPin, SignOut, MagnifyingGlass, ArrowsClockwise, CaretDown } from '@phosphor-icons/react'
 import { navItemsVisiveis } from '../../config/navigation'
 import { useAuth } from '../../auth/AuthContext'
+import { useIndicador } from '../ui/useIndicador'
 import { useContextoTrilho } from './ContextoCabecalho'
 
 /**
@@ -28,43 +28,6 @@ import { useContextoTrilho } from './ContextoCabecalho'
  * O tema é CLARO e continua claro: o redesign dark não passou na Aegea
  * (11/08/2026). Não reintroduzir `#070B2E` nem as fontes do protótipo dark.
  */
-
-/**
- * O TRILHO propriamente dito: mede o item ativo e escorrega a barrinha até ele.
- *
- * Mede no layout (`useLayoutEffect`) e não no efeito comum porque a medida
- * acontece antes da pintura — senão o indicador aparece em x=0 no primeiro
- * quadro e salta para o lugar certo no segundo, que é exatamente o corte seco
- * que ele existe para eliminar.
- *
- * O `ResizeObserver` cobre os dois casos em que a medida envelhece sem que a
- * rota mude: a janela encolhe (os itens reflowam) e a fonte carrega depois da
- * primeira pintura (o texto muda de largura).
- */
-function useIndicador(ativo: string) {
-  const navRef = useRef<HTMLElement>(null)
-  const [estilo, setEstilo] = useState<{ left: number; width: number } | null>(null)
-
-  const medir = useCallback(() => {
-    const nav = navRef.current
-    if (!nav) return
-    const el = nav.querySelector<HTMLElement>('[data-ativo="1"]')
-    if (!el) return setEstilo(null)
-    setEstilo({ left: el.offsetLeft, width: el.offsetWidth })
-  }, [])
-
-  useLayoutEffect(medir, [medir, ativo])
-
-  useEffect(() => {
-    const nav = navRef.current
-    if (!nav) return
-    const ro = new ResizeObserver(medir)
-    ro.observe(nav)
-    return () => ro.disconnect()
-  }, [medir])
-
-  return { navRef, estilo }
-}
 
 /** Classes do chip — compartilhadas pelas duas formas, estática e clicável. */
 const CHIP_BASE =
@@ -122,7 +85,7 @@ export function Header({ onOpenCmd }: HeaderProps) {
   const { user, logout, isMockAuth, perfilDev, opcoesPerfilDev, rotuloPerfilDev, definirPerfilDev } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const { navRef, estilo } = useIndicador(pathname)
+  const { containerRef: navRef, estilo } = useIndicador<HTMLElement>(pathname)
 
   // N4: cada papel vê só os módulos que a matriz de perfis libera para ele —
   // ver `config/navigation.ts:navItemsVisiveis`. `gerenciador_usuarios` fica
@@ -130,8 +93,10 @@ export function Header({ onOpenCmd }: HeaderProps) {
   // (`router.tsx`) já lida com "nenhum item visível".
   const itensVisiveis = navItemsVisiveis(user?.papeis ?? [])
 
-  // Com um módulo só, a barrinha sublinharia o único item possível —
-  // decoração que não informa nada.
+  // Com um destino só, a barrinha sublinharia o único item possível —
+  // decoração que não informa nada. Sem o "Início" na barra (Home
+  // desligada, 21/08/2026), o indicador só faz sentido a partir de dois
+  // módulos visíveis.
   const mostrarIndicador = itensVisiveis.length > 1
 
   function handleLogout() {
@@ -147,15 +112,18 @@ export function Header({ onOpenCmd }: HeaderProps) {
       style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(0,0,0,.22)' }}
     >
       <div className="max-w-content mx-auto flex h-14 items-center gap-4 px-4 md:px-6">
-        {/* A marca aponta para /cadastro enquanto a Home está desligada —
-            ver o comentário do `router.tsx`. */}
-        <NavLink to="/cadastro" className="flex flex-none items-center">
+        {/* A marca aponta para a raiz: com a Home desligada, `/` resolve pelo
+            `RotaPadrao` (mesmo destino do link "sem módulo" do menu) —
+            ver `router.tsx`. */}
+        <NavLink to="/" className="flex flex-none items-center">
           <img src="/assets/aegea-logo-azul.png" alt="aegea" className="h-7 flex-none brightness-0 invert" />
         </NavLink>
 
         <span className="hidden h-5 w-px flex-none bg-white/20 sm:block" />
 
-        {/* Navegação principal. Sem link "Início": a Home está fora do ar. */}
+        {/* Navegação principal. Sem o link "Início": a Home está desligada
+            (21/08/2026, ainda em desenvolvimento) e não deve aparecer no menu.
+            Religar junto com a Home no `router.tsx`. */}
         <nav
           ref={navRef}
           className="relative flex h-14 flex-none items-stretch gap-0.5"
@@ -166,7 +134,7 @@ export function Header({ onOpenCmd }: HeaderProps) {
               key={item.path}
               to={item.path}
               className={navLinkClass}
-              data-ativo={pathname.startsWith(item.path) ? '1' : undefined}
+              data-indicador={pathname.startsWith(item.path) ? '1' : undefined}
             >
               {item.label}
             </NavLink>

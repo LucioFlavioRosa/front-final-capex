@@ -22,13 +22,16 @@ import { api } from '@/lib/api'
 import type {
   CidadeDetalhe,
   CidadeLinha,
+  ExplicabilidadeGlobal,
+  Fluxo,
   ObraDetalhe,
+  CronogramaDeObras,
+  ObrasPagina,
   PainelEbitda,
   PainelGlobal,
   RunMeta,
   RunResumo,
   SubBaciaDetalhe,
-  Topologia,
 } from '@/rodada/domain/resultado'
 import type { CorpoNovaRodada, Prontidao } from '@/rodada/domain/simulacao'
 
@@ -84,13 +87,61 @@ export const resultados = {
   /** Tabela de cidades do nível global (drill-down). */
   cidades: (runId: string) => api.get<CidadeLinha[]>(`${BASE}/${runId}/cidades`),
 
+  /** Resumo agregado de "por que não fatura", por motivo — nível global. */
+  explicabilidade: (runId: string) =>
+    api.get<ExplicabilidadeGlobal>(`${BASE}/${runId}/explicabilidade`),
+
+  /**
+   * O mesmo resumo, recortado por cidade — "sub-bacias fora do plano" do
+   * nível 2 (item 10 de 26/08). Endpoint próprio, e não um `?cidade=` no de
+   * cima: a URL de cidade já tem `/cidades/{id}`, e colar o recorte nela
+   * segue o mesmo padrão de `cidade()` logo abaixo.
+   */
+  explicabilidadeDaCidade: (runId: string, cidadeId: string) =>
+    api.get<ExplicabilidadeGlobal>(`${BASE}/${runId}/cidades/${cidadeId}/explicabilidade`),
+
   /** Nível 2: cobertura, metas, fluxo de escoamento, paridade e sistemas da cidade. */
   cidade: (runId: string, cidadeId: string) =>
     api.get<CidadeDetalhe>(`${BASE}/${runId}/cidades/${cidadeId}`),
 
-  /** Nível 3: nós, componentes, arestas de jusante e a ETE do sistema. */
-  topologia: (runId: string, sistemaId: string) =>
-    api.get<Topologia>(`${BASE}/${runId}/sistemas/${sistemaId}/topologia`),
+  /**
+   * Lista de obras por ordem de execução, nível 1 (item 3 de 26/08). Paginada:
+   * uma unidade grande publica milhares de linhas em `otim_obra`.
+   */
+  obras: (
+    runId: string,
+    filtro?: {
+      situacao?: string
+      cidadeId?: string
+      ano?: number
+      pagina?: number
+      tamanho?: number
+      ordenar?: string
+    },
+  ) => {
+    const q = new URLSearchParams()
+    if (filtro?.situacao) q.set('situacao', filtro.situacao)
+    if (filtro?.cidadeId) q.set('cidade', filtro.cidadeId)
+    if (filtro?.ano) q.set('ano', String(filtro.ano))
+    if (filtro?.pagina) q.set('pagina', String(filtro.pagina))
+    if (filtro?.tamanho) q.set('tamanho', String(filtro.tamanho))
+    if (filtro?.ordenar) q.set('ordenar', filtro.ordenar)
+    const qs = q.toString()
+    return api.get<ObrasPagina>(`${BASE}/${runId}/obras${qs ? `?${qs}` : ''}`)
+  },
+
+  /**
+   * O cronograma de obras do plano — quantas de cada componente por ano.
+   * Item 3 na leitura corrigida em 27/08: o gráfico do plano de execução.
+   */
+  cronogramaDeObras: (runId: string) =>
+    api.get<CronogramaDeObras>(`${BASE}/${runId}/obras/cronograma`),
+
+  /** Nível 3: nós, componentes, arestas de jusante e a ETE do sistema.
+   *  A URL continua `/topologia` — é o contrato do backend, e mexer nela é
+   *  mudança de API, não de rótulo de tela. */
+  fluxo: (runId: string, sistemaId: string) =>
+    api.get<Fluxo>(`${BASE}/${runId}/sistemas/${sistemaId}/topologia`),
 
   /** Nível 4: VPL decomposto, série de receita, explicabilidade e elementos. */
   subbacia: (runId: string, subId: string) =>

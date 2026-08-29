@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { X } from '@phosphor-icons/react'
 import { Tag } from '@/rodada/components/pecas'
 import { DICIONARIO_RODADA, tomDaOrigem, type Verbete } from '@/rodada/domain/dicionario'
+import { useSaidaMontada } from '@/components/ui/useSaidaMontada'
 
 /**
  * O "?" DE CADA PARÂMETRO, e o painel que ele abre.
@@ -148,16 +149,27 @@ export function PainelDicionario({
     return () => document.removeEventListener('keydown', aoTeclar)
   }, [aberto, dict])
 
-  if (!dict?.chave) return null
+  // 200ms: o tempo de `animate-fade-out-down` abaixo — segura o painel
+  // montado até a saída terminar, em vez de sumir no clique do "X".
+  const { montado, fechando } = useSaidaMontada(aberto, 200)
 
-  const v = verbetes[dict.chave]
+  // `dict.chave` já volta a `undefined` no instante do fechar — guarda a
+  // ÚLTIMA chave vista para o conteúdo não sumir antes da animação de saída.
+  const ultimaChave = useRef<string | undefined>(dict?.chave ?? undefined)
+  if (dict?.chave) ultimaChave.current = dict.chave
+
+  if (!montado) return null
+
+  const v = ultimaChave.current ? verbetes[ultimaChave.current] : undefined
 
   return (
     <aside
       role="complementary"
       aria-label="Dicionário de dados"
       aria-live="polite"
-      className="carta fixed right-4 top-24 bottom-6 z-40 flex w-[340px] max-w-[calc(100vw-2rem)] flex-col overflow-y-auto p-5 shadow-xl animate-fade-in"
+      className={`carta fixed right-4 top-24 bottom-6 z-40 flex w-[340px] max-w-[calc(100vw-2rem)] flex-col overflow-y-auto p-5 shadow-xl ${
+        fechando ? 'animate-fade-out-down' : 'animate-fade-in'
+      }`}
     >
       <div className="flex items-start justify-between gap-3">
         <span className="text-[10.5px] font-bold uppercase tracking-[.09em] text-ink-400">
@@ -165,7 +177,7 @@ export function PainelDicionario({
         </span>
         <button
           type="button"
-          onClick={dict.fechar}
+          onClick={() => dict?.fechar()}
           aria-label="Fechar o dicionário de dados"
           className="-m-1 rounded p-1 text-ink-400 transition-colors duration-hover ease-saida hover:text-ink-700"
         >
@@ -177,7 +189,7 @@ export function PainelDicionario({
         /* Chave sem verbete é bug de quem escreveu o "?", não do usuário — mas
            quem está na tela precisa de uma frase, e não de um painel vazio. */
         <p className="mt-4 text-[13px] leading-relaxed text-ink-500">
-          Verbete “{dict.chave}” ainda não cadastrado no dicionário.
+          Verbete “{ultimaChave.current}” ainda não cadastrado no dicionário.
         </p>
       ) : (
         <>

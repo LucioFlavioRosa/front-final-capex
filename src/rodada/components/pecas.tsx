@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/Badge'
+import { BotaoAjuda } from '@/rodada/components/Dicionario'
+import { ocupacaoEte } from '@/rodada/lib/formato'
 import type { SituacaoObra, StatusRodada } from '@/rodada/domain/resultado'
 
 /**
@@ -39,19 +41,25 @@ export function FaixaKpi({
   titulo?: string
   subtitulo?: ReactNode
   acoes?: ReactNode
-  destaque?: { rotulo: string; valor: ReactNode }
-  itens: { rotulo: string; valor: ReactNode }[]
+  /** `ajuda` é a chave do verbete no dicionário de resultado — ver `Tile`. */
+  destaque?: { rotulo: string; valor: ReactNode; ajuda?: string }
+  itens: { rotulo: string; valor: ReactNode; ajuda?: string }[]
   rodape?: ReactNode
 }) {
   const corpo = (
     <>
-      {destaque && <KpiDestaque rotulo={destaque.rotulo} valor={destaque.valor} />}
+      {destaque && (
+        <KpiDestaque rotulo={destaque.rotulo} valor={destaque.valor} ajuda={destaque.ajuda} />
+      )}
       {itens.length > 0 && (
+        // `escada`: os KPIs entram um pouco depois do outro em vez de todos
+        // no mesmo quadro — é a faixa do topo de cada nível de resultado, não
+        // uma grade de trabalho repetitivo, então a entrada tem sentido aqui.
         <div
-          className={`tiles grid-cols-2 md:grid-cols-4 ${destaque ? 'mt-5' : ''}`}
+          className={`tiles escada grid-cols-2 md:grid-cols-4 ${destaque ? 'mt-5' : ''}`}
         >
           {itens.map((i) => (
-            <Tile key={i.rotulo} rotulo={i.rotulo} valor={i.valor} />
+            <Tile key={i.rotulo} rotulo={i.rotulo} valor={i.valor} ajuda={i.ajuda} />
           ))}
         </div>
       )}
@@ -79,11 +87,43 @@ export function FaixaKpi({
   )
 }
 
+/**
+ * `valor` cai em VAZIO ('—') quando vem `undefined`/`null`/string vazia — não
+ * fica em branco. Bug pré-existente encontrado ao inspecionar uma rodada sem
+ * `BASE_RECEITA` no params_extra: o rodapé mostrava "Base de receita" seguido
+ * de nada, indistinguível de um erro de layout. Um traço afirma "sem dado",
+ * célula em branco não afirma nada.
+ */
+/**
+ * O NÚMERO DE OCUPAÇÃO DE UMA ETE, MARCADO QUANDO PASSA DE 100% (defeito X-02,
+ * achado revisando os prints de 26/08 — um mostrava 2.734,2%).
+ *
+ * `ocupacaoEte` (em `lib/formato.ts`) já decide SE é inconsistente; este
+ * componente só decide COMO mostrar isso — vermelho com um aviso, sem
+ * esconder o número real. Usado no nível 3 (KPI e diagrama) e na tabela de
+ * sistemas do nível 2, então mora aqui e não copiado em cada tela.
+ */
+export function ValorOcupacao({ pct }: { pct: number | null }) {
+  const { texto, inconsistente } = ocupacaoEte(pct)
+  if (!inconsistente) return <>{texto}</>
+  return (
+    <span
+      className="text-danger"
+      title="Acima de 100% não é um plano válido — sinal de capacidade e vazão publicadas sem restrição entre si. Ver o defeito X-02."
+    >
+      {texto} ⚠
+    </span>
+  )
+}
+
 export function ItemRodape({ rotulo, valor }: { rotulo: string; valor: ReactNode }) {
+  const vazio = valor === undefined || valor === null || valor === ''
   return (
     <span>
       {rotulo}{' '}
-      <b className="font-mono font-semibold tabular-nums text-ink-800">{valor}</b>
+      <b className="font-mono font-semibold tabular-nums text-ink-800">
+        {vazio ? '—' : valor}
+      </b>
     </span>
   )
 }
@@ -108,12 +148,15 @@ export function TituloSecao({ children, nota }: { children: ReactNode; nota?: Re
 export function Cartao({
   titulo,
   nota,
+  ajuda,
   tabela = false,
   children,
   className = '',
 }: {
   titulo?: string
   nota?: ReactNode
+  /** Chave do verbete — o "?" ao lado do título do cartão. Ver `Tile`. */
+  ajuda?: string
   tabela?: boolean
   children: ReactNode
   className?: string
@@ -130,7 +173,10 @@ export function Cartao({
             tabela ? 'border-b border-ink-200 px-[18px] py-3.5' : 'mb-2.5'
           }`}
         >
-          <div className="text-[13px] font-bold text-ink-800">{titulo}</div>
+          <div className="flex items-center gap-1.5 text-[13px] font-bold text-ink-800">
+            <span>{titulo}</span>
+            {ajuda && <BotaoAjuda chave={ajuda} texto={titulo} />}
+          </div>
           {nota && <span className="text-[11px] text-ink-500">{nota}</span>}
         </div>
       )}
@@ -243,16 +289,52 @@ export const STATUS_RODADA: Record<StatusRodada, { texto: string; tom: Tom }> = 
   CANCELADA: { texto: 'Cancelada', tom: 'neutro' },
 }
 
+/** Estados em que a rodada ainda está em voo — o servidor pode mudá-los sozinho. */
+const EM_VOO = new Set<StatusRodada>(['PENDENTE', 'RODANDO'])
+
 export function TagStatus({ status }: { status: StatusRodada }) {
   const s = STATUS_RODADA[status] ?? { texto: status, tom: 'neutro' as Tom }
-  return <Tag tom={s.tom}>{s.texto}</Tag>
+  const emVoo = EM_VOO.has(status)
+  return (
+    <Tag tom={s.tom} className={emVoo ? 'relative overflow-hidden' : undefined}>
+      {s.texto}
+      {/* A rodada em voo pode mudar sozinha (ver `useRuns`, `refetchInterval`) —
+          o sweep é o que diz "isto está acontecendo agora" enquanto se espera. */}
+      {emVoo && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 animate-sweep bg-gradient-to-r from-transparent via-white/50 to-transparent"
+        />
+      )}
+    </Tag>
+  )
 }
 
-/** Rótulo + valor de um tile dentro de uma grade `.tiles`. */
-export function Tile({ rotulo, valor }: { rotulo: string; valor: ReactNode }) {
+/**
+ * Rótulo + valor de um tile dentro de uma grade `.tiles`.
+ *
+ * `ajuda` é a chave do verbete no dicionário de resultado — quando vem, o "?"
+ * aparece ao lado do rótulo. Ele fica DEPOIS do rótulo e não antes pela mesma
+ * razão do formulário: o número é o que se lê primeiro, e o "?" é o segundo
+ * gesto de quem não reconheceu o nome. Fora de um `ProvedorDicionario` o botão
+ * simplesmente não renderiza, então um tile com `ajuda` continua correto em
+ * qualquer tela.
+ */
+export function Tile({
+  rotulo,
+  valor,
+  ajuda,
+}: {
+  rotulo: string
+  valor: ReactNode
+  ajuda?: string
+}) {
   return (
     <div>
-      <div className="text-[12px] text-ink-500">{rotulo}</div>
+      <div className="flex items-center gap-1.5 text-[12px] text-ink-500">
+        <span>{rotulo}</span>
+        {ajuda && <BotaoAjuda chave={ajuda} texto={rotulo} />}
+      </div>
       <div className="mt-1 font-mono text-[16px] font-semibold tabular-nums text-ink-800">
         {valor}
       </div>
@@ -273,15 +355,18 @@ export function KpiDestaque({
   rotulo,
   valor,
   tom = 'text-aegea-700',
+  ajuda,
 }: {
   rotulo: string
   valor: ReactNode
   tom?: string
+  ajuda?: string
 }) {
   return (
     <div>
-      <div className="text-[11.5px] font-semibold uppercase tracking-[.05em] text-ink-water">
-        {rotulo}
+      <div className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-[.05em] text-ink-water">
+        <span>{rotulo}</span>
+        {ajuda && <BotaoAjuda chave={ajuda} texto={rotulo} />}
       </div>
       <div
         className={`mt-1.5 font-mono text-[34px] font-semibold leading-none tracking-tight tabular-nums md:text-[40px] ${tom}`}

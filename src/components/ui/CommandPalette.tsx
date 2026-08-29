@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { MagnifyingGlass } from '@phosphor-icons/react'
+import { useSaidaMontada } from './useSaidaMontada'
 
 interface CommandPaletteProps {
   open: boolean
@@ -24,7 +25,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     }
   }, [open, onClose])
 
-  if (!open) return null
+  const { montado, fechando } = useSaidaMontada(open, 160)
+  if (!montado) return null
 
   function ir(to: string) {
     navigate(to)
@@ -33,11 +35,15 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-ink-900/50 pt-[14vh] backdrop-blur-[3px]"
+      className={`fixed inset-0 z-[60] flex items-start justify-center bg-ink-900/50 pt-[14vh] backdrop-blur-[3px] ${
+        fechando ? 'animate-overlay-out' : 'animate-overlay-in'
+      }`}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[520px] animate-scale-in overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-elev"
+        className={`w-full max-w-[520px] overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-elev ${
+          fechando ? 'animate-scale-out' : 'animate-scale-in'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2.5 border-b border-ink-200 px-4 py-3.5">

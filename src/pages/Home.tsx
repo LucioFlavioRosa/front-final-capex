@@ -42,6 +42,8 @@ export function Home() {
   const kpis = data?.meta?.kpis ?? null
   const unidade = data?.unidade ?? null
   const resumo = unidade?.resumo
+  // De `/prontidao`, e nao da unidade — ver o comentario em `homeDados.ts`.
+  const completude = data?.completude ?? null
 
   return (
     <section className="max-w-content mx-auto px-4 py-8 md:px-6">
@@ -61,9 +63,11 @@ export function Home() {
               <>
                 A unidade{' '}
                 <strong className="font-semibold text-water-600">{ultima.unidadeNome}</strong>{' '}
-                {unidade.completude === 100
+                {completude === 100
                   ? 'está pronta para simular'
-                  : `está com ${unidade.completude}% do cadastro preenchido`}
+                  : completude == null
+                    ? 'está cadastrada'
+                    : `está com ${completude}% do cadastro preenchido`}
                 . Última rodada {quando(ultima.dataHora)}.
               </>
             )}
@@ -126,13 +130,13 @@ export function Home() {
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-[15px] font-bold tracking-tight text-ink-900">Status do cadastro</h2>
             <span className="font-mono text-xs font-semibold text-aegea-700">
-              {unidade ? `${unidade.completude}%` : '—'}
+              {completude == null ? '—' : `${completude}%`}
             </span>
           </div>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink-200">
             <div
               className="h-full origin-left animate-grow rounded-full bg-gradient-to-r from-water-600 to-aegea-400"
-              style={{ width: `${unidade?.completude ?? 0}%` }}
+              style={{ width: `${completude ?? 0}%` }}
             />
           </div>
           <div className="mt-4 flex flex-col">
@@ -143,7 +147,7 @@ export function Home() {
           </div>
           {/* Chip âmbar mantém a cor semântica no fundo/borda; o texto usa amber-800 para
               chegar a 6.4:1 — `text-warning` sobre `bg-warning/10` fica em 2.9:1. */}
-          {unidade && unidade.completude < 100 && (
+          {completude != null && completude < 100 && (
             <div className="mt-3.5 flex items-start gap-2 rounded-[9px] border border-warning/30 bg-warning/10 px-3 py-2.5">
               <Warning weight="fill" className="mt-0.5 flex-none text-amber-700" />
               <span className="text-xs text-amber-800">

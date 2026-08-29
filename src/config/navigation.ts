@@ -53,7 +53,7 @@ export const NAV_ITEMS: NavItem[] = [
     title: 'Resultados',
     path: '/resultados',
     icon: ChartLineUp,
-    description: 'Histórico de rodadas e o drill-down de cidade até elemento de obra.',
+    description: 'Histórico de rodadas e o drill-down de cidade até a obra.',
     papeis: PAPEIS_OPERACIONAIS,
   },
 ]

@@ -11,12 +11,19 @@ afterAll(() => servidor.close())
 
 /**
  * Objetivo, receita, curva, penalidade e os dois interruptores vivem sob
- * "Parâmetros do motor", que nasce fechado — são justamente os que mudam o
- * resultado de quem só clicar Iniciar, e por isso são os que mais precisam do
- * verbete.
+ * "Parâmetros do motor", que NASCE ABERTO desde o item 1 do feedback de 26/08
+ * — a Aegea disse que são os controles mais usados, e uma gaveta fechada
+ * escondia justamente os que mudam o resultado de quem só clica Iniciar.
+ *
+ * A função ficou como asserção em vez de sumir: se o bloco voltar a nascer
+ * fechado, o teste falha AQUI, com o motivo escrito, em vez de falhar cinco
+ * linhas depois com "não achei o botão de ajuda".
  */
-async function abrirParametrosDoMotor() {
-  await userEvent.click(screen.getByRole('button', { name: /parâmetros do motor/i }))
+function conferirParametrosDoMotorAbertos() {
+  expect(screen.getByRole('button', { name: /parâmetros do motor/i })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  )
 }
 
 /**
@@ -47,11 +54,11 @@ describe('Simular — o "?" abre o dicionário do parâmetro', () => {
 
   it('abre o verbete com as três seções e os selos de origem e tipo', async () => {
     renderizar(<Simular />)
-    await abrirParametrosDoMotor()
+    conferirParametrosDoMotorAbertos()
 
     expect(screen.queryByRole('complementary', { name: 'Dicionário de dados' })).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'O que é "Penalidade"?' }))
+    await userEvent.click(screen.getByRole('button', { name: 'O que é "Estratégia de cobertura"?' }))
 
     const painel = await screen.findByRole('complementary', { name: 'Dicionário de dados' })
     expect(painel).toHaveTextContent('PENALIDADE_COBERTURA')
@@ -63,7 +70,7 @@ describe('Simular — o "?" abre o dicionário do parâmetro', () => {
 
   it('o "?" alterna: o segundo clique no mesmo parâmetro fecha', async () => {
     renderizar(<Simular />)
-    await abrirParametrosDoMotor()
+    conferirParametrosDoMotorAbertos()
 
     const botao = screen.getByRole('button', { name: 'O que é "Base de receita"?' })
     await userEvent.click(botao)
@@ -79,7 +86,7 @@ describe('Simular — o "?" abre o dicionário do parâmetro', () => {
 
   it('trocar de parâmetro TROCA o verbete, sem fechar o painel', async () => {
     renderizar(<Simular />)
-    await abrirParametrosDoMotor()
+    conferirParametrosDoMotorAbertos()
 
     await userEvent.click(screen.getByRole('button', { name: 'O que é "Base de receita"?' }))
     const painel = await screen.findByRole('complementary', { name: 'Dicionário de dados' })
@@ -92,7 +99,7 @@ describe('Simular — o "?" abre o dicionário do parâmetro', () => {
 
   it('Esc fecha — o painel não rouba o foco, então precisa da saída pelo teclado', async () => {
     renderizar(<Simular />)
-    await abrirParametrosDoMotor()
+    conferirParametrosDoMotorAbertos()
 
     await userEvent.click(screen.getByRole('button', { name: 'O que é "Usar CTS"?' }))
     expect(await screen.findByRole('complementary', { name: 'Dicionário de dados' })).toBeInTheDocument()

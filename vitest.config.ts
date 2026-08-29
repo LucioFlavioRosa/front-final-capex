@@ -29,14 +29,16 @@ export default defineConfig({
     // inteiro faria o comando falhar por ausência de arquivo em vez de por
     // defeito.
     include: ['src/**/*.test.{ts,tsx}'],
-    // O teste de INTEGRACAO fica fora da suite padrao: ele bate no backend de
-    // verdade, e aqui o MSW (`testes/setup.ts`) intercepta toda requisicao —
-    // ele passaria a testar o mock, calado, em vez do servidor. Roda por
-    // `npm run test:integracao`, que sobe sem o setup do mock.
-    // Fora da suite padrao, por razoes diferentes: o de INTEGRACAO bate no
-    // backend de verdade (aqui o MSW o interceptaria), e o de PERF cronometra
-    // render (aqui ele disputaria CPU com os outros 16 arquivos e mediria a
-    // maquina). Cada um tem seu script: `test:integracao` e `test:perf`.
+    // Fora da suíte padrão, e cada um por sua razão.
+    //
+    // Os de PERF cronometram render: aqui eles disputariam CPU com os outros
+    // arquivos e passariam a medir a máquina, não o código. Rodam sozinhos, por
+    // `npm run test:perf`.
+    //
+    // Os de INTEGRAÇÃO batem no backend de verdade, e aqui o MSW
+    // (`testes/setup.ts`) intercepta toda requisição — eles passariam a testar o
+    // mock, calados, e seguiriam verdes no dia em que o servidor mudasse de
+    // formato. Que é exatamente o que existem para pegar.
     exclude: [
       '**/node_modules/**',
       '**/*.integracao.test.{ts,tsx}',

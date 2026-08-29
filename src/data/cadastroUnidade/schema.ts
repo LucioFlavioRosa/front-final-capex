@@ -259,6 +259,23 @@ export const COLUNA_LABELS: Record<string, string> = {
   universo_economias: 'Universo de economias',
   economias_atuais: 'Economias atuais',
   economias_novas_obras: 'Economias novas (obras)',
+  /**
+   * As CINCO colunas do recorte residencial e o ticket, que estavam sem rótulo e
+   * por isso apareciam com o nome técnico (`colunaLabel` devolve a chave quando
+   * não acha entrada). Passava despercebido na tela porque as cinco vivem no
+   * grupo de colunas de referência da ficha comercial, à direita do que se
+   * preenche — mas no template de Excel elas são cabeçalho de coluna como
+   * qualquer outra, e `universo_ligacoes_residencial` num cabeçalho é ruído.
+   *
+   * O rótulo diz "(residencial)" e não "residenciais" para o par universo/atuais
+   * ler igual ao par sem recorte que vem logo antes: a diferença entre as duas
+   * colunas é o RECORTE, não a contagem.
+   */
+  universo_ligacoes_residencial: 'Universo de ligações (residencial)',
+  ligacoes_atuais_residencial: 'Ligações atuais (residencial)',
+  universo_economias_residencial: 'Universo de economias (residencial)',
+  economias_atuais_residencial: 'Economias atuais (residencial)',
+  ticket_medio: 'Ticket médio',
   universo_populacao: 'Universo de população',
   populacao_atual: 'População atual',
   populacao_novas_obras: 'População nova (obras)',
@@ -767,7 +784,15 @@ export const SCHEMA: AbaDef[] = [
       // em qual tabela o componente tem ficha) e nao volta: e derivado, nao
       // digitado. Sem ele a tela nao distingue uma CTS ainda nao colocada de uma
       // sub-bacia, e as duas aparecem iguais na lista dos sem sistema.
-      { coluna: 'componente_tipo', origem: 'db', procedencia: 'depara', oque: 'Natureza do componente: sub-bacia, CTS ou ETE.', exemplo: 'cts' },
+      // `calc`, e nao `db`: o tipo e uma FUNCAO PURA do id — e a aba em que o
+      // componente tem ficha (`subbacia-operacional`, `cts-operacional`,
+      // `ete-capex`), que o cadastro ja carrega. Derivar na hora de exibir e
+      // melhor que guardar na linha: nao ha copia para envelhecer, e a celula
+      // nasce travada, como toda coluna derivada.
+      //
+      // No back do Lucio isto vem do servidor (`t.tipo`), porque a API dele
+      // entrega ficha por ficha e a tela nao tem o conjunto. Aqui tem.
+      { coluna: 'componente_tipo', origem: 'calc', procedencia: 'vazio', oque: 'Natureza do componente: sub-bacia, CTS ou ETE.', porque: 'Derivado da aba em que o componente tem ficha — não é digitado nem gravado. Sem ele a tela não distingue uma CTS ainda não colocada de uma sub-bacia.', exemplo: 'cts' },
       { coluna: 'componente_sistema_id_jusante', origem: 'un', procedencia: 'vazio', oque: 'Para ONDE esta linha escoa. A lista depende da origem: de uma sub-bacia, só as sub-bacias do mesmo sistema e a ETE dele; de uma CTS, qualquer sub-bacia, CTS ou ETE.', porque: 'COLUNA MAIS CRÍTICA DA BASE. Define o caminho até a ETE e quais obras liberam a receita. Um erro aqui libera receita sem infraestrutura.', exemplo: 'e01' },
       { coluna: 'componente_sistema_nome_jusante', origem: 'db', procedencia: 'vazio', oque: 'Nome do destino — o próximo passo do caminho até a estação de tratamento. Preenchido junto com o código ao lado.' },
     ],
@@ -798,6 +823,10 @@ export const SCHEMA: AbaDef[] = [
     key: 'cidade-operacional', icone: Buildings, titulo: 'Concessão', bloco: 'Operação',
     // Só cidade: a concessão é DA CIDADE, e sistema não existe nesta aba.
     escopo: { cidade: 'coluna' },
+    // O fim de concessão é do CONTRATO, e o contrato é da empresa operadora —
+    // ver `replicarPor` em `types.ts`. A mesma tecla vale para a régua de
+    // cobertura, que também costuma ser uniforme dentro de uma operadora.
+    replicarPor: 'emp_codigo',
     desc: 'Fim da concessão de cada cidade, por empresa operadora.',
     cols: [
       { coluna: 'emp_codigo', origem: 'db', procedencia: 'depara', oque: 'Código real da empresa operadora responsável por esta cidade.', exemplo: '57' }, { coluna: 'empresa', origem: 'db', procedencia: 'depara', oque: 'Nome da empresa operadora responsável por esta cidade.', exemplo: 'Águas do Rio 04' },
@@ -925,9 +954,7 @@ export const SCHEMA: AbaDef[] = [
        * A ETE é uma obra como as demais para o motor, que lê as duas daqui
        * (`otimizador_capex_v62.py:1315`). Faltava a tela poder defini-las: a
        * restrição valia na simulação e não havia onde dizer "esta ETE é
-       * obrigatória em 2028". `tempo_predecessoras`, logo acima, sofria do mesmo
-       * mal por outro caminho — a coluna existia aqui, mas o servidor não mandava
-       * o campo, então ela chegava sempre vazia.
+       * obrigatória em 2028".
        */
       { coluna: 'obra_obrigatoria_ano', origem: 'un', procedencia: 'vazio', oque: 'Ano em que esta ETE TEM de ficar pronta, por exigência contratual ou regulatória.', porque: 'O motor a força nesse ano, mesmo que o retorno não justifique. Vazio = sem exigência.', exemplo: '2028' },
       { coluna: 'obra_proibida_ate', origem: 'un', procedencia: 'vazio', oque: 'Ano até o qual esta ETE NÃO pode começar.', porque: 'Impede o plano de agendar antes de licença ambiental, desapropriação ou obra de terceiro. Vazio = sem impedimento.', exemplo: '2029' },
@@ -987,24 +1014,42 @@ export const SCHEMA: AbaDef[] = [
     // Listada no índice da planilha, sem aba própria no arquivo v8 — ver
     // ponto (1) no comentário do topo. Só se aplica a unidades com CTS.
     /**
-     * FORA DA TELA — o pareamento deixou de decidir qualquer coisa.
+     * VOLTOU PARA A NAVEGAÇÃO em 21/08/2026 — estava `ocultaNoWizard` desde
+     * antes de o PAREAMENTO decidir de que unidade a CTS era (a leitura hoje
+     * é pela TOPOLOGIA — a aba do Fluxo — e a sobreposição de área virou dado
+     * da própria sub-bacia, nas colunas `*_com_cts`, já consolidado pela
+     * origem). Esconder fazia sentido NAQUELE momento: "a aba fica no SCHEMA
+     * por ser elo do modelo, e sai da navegação porque não há nada a
+     * preencher nela — o backend não a serve nem a aceita" era verdade então.
      *
-     * Ele existe no banco (`input.subbacia_cts`) e significa SOBREPOSICAO DE
-     * AREA: a CTS cobre um pedaco que tambem e da sub-bacia. Nunca significou
-     * pertencimento, e por muito tempo o produto o tratou como se significasse —
-     * era por ele que o servidor decidia de que unidade a CTS era, e isso dava a
-     * resposta errada de duas formas: CTS sem par nao pertencia a unidade
-     * nenhuma, e CTS pareada herdava a unidade da IRMA, mesmo estando num
-     * sistema de outra.
-     *
-     * Hoje quem diz onde a CTS esta e a TOPOLOGIA — a aba do Fluxo. E a
-     * sobreposicao virou dado da propria sub-bacia (as colunas `*_com_cts`), que
-     * a origem entrega ja consolidadas.
-     *
-     * A aba fica no SCHEMA por ser elo do modelo, e sai da navegacao porque nao
-     * ha nada a preencher nela: o backend nao a serve nem a aceita.
+     * Deixou de ser verdade em 20/08/2026 (ver o comentário logo abaixo, "A
+     * ABA ERA INTOCÁVEL ATÉ 20/08/2026"): os dois códigos viraram editáveis,
+     * ganhou `addRow`, lista suspensa e espelho de nome — e o backend
+     * (`sincronizar_input.py`) sempre continuou gravando `input.subbacia_cts`,
+     * nunca parou. A flag `ocultaNoWizard` só não foi removida junto — o
+     * resultado, achado em 21/08, era uma tela sem NENHUM jeito de chegar
+     * nela: `irParaAba`/`BLOCOS` filtram aba oculta antes de montar destino,
+     * e nenhum componente (ao contrário de `UsaSistemaCts`/`AdicionarCts`
+     * para `cidade-sistema`) a expunha por outro caminho. Dado editável e
+     * gravável, sem porta de entrada nenhuma.
      */
     key: 'subbacia-cts', icone: ArrowsLeftRight, titulo: 'Pareamento sub-bacia · CTS', bloco: 'Coletor de tempo seco (CTS)',
+    /**
+     * CONTINUA FORA DA NAVEGAÇÃO AQUI, e o motivo é o backend, não a tela.
+     *
+     * O comentário acima descreve o backend do SES, que grava
+     * `input.subbacia_cts` por `sincronizar_input.py`. O backend do Otimizador
+     * NÃO serve nem aceita esta aba: `lib/cadastroApi.ts` a lista em
+     * `ABAS_SEM_ESCRITA` e a devolve vazia, porque não há rota de leitura nem
+     * de escrita para ela.
+     *
+     * Sem a flag, a aba aparece no menu, abre vazia, oferece "Adicionar linha"
+     * e descarta o que for digitado ao salvar — as três coisas em silêncio.
+     * Uma aba ausente é menos danosa que uma que finge.
+     *
+     * Para religar: basta o backend ganhar leitura e escrita de
+     * `input.subbacia_cts` e a aba sair de `ABAS_SEM_ESCRITA`.
+     */
     ocultaNoWizard: true,
     // Só tem `sub_bacia_id` e `cts_id`: o sistema vem do join. Cidade sai por
     // ser terceiro grau — sub-bacia → sistema → cidade.
@@ -1097,19 +1142,15 @@ export const SCHEMA: AbaDef[] = [
       { coluna: 'quantidade', origem: 'un', procedencia: 'vazio', oque: 'Quanto será construído do componente.', porque: 'CAPEX = quantidade × preço unitário.' }, { coluna: 'unidade', origem: 'calc', procedencia: 'regra', oque: 'Unidade de medida da quantidade, fixa por tipo de componente.' }, { coluna: 'preco_unitario', origem: 'un', procedencia: 'vazio', oque: 'Preço de mercado de uma unidade do componente.', porque: 'CAPEX = quantidade × preço unitário.' },
       { coluna: 'capex', origem: 'calc', procedencia: 'vazio', oque: 'Investimento total do componente.', porque: 'Calculado automaticamente como quantidade × preço unitário.' }, { coluna: 'opex', origem: 'un', procedencia: 'vazio', oque: 'Custo de operar a obra, por ano, depois de pronta. Informe o valor MÁXIMO (todas as ligações faturando).', porque: 'Obra ociosa não gera OPEX; a operação sobe de forma côncava até o máximo no tempo de rampa.' },
       { coluna: 'tempo_predecessoras', origem: 'un', procedencia: 'vazio', oque: 'Espera entre as obras que vêm antes ficarem prontas e esta poder começar.', porque: 'A simulação escolhe o ano de cada obra, mas respeita a ordem física. 0 = pode começar junto.' }, { coluna: 'tempo_execucao', origem: 'un', procedencia: 'vazio', oque: 'Quanto dura a construção desta obra, do início à entrega.', porque: 'Define quando a obra passa a atender e a gerar receita.' },
+
       /*
-       * A JANELA DA OBRA — as mesmas duas da aba irmã, ver o comentário lá.
+       * A JANELA DA OBRA — as mesmas duas da aba irmã de sub-bacia.
        *
-       * Ficaram de fora quando as colunas foram acrescentadas às obras de
-       * sub-bacia, e o motivo é mecânico: as colunas desta aba estão VÁRIAS POR
-       * LINHA, e o recorte que inseriu as outras ancorava numa linha começando
-       * com `{ coluna: 'tempo_execucao'`. Aqui esse trecho está no meio da linha,
-       * então não casou — e a ausência passou sem ruído, porque a aba continuou
-       * compilando e exibindo tudo o mais.
-       *
-       * A obra de CTS usa o MESMO contrato de obra da sub-bacia: o backend cobra
-       * os dois campos na mesma lista (`_OBRA`, em `pendencias.py`), e o de/para
-       * da ponte (`OBRA`, em `lib/cadastroApi.ts`) é um só para as duas.
+       * A obra de CTS usa o MESMO contrato de obra: o backend cobra os dois
+       * campos na mesma lista (`_OBRA`, em `pendencias.py`), e o de/para da
+       * ponte (`OBRA`, em `lib/cadastroApi.ts`) é um só para as duas. Sem elas
+       * aqui, a restrição vale na simulação e não há onde dizer "esta CTS é
+       * obrigatória em 2027".
        */
       { coluna: 'obra_obrigatoria_ano', origem: 'un', procedencia: 'vazio', oque: 'Ano em que esta obra TEM de acontecer, por exigência contratual ou regulatória.', porque: 'O motor a força nesse ano, mesmo que o retorno não justifique. Vazio = sem exigência.', exemplo: '2027' },
       { coluna: 'obra_proibida_ate', origem: 'un', procedencia: 'vazio', oque: 'Ano até o qual esta obra NÃO pode começar.', porque: 'Impede o plano de agendar antes de uma licença, desapropriação ou obra de terceiro. Vazio = sem impedimento.', exemplo: '2029' },

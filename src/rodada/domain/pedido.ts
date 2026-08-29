@@ -28,7 +28,7 @@ const ROTULOS: Record<string, string> = {
   METAS_COBERTURA: 'Metas de cobertura',
   PESO_COBERTURA: 'Peso da cobertura',
   FOCO_COBERTURA: 'Objetivo',
-  PENALIDADE_COBERTURA: 'Penalidade de cobertura',
+  PENALIDADE_COBERTURA: 'Estratégia de cobertura',
   PESO_CIDADE: 'Prioridade por cidade',
   DATA_INICIO: 'Data de início',
   CURVA_ADOCAO: 'Curva de adoção',

@@ -329,11 +329,53 @@
   }
 }
 
+@layer utilities {
+  /**
+   * Escada de entrada — cada filho pinta um pouco depois do anterior, em vez
+   * de todos no mesmo quadro de vídeo.
+   *
+   * Aplicada no CONTÊINER, não no filho: quem escreve a tela não precisa
+   * saber o índice de cada card. 45ms × 6 = 270ms até o último — dentro do
+   * teto de `entrar` (280ms) do `tailwind.config.js`, que é a regra do
+   * projeto para "algo que entra na tela". Passar disso vira espera.
+   *
+   * DELIBERADAMENTE FORA da grade do cadastro (`AbaGrid`) e da tabela do
+   * histórico: são trabalho repetitivo, o caso que a doutrina de movimento
+   * exclui — uma escada em centenas de linhas é meio segundo de espera por
+   * rolagem, não um efeito de entrada.
+   */
+  .escada > * {
+    animation: fadeIn 0.25s ease-out both;
+  }
+  .escada > *:nth-child(1) { animation-delay: 0ms; }
+  .escada > *:nth-child(2) { animation-delay: 45ms; }
+  .escada > *:nth-child(3) { animation-delay: 90ms; }
+  .escada > *:nth-child(4) { animation-delay: 135ms; }
+  .escada > *:nth-child(5) { animation-delay: 180ms; }
+  .escada > *:nth-child(n + 6) { animation-delay: 225ms; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /*
+   * A exceção que o kill-switch acima não pode apanhar: indicador de
+   * ATIVIDADE. Um spinner de "Salvando…" (animate-spin) ou o pulso de um
+   * esqueleto de carregamento (animate-pulse) parados não são "menos
+   * movimento" — são a informação errada, e leem como aplicação travada. A
+   * WCAG pede reduzir movimento decorativo, não apagar feedback de progresso.
+   * Reduzido, e não removido: continua girando, só que mais devagar.
+   */
+  .animate-spin,
+  .animate-pulse,
+  .animate-sweep {
+    animation-duration: 1.6s !important;
+    animation-iteration-count: infinite !important;
   }
 }

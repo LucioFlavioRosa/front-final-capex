@@ -17,7 +17,10 @@ export function dec(value: number, digits = 1): string {
  *
  * @deprecated Recebe milhões, não reais. O contrato do otimizador (`otim_*`)
  * entrega tudo em R$ cheios — para esses dados use `reais` ou `reaisCompacto`.
- * Mantida pelas telas antigas, que ainda leem o mock em milhões de `data/ses.ts`.
+ *
+ * SEM CHAMADOR desde que a Home passou a ler do backend: o último era o mock em
+ * milhões de `data/ses.ts`, removido junto. O `brl` que o módulo de resultados
+ * usa é OUTRO (`rodada/lib/formato.ts`), e recebe reais cheios.
  */
 export function brl(valueMi: number): string {
   if (valueMi >= 1000) return `R$ ${dec(valueMi / 1000, 2)} bi`
