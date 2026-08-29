@@ -12,7 +12,7 @@
  */
 
 import type { Row } from '../data/cadastroUnidade/types'
-import { toNum } from './calc'
+import { toNum } from './numero'
 import { caminhoAteEte, sistemaDoNo, tipoDoNo } from './fluxo'
 
 export type NivelProblema = 'critico' | 'aviso'

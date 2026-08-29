@@ -1,13 +1,7 @@
 import { SCHEMA, UNIDADE_POR_COMPONENTE } from '../data/cadastroUnidade/schema'
 import type { Row } from '../data/cadastroUnidade/types'
 import { sistemaDaCts, tipoDoNo, type Dados } from './fluxo'
-
-/** Converte texto pt-BR ("3.214" / "0,091") em número; null se inválido. */
-export function toNum(v: string | undefined): number | null {
-  if (v == null) return null
-  const n = parseFloat(String(v).replace(/\./g, '').replace(',', '.'))
-  return isNaN(n) ? null : n
-}
+import { toNum } from './numero'
 
 export function fmtBRL(n: number | null): string {
   if (n == null) return '—'

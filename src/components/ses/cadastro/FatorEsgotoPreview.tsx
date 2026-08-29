@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Row } from '../../../data/cadastroUnidade/types'
-import { toNum } from '../../../domain/calc'
+import { toNum } from '../../../domain/numero'
 
 interface FatorEsgotoPreviewProps {
   rows: Row[]

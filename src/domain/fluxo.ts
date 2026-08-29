@@ -27,6 +27,7 @@
  */
 
 import type { Row } from '../data/cadastroUnidade/types'
+import { toNum } from './numero'
 
 export type Dados = Record<string, Row[]>
 export type TipoNo = 'subbacia' | 'cts' | 'ete' | 'desconhecido'
@@ -593,11 +594,26 @@ export interface NoUnifilar {
   pontaSolta: boolean
   /** O caminho a partir daqui volta sobre si mesmo (a regra 3 da validação). */
   emCiclo: boolean
+  /**
+   * A vazão de contribuição DESTE nó (L/s), do cadastro. `null` quando ainda não
+   * foi preenchida — e null não é zero: zero afirma "não contribui".
+   */
+  vazao: number | null
 }
 
 export interface ArestaUnifilar {
   de: string
   para: string
+  /**
+   * A vazão que PASSA por esta ligação: a do nó de origem mais tudo o que chega
+   * nele. `null` quando nada no que vem acima tem vazão preenchida.
+   *
+   * ACUMULADA, e não a contribuição local, porque é isso que uma linha de fluxo
+   * significa: o trecho que sai de um tronco carrega o esgoto de todas as
+   * sub-bacias acima dele. Na cabeceira as duas contas coincidem — lá a
+   * acumulada É a contribuição da própria sub-bacia ou CTS.
+   */
+  vazao: number | null
 }
 
 export interface UnifilarSistema {
@@ -703,6 +719,58 @@ export function sistemasDoFluxo(dados: Dados): SistemasDoFluxo {
  * sobra sem entrar na ordenação é exatamente o que está preso em ciclo — que
  * então vai para um nível próprio, no fim, marcado.
  */
+/**
+ * A vazão de contribuição de um componente, em L/s. `null` se não preenchida.
+ *
+ * Mora na ficha de coleta — `vazao_contribuicao`, do bloco que a Regional
+ * preenche —, e a ETE não tem: ela recebe, não contribui.
+ */
+function vazaoDoNo(dados: Dados, id: string): number | null {
+  const ix = indice(dados)
+  const linha = ix.subbacia.get(id) ?? ix.cts.get(id)
+  return linha ? toNum(txt(linha.vazao_contribuicao)) : null
+}
+
+/**
+ * A vazão que chega em cada nó, somando tudo o que vem acima dele.
+ *
+ * `null` só quando NADA acima tem vazão — um trecho com metade do cadastro
+ * preenchido soma o que sabe, porque uma soma parcial ainda ordena as linhas
+ * corretamente entre si, e esconder tudo por causa de um vazio deixaria o
+ * desenho mudo justamente enquanto ele está sendo preenchido.
+ *
+ * O passeio tem trava de visitados: ciclo é estado possível durante o cadastro
+ * (a validação o denuncia, o desenho o mostra em vermelho), e sem a trava esta
+ * função entraria em recursão infinita numa tela que só queria desenhar.
+ */
+function acumularVazao(
+  nos: Map<string, NoUnifilar>,
+  arestas: ArestaUnifilar[],
+): Map<string, number | null> {
+  const acima = new Map<string, string[]>()
+  for (const a of arestas) acima.set(a.para, [...(acima.get(a.para) ?? []), a.de])
+
+  const memo = new Map<string, number | null>()
+  const andando = new Set<string>()
+
+  const total = (id: string): number | null => {
+    if (memo.has(id)) return memo.get(id)!
+    if (andando.has(id)) return null // ciclo: para aqui, sem somar duas vezes
+    andando.add(id)
+    let soma: number | null = nos.get(id)?.vazao ?? null
+    for (const pai of acima.get(id) ?? []) {
+      const daquele = total(pai)
+      if (daquele != null) soma = (soma ?? 0) + daquele
+    }
+    andando.delete(id)
+    memo.set(id, soma)
+    return soma
+  }
+
+  for (const id of nos.keys()) total(id)
+  return memo
+}
+
 export function unifilarDoSistema(dados: Dados, sistemaId: string): UnifilarSistema {
   const alvo = txt(sistemaId)
   const nos = new Map<string, NoUnifilar>()
@@ -725,6 +793,7 @@ export function unifilarDoSistema(dados: Dados, sistemaId: string): UnifilarSist
       nivel: 1,
       pontaSolta: false,
       emCiclo: false,
+      vazao: vazaoDoNo(dados, id),
     }
     nos.set(id, novo)
     return novo
@@ -746,7 +815,7 @@ export function unifilarDoSistema(dados: Dados, sistemaId: string): UnifilarSist
      * mostrar isso.
      */
     anotar(destino, txt(r.componente_sistema_nome_jusante))
-    arestas.push({ de: origem, para: destino })
+    arestas.push({ de: origem, para: destino, vazao: null })
     temSaida.add(origem)
     temEntrada.add(destino)
   }
@@ -812,9 +881,13 @@ export function unifilarDoSistema(dados: Dados, sistemaId: string): UnifilarSist
   const novoNivel = new Map(usados.map((n, i) => [n, i + 1]))
   for (const no of noFluxo) no.nivel = novoNivel.get(no.nivel) ?? 1
 
+  const acumulada = acumularVazao(nos, arestas)
+
   return {
     nos: noFluxo.sort((a, b) => a.nivel - b.nivel || a.id.localeCompare(b.id)),
-    arestas: arestas.filter((a) => nos.has(a.de) && nos.has(a.para)),
+    arestas: arestas
+      .filter((a) => nos.has(a.de) && nos.has(a.para))
+      .map((a) => ({ ...a, vazao: acumulada.get(a.de) ?? null })),
     soltos: soltos.sort((a, b) => a.id.localeCompare(b.id)),
     niveis: usados.length,
   }

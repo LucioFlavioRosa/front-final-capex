@@ -43,6 +43,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowsHorizontal, Path } from '@phosphor-icons/react'
+import { dec } from '../../../lib/format'
 import {
   type Dados,
   sistemasDoFluxo,
@@ -284,6 +285,16 @@ function Desenho({
   destaque?: DestaqueUnifilar | null
   onFocarOrigem: (id: string) => void
 }) {
+  /**
+   * A escala é POR SISTEMA, e não global da unidade.
+   *
+   * O desenho mostra um sistema por vez, e a pergunta que ele responde é "onde
+   * está o volume DENTRO deste sistema". Uma escala global faria o sistema
+   * pequeno aparecer com todas as ligações no piso — verdadeiro em relação à
+   * unidade, e inútil para quem está montando aquele sistema.
+   */
+  const espessura = useMemo(() => escalaDeVazao(uni.arestas), [uni.arestas])
+
   const layout = useMemo(() => {
     const porNivel = new Map<number, NoUnifilar[]>()
     for (const no of uni.nos) {
@@ -386,6 +397,8 @@ function Desenho({
         </defs>
 
         {uni.arestas.map((a) => {
+          const largura = espessura ? espessura(a.vazao) : 1.75
+          const semDado = a.vazao == null
           const de = pos.get(a.de)
           const para = pos.get(a.para)
           if (!de || !para) return null
@@ -403,9 +416,26 @@ function Desenho({
               d={`M${x1},${y1} C${x1},${meio} ${x2},${meio} ${x2},${y2}`}
               fill="none"
               stroke={focada ? 'rgb(var(--color-primary))' : '#94a3b8'}
-              strokeWidth={focada ? 2.75 : 1.75}
+              strokeWidth={focada ? Math.max(largura, 2.75) : largura}
+              strokeDasharray={semDado ? '5 4' : undefined}
+              strokeLinecap="round"
               markerEnd={focada ? 'url(#uni-seta-foco)' : 'url(#uni-seta)'}
-            />
+            >
+              {/* O número por trás da espessura. Espessura ordena; só o valor
+                  responde "quanto", e o desenho não tem espaço para rotular
+                  toda ligação. */}
+              <title>
+                {/* A QUANTIDADE VEM PRIMEIRO, e os códigos depois. É a ordem
+                    útil — o desenho já mostra QUEM liga a quem, e o que ele não
+                    consegue dizer é QUANTO. E evita que o texto do balão comece
+                    com um código: consulta ancorada por id passava a encontrar
+                    a ligação além da caixa, o que já quebrou um teste de tela. */}
+                {a.vazao == null
+                  ? 'Vazão ainda não preenchida'
+                  : `${dec(a.vazao, 1)} L/s passando por aqui`}
+                {` · ${a.de} → ${a.para}`}
+              </title>
+            </path>
           )
         })}
 
@@ -495,6 +525,45 @@ function Desenho({
   )
 }
 
+/**
+ * A ESPESSURA DA LIGAÇÃO É A VAZÃO QUE PASSA POR ELA.
+ *
+ * O desenho mostrava toda ligação com o mesmo traço, e com isso dizia que todas
+ * carregam a mesma coisa — o que é falso e esconde exatamente o que importa
+ * olhar num fluxo de escoamento: onde está o volume. Um tronco que recebe doze
+ * sub-bacias e um ramo de cabeceira desenhados iguais fazem o desenho parecer um
+ * organograma.
+ *
+ * LINEAR na largura, e não em área nem em raiz: é a convenção de diagrama de
+ * fluxo (Sankey), e é a que deixa comparar duas linhas lado a lado sem conversão
+ * mental. O piso de 1,6px existe porque uma vazão pequena ainda precisa ser
+ * clicável e visível; o teto de 9px porque acima disso a linha compete com as
+ * caixas e o desenho vira mancha.
+ *
+ * VAZÃO DESCONHECIDA NÃO É VAZÃO ZERO, e por isso não vira a linha mais fina:
+ * ela sai TRACEJADA, na largura do piso. Sem essa distinção, um cadastro pela
+ * metade pareceria um sistema com muitos ramos irrelevantes — e a pessoa
+ * concluiria sobre o desenho o oposto do que o dado permite.
+ */
+const TRACO_MIN = 1.6
+const TRACO_MAX = 9
+const TRACO_SEM_DADO = 1.3
+
+function escalaDeVazao(arestas: { vazao: number | null }[]) {
+  const conhecidas = arestas.map((a) => a.vazao).filter((v): v is number => v != null && v > 0)
+  if (!conhecidas.length) return null
+  const min = Math.min(...conhecidas)
+  const max = Math.max(...conhecidas)
+  return (v: number | null): number => {
+    if (v == null || v <= 0) return TRACO_SEM_DADO
+    // Sistema em que todas as ligações carregam o mesmo: espessura média, e não
+    // a máxima — a máxima afirmaria "esta é a mais grossa do sistema", e não há
+    // "mais grossa" quando são todas iguais.
+    if (max === min) return (TRACO_MIN + TRACO_MAX) / 2
+    return TRACO_MIN + ((v - min) / (max - min)) * (TRACO_MAX - TRACO_MIN)
+  }
+}
+
 function Legenda() {
   const itens = [
     { cor: 'rgb(var(--color-primary))', fundo: '#ffffff', texto: 'Sub-bacia' },
@@ -517,6 +586,25 @@ function Legenda() {
           {i.texto}
         </li>
       ))}
+
+      {/* A ESPESSURA É UMA CODIFICAÇÃO, e codificação sem legenda é ornamento:
+          quem não sabe que a linha grossa quer dizer mais vazão lê o desenho
+          como estilo. As duas amostras mostram a escala; a tracejada mostra que
+          "não sei" tem marca própria, e não é o mesmo que "pouco". */}
+      <li className="flex items-center gap-1.5 text-[11px] text-ink-500">
+        <span className="inline-flex w-[16px] flex-col justify-center gap-[3px]" aria-hidden="true">
+          <span className="h-[1.5px] w-full rounded-full bg-ink-400" />
+          <span className="h-[5px] w-full rounded-full bg-ink-400" />
+        </span>
+        espessura = vazão que passa
+      </li>
+      <li className="flex items-center gap-1.5 text-[11px] text-ink-500">
+        <span
+          className="h-0 w-[16px] border-t-[1.5px] border-dashed border-ink-400"
+          aria-hidden="true"
+        />
+        vazão ainda não preenchida
+      </li>
     </ul>
   )
 }
