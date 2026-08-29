@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { ordenarParametros, valorDoParametro, rotuloDoParametro } from '@/rodada/domain/pedido'
 import type { RunMeta } from '@/rodada/domain/resultado'
+import { idCurtoDaRodada } from '@/rodada/domain/rodadaId'
 
 /**
  * "TELA RESULTADOS: QUAIS SÃO OS PARÂMETROS?" — item 14 do feedback de
@@ -35,7 +36,7 @@ export function BotaoParametros({ meta }: { meta: RunMeta | undefined }) {
         open={aberto}
         onClose={() => setAberto(false)}
         title="Parâmetros desta rodada"
-        subtitle={meta.nome || meta.runId.slice(0, 8)}
+        subtitle={meta.nome || idCurtoDaRodada(meta.runId)}
         size="md"
       >
         {!meta.pedido ? (

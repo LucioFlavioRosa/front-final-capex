@@ -10,6 +10,7 @@ import { DICIONARIO_RODADA } from '@/rodada/domain/dicionario'
 import { DICIONARIO_RESULTADO } from '@/rodada/domain/dicionarioResultado'
 import { dataCurta } from '@/rodada/lib/formato'
 import type { Crumb } from '@/rodada/state/Crumbs'
+import { idCurtoDaRodada } from '@/rodada/domain/rodadaId'
 
 /**
  * OS DOIS DICIONÁRIOS JUNTOS, e não só o de resultado.
@@ -64,7 +65,7 @@ function Interna() {
    */
   const rotulo = useMemo(() => {
     if (!runId) return undefined
-    const curto = runId.slice(0, 8)
+    const curto = idCurtoDaRodada(runId)
     if (!meta.data) return `run ${curto}`
     return `${meta.data.nome || `run ${curto}`} · ${dataCurta(meta.data.dataHora)}`
   }, [runId, meta.data])
@@ -75,7 +76,7 @@ function Interna() {
     () =>
       runId
         ? {
-            rotulo: rotulo ?? `run ${runId.slice(0, 8)}`,
+            rotulo: rotulo ?? `run ${idCurtoDaRodada(runId)}`,
             aoClicar: abrir,
             descricao: `Rodada ${meta.data?.nome ?? runId}. Trocar de rodada`,
           }
@@ -189,14 +190,14 @@ function SeletorDeRodada({
                 >
                   <span className="flex items-baseline justify-between gap-3">
                     <span className="truncate text-[13px] font-semibold text-ink-800">
-                      {r.nome || r.runId.slice(0, 8)}
+                      {r.nome || idCurtoDaRodada(r.runId)}
                     </span>
                     <span className="shrink-0 font-mono text-[10.5px] text-ink-400">
                       {dataCurta(r.dataHora)}
                     </span>
                   </span>
                   <span className="mt-0.5 block font-mono text-[10.5px] text-ink-400">
-                    {r.runId.slice(0, 8)}
+                    {idCurtoDaRodada(r.runId)}
                     {atual && ' · você está aqui'}
                   </span>
                 </button>
@@ -222,7 +223,7 @@ export function useTrilhaCompleta(runId: string | undefined, nomeDaRodada?: stri
     const base: Crumb[] = [{ rotulo: 'Histórico', to: '/resultados' }]
     if (runId) {
       base.push({
-        rotulo: nomeDaRodada || runId.slice(0, 8),
+        rotulo: nomeDaRodada || idCurtoDaRodada(runId),
         // O degrau da rodada só é clicável quando NÃO é o atual.
         to: proprios.length > 0 ? `/resultados/${runId}` : undefined,
       })

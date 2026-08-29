@@ -23,6 +23,7 @@ import { useCidades, useEbitda, useExplicabilidade, usePainel, useRunMeta } from
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
 import { brlMi, dataHora, deTotal, inteiro, pct } from '@/rodada/lib/formato'
+import { idCurtoDaRodada } from '@/rodada/domain/rodadaId'
 
 /**
  * Nível 1 — a visão geral de uma rodada.
@@ -73,7 +74,7 @@ export function Global() {
 
             <FaixaKpi
               nivel="Nível 1 · Geral"
-              titulo={m.nome || `Rodada ${m.runId.slice(0, 8)}`}
+              titulo={m.nome || `Rodada ${idCurtoDaRodada(m.runId)}`}
               subtitulo={m.statusTexto}
               acoes={
                 <>

@@ -3,6 +3,7 @@ import { Modal } from '@/components/ui/Modal'
 import { ordenarParametros, rotuloDoParametro, valorDoParametro } from '@/rodada/domain/pedido'
 import { brlMi, dataCurta, deTotal, inteiro, pct, VAZIO } from '@/rodada/lib/formato'
 import type { RunResumo } from '@/rodada/domain/resultado'
+import { idCurtoDaRodada } from '@/rodada/domain/rodadaId'
 
 /**
  * COMPARAR N SIMULAÇÕES — item 2 do feedback de 26/08, definido pela Aegea em
@@ -109,7 +110,7 @@ function Secao({
                 <th key={r.runId} scope="col" data-r>
                   <span className="block max-w-[180px] truncate">{r.nome || 'Sem nome'}</span>
                   <span className="mt-0.5 block font-mono text-[10px] font-normal normal-case tracking-normal text-ink-400">
-                    {r.runId.slice(0, 8)} · {dataCurta(r.dataHora)}
+                    {idCurtoDaRodada(r.runId)} · {dataCurta(r.dataHora)}
                   </span>
                 </th>
               ))}

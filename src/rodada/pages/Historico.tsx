@@ -17,6 +17,7 @@ import {
 } from '@/rodada/api/queries'
 import { brlMi, dataCurta, dataHora, deTotal, duracao } from '@/rodada/lib/formato'
 import type { RunResumo, StatusRodada } from '@/rodada/domain/resultado'
+import { idCurtoDaRodada } from '@/rodada/domain/rodadaId'
 
 /**
  * Nível 0 — a única tela do pacote que não é de uma rodada: é DO USUÁRIO.
@@ -319,7 +320,7 @@ function Lista({ runs }: { runs: RunResumo[] }) {
                           checked={paraComparar.has(r.runId)}
                           onChange={() => alternarComparar(r.runId)}
                           onClick={(e) => e.stopPropagation()}
-                          aria-label={`Comparar ${r.nome || r.runId.slice(0, 8)}`}
+                          aria-label={`Comparar ${r.nome || idCurtoDaRodada(r.runId)}`}
                           className="h-4 w-4 rounded border-ink-300 text-water-600 focus:ring-water-600/25"
                         />
                       </td>
@@ -363,7 +364,7 @@ function Lista({ runs }: { runs: RunResumo[] }) {
                         {r.nome || 'Sem nome'}
                       </span>
                       <span className="mt-0.5 block font-mono text-[11px] tabular-nums text-ink-400">
-                        {r.runId.slice(0, 8)} · {dataHora(r.dataHora)}
+                        {idCurtoDaRodada(r.runId)} · {dataHora(r.dataHora)}
                       </span>
                     </td>
                     <td className="text-[13px] text-ink-600">{r.unidadeNome}</td>
@@ -433,10 +434,10 @@ function PainelDaRodada({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-[17px] font-bold leading-snug text-ink-800">
-              {run.nome || run.runId.slice(0, 8)}
+              {run.nome || idCurtoDaRodada(run.runId)}
             </div>
             <div className="mt-1 font-mono text-[11px] tabular-nums text-ink-400">
-              {run.runId.slice(0, 8)} · {run.unidadeNome}
+              {idCurtoDaRodada(run.runId)} · {run.unidadeNome}
             </div>
           </div>
           <TagStatus status={run.status} />

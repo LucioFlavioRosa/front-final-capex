@@ -406,7 +406,17 @@ const COLS_LG = new Set([
  * cabeçalho e input passam a compartilhar exatamente a mesma caixa, garantindo alinhamento.
  */
 export function colunaLargura(col: string): number {
-  if (COLS_XS.has(col)) return 84
+  // 84px NAO CABE MAIS. As colunas de id passaram a ser renderizadas em mono
+  // (o código existe para ser comparado caractere a caractere, e em
+  // proporcional `l`/`1`/`I` colapsam) — e mono é mais largo. O id mais longo
+  // desta base tem 10 caracteres (`d1b100_1_1`, e o jusante idem); a 12,5px do
+  // IBM Plex Mono isso pede ~75px de glifo mais o respiro da célula.
+  //
+  // Em 84 eles truncavam para `d1b1_…`, que é o pior resultado possível: a
+  // largura foi escolhida quando o texto era proporcional, e a troca de fonte
+  // estreitou na prática justamente a coluna cujo conteúdo precisa ser lido
+  // inteiro. Truncar código não é economizar espaço, é apagar o dado.
+  if (COLS_XS.has(col)) return 104
   if (COLS_LG.has(col)) return 168
   return 128
 }
