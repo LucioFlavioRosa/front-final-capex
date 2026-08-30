@@ -146,9 +146,26 @@ export interface MetricasCapa {
 }
 
 /** KPIs do nivel global (de `run_meta`). */
+/** De qual rodada esta aqui é uma variação de orçamento. */
+export interface VariacaoDe {
+  runId: string
+  /** O rótulo da BASE — o desta rodada diz "+10%" e não diz de quê. */
+  nome: string | null
+  degrau: number
+  estimativa: boolean
+}
+
 export interface RunMeta {
   runId: string
   nome: string
+  /**
+   * AUSENTE na maioria das rodadas. Presente, esta rodada é um PONTO da curva de
+   * sensibilidade de outra — e isso muda o que a tela pode oferecer: não faz
+   * sentido analisar a sensibilidade de um ponto de sensibilidade, e aceitar a
+   * oferta gravaria variações de variação, com linhagem apontando para o meio da
+   * curva de alguém.
+   */
+  variacaoDe?: VariacaoDe | null
   unidadeId: string
   unidadeNome: string
   dataHora: string

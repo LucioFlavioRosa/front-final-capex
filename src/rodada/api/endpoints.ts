@@ -34,6 +34,14 @@ import type {
   SubBaciaDetalhe,
 } from '@/rodada/domain/resultado'
 import type { CorpoNovaRodada, Prontidao } from '@/rodada/domain/simulacao'
+import type { Sensibilidade } from '@/rodada/domain/sensibilidade'
+
+/**
+ * `rapido` é o padrão da análise: solver de 60s, resultado marcado como
+ * estimativa e fora do histórico. `completo` é uma simulação como qualquer
+ * outra, com os 1000s de sempre, e entra no histórico.
+ */
+export type ModoDaVariacao = 'rapido' | 'completo'
 
 const BASE = '/api/runs'
 
@@ -49,6 +57,63 @@ export const resultados = {
 
   /** KPIs + parâmetros + status. Alimenta o cabeçalho em TODOS os níveis. */
   meta: (runId: string) => api.get<RunMeta>(`${BASE}/${runId}/meta`),
+
+  /**
+   * Onde a rodada está AGORA — status, progresso e posição na fila.
+   *
+   * O pacote inteiro tratava resultado como imutável e nunca consultava isto, e
+   * o efeito era uma rodada em execução que não dava sinal de vida. Numa análise
+   * de sensibilidade isso é fatal: são simulações completas, levam minutos, e sem
+   * o sinal a tela parece travada — foi exatamente o que aconteceu na primeira
+   * tentativa, e a reação (certa) foi excluir as rodadas.
+   */
+  status: (runId: string) =>
+    api.get<{
+      runId: string
+      status: string
+      progresso: number
+      fila?: { posicao: number; motivo: string; atencao: boolean; vivos: number }
+    }>(`${BASE}/${runId}/status`),
+
+  /**
+   * A MESMA simulação com o orçamento escalado — um ponto da curva de
+   * sensibilidade. O clone acontece no SERVIDOR: aqui só vai o fator.
+   *
+   * Idempotente pelo backend (`abrir_rodada` devolve a rodada existente quando o
+   * pedido é idêntico), então repetir a varredura não gasta cluster —
+   * `jaExistia` diz qual dos dois aconteceu.
+   *
+   * `modo` escolhe quanto tempo o solver tem: `rapido` põe teto de 60s no lugar
+   * dos 1000s de uma simulação. É a MESMA otimização — mesmos dados, mesmas
+   * restrições —, e o que muda é até onde ela vai na prova de otimalidade. A
+   * inclinação da curva aparece muito antes disso. O preço é dito: o resultado
+   * pode ser subótimo, e por isso a rodada rápida é marcada como estimativa e
+   * NÃO aparece no histórico.
+   */
+  /**
+   * O TETO e os PONTOS da curva de sensibilidade, num payload só.
+   *
+   * Uma rota para as duas metades porque a tela não consegue usar uma sem a
+   * outra: o teto responde na hora e diz se vale disparar alguma coisa; os
+   * pontos são as variações que já rodaram. Os pontos saem da LINHAGEM gravada
+   * no servidor (`run_request.base_run_id`) — a versão anterior os procurava
+   * pelo rótulo da rodada, que é livre e editável, então renomear desmanchava a
+   * curva em silêncio.
+   */
+  sensibilidade: (runId: string) =>
+    api.get<Sensibilidade>(`${BASE}/${runId}/sensibilidade`),
+
+  variacao: (runId: string, fator: number, nome: string, modo: ModoDaVariacao) =>
+    api.post<{
+      runId: string
+      status: string
+      jaExistia: boolean
+      /** `false` quando a rodada devolvida já é ponto da curva de OUTRA base. */
+      naCurva: boolean
+    }>(
+      `${BASE}/${runId}/variacao`,
+      { fator, nome, modo },
+    ),
 
   /**
    * Apaga uma rodada. A ÚNICA mutação destrutiva do pacote inteiro.

@@ -1,5 +1,5 @@
 /**
- * O CONTROLE DAS DUAS ABAS, na casca — e não em cada nível.
+ * O CONTROLE DAS ABAS, na casca — e não em cada nível.
  *
  * Ele mora aqui por duas razões. A primeira é continuidade: a aba sobrevive à
  * descida, e quem está caçando o motivo de uma sub-bacia desce três níveis sem
@@ -11,17 +11,36 @@
  * olhar a mesma rodada. Forma diferente para relação diferente.
  */
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { lerAba, PARAM_ABA, type AbaResultado } from '@/rodada/layout/abaResultado'
+import {
+  ehNivelDaRodada,
+  lerAba,
+  PARAM_ABA,
+  type AbaResultado,
+} from '@/rodada/layout/abaResultado'
 
-const ABAS: { id: AbaResultado; rotulo: string; descricao: string }[] = [
+const ABAS: { id: AbaResultado; rotulo: string; descricao: string; soNaRodada?: boolean }[] = [
   { id: 'plano', rotulo: 'Plano', descricao: 'o que entrou' },
   { id: 'porque', rotulo: 'Por quê', descricao: 'o que ficou de fora' },
+  // SÓ NO NÍVEL DA RODADA. A curva é do orçamento inteiro; não há sensibilidade
+  // de uma cidade nem de uma obra. Mostrar a aba lá e abrir uma tela vazia seria
+  // pior que não a mostrar — ela prometeria uma resposta que não existe.
+  {
+    id: 'sensibilidade',
+    rotulo: 'Sensibilidade',
+    descricao: 'e se o CAPEX fosse maior',
+    soNaRodada: true,
+  },
 ]
 
-export function AbasResultado() {
+export function AbasResultado({ ehVariacao = false }: { ehVariacao?: boolean }) {
   const [params] = useSearchParams()
   const { pathname } = useLocation()
-  const atual = lerAba(params)
+  /* A Sensibilidade existe no nível da rodada, e só quando a rodada é um plano
+     de verdade. Uma VARIAÇÃO é um ponto da curva de outra — ela tem plano, obras
+     e explicabilidade próprios, mas não tem análise própria a oferecer. */
+  const temSensibilidade = ehNivelDaRodada(pathname) && !ehVariacao
+  const atual = lerAba(params, temSensibilidade)
+  const visiveis = ABAS.filter((a) => !a.soNaRodada || temSensibilidade)
 
   /** O mesmo caminho, trocando só a aba. `plano` não escreve parâmetro. */
   const href = (aba: AbaResultado) => {
@@ -38,7 +57,7 @@ export function AbasResultado() {
       aria-label="O que olhar nesta rodada"
       className="mb-5 inline-flex gap-1 rounded-full border border-ink-200 bg-white p-1 shadow-soft"
     >
-      {ABAS.map((aba) => {
+      {visiveis.map((aba) => {
         const ativa = aba.id === atual
         return (
           <Link

@@ -17,7 +17,7 @@
  * no Trilho troca a subárvore inteira do cache sem tocar nas outras já lidas.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { resultados, simulacao } from '@/rodada/api/endpoints'
+import { resultados, simulacao, type ModoDaVariacao } from '@/rodada/api/endpoints'
 import type { RunResumo } from '@/rodada/domain/resultado'
 import type { CorpoNovaRodada } from '@/rodada/domain/simulacao'
 
@@ -337,6 +337,74 @@ export function useCriarRodada() {
     mutationFn: (corpo: CorpoNovaRodada) => simulacao.criar(corpo),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['runs', 'lista'] })
+    },
+  })
+}
+
+
+/**
+ * A CURVA DE SENSIBILIDADE — teto e pontos, numa consulta só.
+ *
+ * Repete enquanto houver ponto em voo, e para sozinha quando todos publicarem.
+ * A condição olha o STATUS de cada ponto e não a presença de resultado: uma
+ * rodada que terminou em ERRO nunca vai ter resultado, e "repetir até ter" seria
+ * bater no servidor a cada oito segundos para sempre.
+ */
+export function useSensibilidade(runId: string | undefined) {
+  return useQuery({
+    queryKey: ['runs', runId ?? '—', 'sensibilidade'],
+    queryFn: () => resultados.sensibilidade(runId as string),
+    enabled: !!runId,
+    refetchInterval: (consulta) => {
+      const pontos = consulta.state.data?.pontos ?? []
+      const emVoo = pontos.some((p) => p.status === 'PENDENTE' || p.status === 'RODANDO')
+      return emVoo ? 8_000 : false
+    },
+  })
+}
+
+export function useDispararVariacao() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      runId,
+      fator,
+      nome,
+      modo,
+    }: {
+      runId: string
+      fator: number
+      nome: string
+      modo: ModoDaVariacao
+    }) => resultados.variacao(runId, fator, nome, modo),
+    onSuccess: (_r, { runId }) => {
+      // A CURVA PRIMEIRO, e a lista também. A curva porque é a tela que a pessoa
+      // está olhando; a lista porque uma variação em modo COMPLETO é uma rodada
+      // do histórico como qualquer outra — a rápida não aparece lá, e o servidor
+      // é quem decide isso, não este `invalidate`.
+      void qc.invalidateQueries({ queryKey: ['runs', runId, 'sensibilidade'] })
+      void qc.invalidateQueries({ queryKey: ['runs', 'lista'] })
+    },
+  })
+}
+
+
+/**
+ * O sinal de vida de uma rodada em execução.
+ *
+ * `refetchInterval` só enquanto ela NÃO terminou: rodada publicada é imutável, e
+ * continuar perguntando por ela seria bater no servidor para receber sempre a
+ * mesma resposta. Quando termina, o intervalo vira `false` sozinho — o
+ * `refetchInterval` de função recebe a última resposta e decide.
+ */
+export function useStatusDaRodada(runId: string | undefined, ativo: boolean) {
+  return useQuery({
+    queryKey: ['runs', runId ?? '—', 'status'],
+    queryFn: () => resultados.status(runId as string),
+    enabled: !!runId && ativo,
+    refetchInterval: (consulta) => {
+      const s = consulta.state.data?.status
+      return s === 'PENDENTE' || s === 'RODANDO' ? 8_000 : false
     },
   })
 }

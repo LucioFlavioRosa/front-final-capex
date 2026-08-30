@@ -106,7 +106,11 @@ function Interna() {
                   são da rodada inteira, mas não da árvore de escopo ao lado —
                   a árvore diz ONDE você está, as abas dizem O QUE você está
                   perguntando, e as duas coisas se combinam livremente. */}
-              <AbasResultado />
+              {/* A aba de Sensibilidade não existe para uma rodada que É uma
+                  variação: analisar a sensibilidade de um ponto de sensibilidade
+                  não é pergunta, e o botão de rodar gravaria variações de
+                  variação. Ver `RunMeta.variacaoDe`. */}
+              <AbasResultado ehVariacao={!!meta.data?.variacaoDe} />
               <Outlet />
             </div>
             <PainelDicionario verbetes={VERBETES} />

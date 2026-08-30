@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { Estado } from '@/rodada/components/Estado'
 import { BotaoExportar } from '@/rodada/components/BotaoExportar'
 import { BotaoParametros } from '@/rodada/components/PainelParametros'
@@ -10,6 +10,7 @@ import {
 } from '@/rodada/components/pecas'
 import { SecaoElementos } from '@/rodada/components/SecaoElementos'
 import { SecaoPorQue } from '@/rodada/components/SecaoPorQue'
+import { PainelSensibilidade } from '@/rodada/components/PainelSensibilidade'
 import { useAbaResultado } from '@/rodada/layout/abaResultado'
 import {
   GraficoCapexComponente,
@@ -60,7 +61,12 @@ export function Global() {
   const ebitda = useEbitda(runId)
   const cidades = useCidades(runId)
   const explicabilidade = useExplicabilidade(runId)
-  const aba = useAbaResultado()
+  const aba = useAbaResultado({ comSensibilidade: true })
+  /**
+   * O destino dos números de exclusão. Só os "X de Y" recebem: em cada um deles
+   * a pergunta seguinte é sobre o RESTO, e o resto mora na outra aba.
+   */
+  const porQue = `/resultados/${runId}?aba=porque`
   const trilha = useTrilhaCompleta(runId, meta.data?.nome)
 
   return (
@@ -93,7 +99,12 @@ export function Global() {
                * coisa, que é exatamente o que a separação veio desfazer.
                */
               destaque={
-                aba === 'plano'
+                /* `!== 'porque'`, e não `=== 'plano'`: a Sensibilidade também
+                   quer o VPL em destaque. Ele é o PONTO DE PARTIDA da curva —
+                   todo número dela é lido como "quanto isto muda em relação a
+                   hoje" —, e trocá-lo pelo destaque do Por quê poria a pergunta
+                   errada em cima da tela. */
+                aba !== 'porque'
                   ? { rotulo: 'VPL do plano', valor: brlMi(m.kpis.vpl), ajuda: 'VPL_PLANO' }
                   : {
                       rotulo: 'Sub-bacias fora do plano',
@@ -161,11 +172,15 @@ export function Global() {
                   rotulo: 'Obras priorizadas',
                   valor: deTotal(m.kpis.obrasConstruidas, m.kpis.obrasTotal),
                   ajuda: 'OBRAS_PRIORIZADAS',
+                  para: porQue,
+                  aoLado: 'e as que não entraram →',
                 },
                 {
                   rotulo: 'Sub-bacias que passam a faturar',
                   valor: deTotal(m.kpis.subbaciasFaturando, m.kpis.subbaciasTotal),
                   ajuda: 'SUBBACIAS_FATURANDO',
+                  para: porQue,
+                  aoLado: 'e as que não faturam →',
                 },
                 {
                   rotulo: 'Cobertura final',
@@ -190,6 +205,8 @@ export function Global() {
                    */
                   rotulo: 'Metas contratuais cumpridas',
                   valor: deTotal(m.kpis.metasAtingidas, m.kpis.metasTotal),
+                  para: porQue,
+                  aoLado: 'e as que faltaram →',
                   ajuda: 'METAS_CUMPRIDAS',
                 },
                 {
@@ -228,6 +245,40 @@ export function Global() {
               }
             />
 
+            {/* DE QUE PLANO ISTO É UMA VARIAÇÃO.
+                O rótulo dela diz "+10% de CAPEX" e não diz de quê — e ela aparece
+                no histórico ao lado de rodadas comuns, onde essa diferença é
+                invisível. Quem abre uma variação pelo histórico precisa saber
+                que está vendo um cenário, e ter o caminho de volta para a
+                análise que o gerou. */}
+            {m.variacaoDe && (
+              <div className="carta flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 text-[12.5px] text-ink-600">
+                <span className="rounded-full bg-water-50 px-2.5 py-0.5 font-mono text-[12px] font-bold text-water-700">
+                  +{m.variacaoDe.degrau}%
+                </span>
+                <span>
+                  {m.variacaoDe.estimativa ? 'Estimativa rápida' : 'Simulação'} com{' '}
+                  <strong className="font-semibold text-ink-800">
+                    {m.variacaoDe.degrau}% a mais de CAPEX por ano
+                  </strong>{' '}
+                  sobre{' '}
+                  <Link
+                    to={`/resultados/${m.variacaoDe.runId}`}
+                    className="font-semibold text-water-700 underline underline-offset-2"
+                  >
+                    {m.variacaoDe.nome || 'a rodada de origem'}
+                  </Link>
+                  . Todo o resto é idêntico a ela.
+                </span>
+                <Link
+                  to={`/resultados/${m.variacaoDe.runId}?aba=sensibilidade`}
+                  className="ml-auto shrink-0 font-semibold text-water-700 underline underline-offset-2"
+                >
+                  Ver a análise completa
+                </Link>
+              </div>
+            )}
+
             {/* Quadro próprio: vem de outro endpoint, carrega e falha sozinho.
                 Sem `vazio` — a ausência de dado é o próprio sinal de "sem
                 nada a explicar" (100% fatura), e `SecaoPorQue` já trata isso
@@ -241,6 +292,19 @@ export function Global() {
                 {(ex) => <SecaoPorQue dados={ex} runId={runId} />}
               </Estado>
             )}
+
+            {/* A SENSIBILIDADE EM ABA PRÓPRIA, e não empilhada no Plano.
+                Ela fala de um plano que NÃO existe — o que aconteceria com outro
+                orçamento —, e disputava espaço com o plano de verdade: três
+                curvas, a tabela do teto e o gráfico de obras entre o cronograma
+                e o painel da rodada. Quem queria o painel passava por tudo isso;
+                quem queria a análise rolava até o meio da tela para achá-la.
+                Em aba própria as duas coisas ficam inteiras. */}
+            {/* `&& !m.variacaoDe` mesmo com a aba escondida: esconder o botão
+                não é a mesma coisa que fechar o caminho, e a aba vive na URL —
+                um link antigo ou uma URL editada à mão chegam aqui sem passar
+                pela barra de abas. */}
+            {aba === 'sensibilidade' && !m.variacaoDe && <PainelSensibilidade meta={m} />}
 
             {aba === 'plano' && (
               <>

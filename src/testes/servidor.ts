@@ -235,6 +235,13 @@ export const handlers = [
       },
     }),
   ),
+  // Curva de sensibilidade VAZIA por padrao: a maioria das rodadas nao tem
+  // variacao nenhuma, e devolver pontos aqui faria toda tela do nivel 1 desenhar
+  // graficos que o teste dela nao esta olhando. Quem testa a curva usa
+  // `servidor.use(...)` com o payload que interessa.
+  http.get('/api/runs/:runId/sensibilidade', () =>
+    HttpResponse.json({ teto: null, pontos: [] }),
+  ),
   http.get('/api/runs/:runId/painel', () => HttpResponse.json(PAINEL)),
   http.get('/api/runs/:runId/ebitda', () =>
     HttpResponse.json({

@@ -9,7 +9,13 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { lerAba, useAbaResultado, useHrefComAba } from './abaResultado'
+import { AbasResultado } from './AbasResultado'
+import {
+  ehNivelDaRodada,
+  lerAba,
+  useAbaResultado,
+  useHrefComAba,
+} from './abaResultado'
 
 function Sonda() {
   const aba = useAbaResultado()
@@ -64,5 +70,84 @@ describe('a aba viaja na descida', () => {
     const href = screen.getByTestId('href-com-busca').textContent ?? ''
     expect(href).toContain('ano=2027')
     expect(href).toContain('aba=porque')
+  })
+})
+
+
+describe('Sensibilidade — a aba que é um LUGAR, e não um modo', () => {
+  it('só é lida por quem a aceita; todo o resto enxerga Plano', () => {
+    // É a proteção das telas escritas como `aba === 'plano' ? A : B`. Sem ela,
+    // um `aba=sensibilidade` colado numa URL de cidade cairia no ramo do "por
+    // quê" — a explicabilidade apareceria sob o rótulo errado.
+    const p = new URLSearchParams('aba=sensibilidade')
+    expect(lerAba(p)).toBe('plano')
+    expect(lerAba(p, true)).toBe('sensibilidade')
+  })
+
+  it('NÃO desce: clicar numa cidade a partir dela leva ao Plano da cidade', () => {
+    // A curva é do orçamento inteiro. Levá-la junto abriria uma cidade com uma
+    // aba que não mostra nada — e a pergunta "e se o CAPEX fosse maior?" não se
+    // recorta por cidade.
+    montar('/resultados/r1?aba=sensibilidade')
+    expect(screen.getByTestId('href').textContent).toBe('/resultados/r1/cidades/c9')
+  })
+
+  it('e Por quê continua descendo — a diferença entre modo e lugar', () => {
+    montar('/resultados/r1?aba=porque')
+    expect(screen.getByTestId('href').textContent).toBe('/resultados/r1/cidades/c9?aba=porque')
+  })
+})
+
+describe('ehNivelDaRodada', () => {
+  it('reconhece o nível 1, com e sem barra final', () => {
+    expect(ehNivelDaRodada('/resultados/run_2026')).toBe(true)
+    expect(ehNivelDaRodada('/resultados/run_2026/')).toBe(true)
+  })
+
+  it('recusa os níveis abaixo e a própria lista', () => {
+    expect(ehNivelDaRodada('/resultados/run_2026/cidades/c9')).toBe(false)
+    expect(ehNivelDaRodada('/resultados/run_2026/obras/o1')).toBe(false)
+    expect(ehNivelDaRodada('/resultados')).toBe(false)
+  })
+})
+
+
+/**
+ * A BARRA DE ABAS numa rodada que é uma VARIAÇÃO.
+ *
+ * Uma variação é uma rodada completa: abre em `/resultados/{id}`, tem plano,
+ * obras e explicabilidade. Por isso ela ganhava também a aba de Sensibilidade —
+ * e a tela oferecia analisar a sensibilidade de um ponto de sensibilidade.
+ * Aceitar a oferta gravaria variações de variação, com linhagem apontando para o
+ * meio da curva de outra rodada.
+ */
+describe('AbasResultado numa variação', () => {
+  const abrir = (rota: string, ehVariacao: boolean) =>
+    render(
+      <MemoryRouter initialEntries={[rota]}>
+        <Routes>
+          <Route path="/resultados/*" element={<AbasResultado ehVariacao={ehVariacao} />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+  it('a rodada comum tem as três abas', () => {
+    abrir('/resultados/r1', false)
+    expect(screen.getByRole('tab', { name: /Sensibilidade/ })).toBeInTheDocument()
+  })
+
+  it('a variação NÃO oferece Sensibilidade', () => {
+    abrir('/resultados/r1', true)
+    expect(screen.queryByRole('tab', { name: /Sensibilidade/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Plano/ })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Por quê/ })).toBeInTheDocument()
+  })
+
+  it('e uma URL com `aba=sensibilidade` numa variação cai no Plano', () => {
+    // Esconder o botão não fecha o caminho: a aba vive na URL, e um link antigo
+    // chega aqui sem passar pela barra.
+    abrir('/resultados/r1?aba=sensibilidade', true)
+    const ativa = screen.getAllByRole('tab').find((b) => b.getAttribute('aria-selected') === 'true')
+    expect(ativa).toHaveTextContent('Plano')
   })
 })

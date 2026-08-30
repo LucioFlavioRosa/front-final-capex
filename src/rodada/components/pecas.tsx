@@ -44,7 +44,7 @@ export function FaixaKpi({
   acoes?: ReactNode
   /** `ajuda` é a chave do verbete no dicionário de resultado — ver `Tile`. */
   destaque?: { rotulo: string; valor: ReactNode; ajuda?: string }
-  itens: { rotulo: string; valor: ReactNode; ajuda?: string }[]
+  itens: { rotulo: string; valor: ReactNode; ajuda?: string; para?: string; aoLado?: string }[]
   rodape?: ReactNode
 }) {
   const corpo = (
@@ -60,7 +60,14 @@ export function FaixaKpi({
           className={`tiles escada grid-cols-2 md:grid-cols-4 ${destaque ? 'mt-5' : ''}`}
         >
           {itens.map((i) => (
-            <Tile key={i.rotulo} rotulo={i.rotulo} valor={i.valor} ajuda={i.ajuda} />
+            <Tile
+              key={i.rotulo}
+              rotulo={i.rotulo}
+              valor={i.valor}
+              ajuda={i.ajuda}
+              para={i.para}
+              aoLado={i.aoLado}
+            />
           ))}
         </div>
       )}
@@ -330,21 +337,55 @@ export function Tile({
   rotulo,
   valor,
   ajuda,
+  para,
+  aoLado,
 }: {
   rotulo: string
   valor: ReactNode
   ajuda?: string
+  /**
+   * PARA ONDE ESTE NÚMERO LEVA.
+   *
+   * Só os números de EXCLUSÃO recebem destino, e sempre o mesmo: a aba que
+   * explica a exclusão. Separar Plano de Por quê custou a vizinhança que a tela
+   * tinha — "18 de 930 faturando" ficava logo acima do "por que as outras 912
+   * não" —, e este link é o conserto: a aba deixa de ser um lugar que a pessoa
+   * precisa lembrar de visitar e passa a ser o destino do gesto que ela já faz,
+   * que é apontar para o número que a incomodou.
+   *
+   * Continua sendo `<Link>` de verdade, e não `onClick`: abrir em nova aba para
+   * comparar os dois lados é exatamente o que alguém faz aqui.
+   */
+  para?: string
+  /** O que aparece ao lado do rótulo quando há destino — "ver por quê →". */
+  aoLado?: string
 }) {
-  return (
-    <div>
+  const corpo = (
+    <>
       <div className="flex items-center gap-1.5 text-[12px] text-ink-500">
         <span>{rotulo}</span>
         {ajuda && <BotaoAjuda chave={ajuda} texto={rotulo} />}
+        {para && (
+          <span className="text-[11px] font-semibold text-water-600 opacity-0 transition-opacity duration-hover ease-saida group-hover/tile:opacity-100 group-focus-visible/tile:opacity-100">
+            {aoLado ?? 'ver por quê →'}
+          </span>
+        )}
       </div>
       <div className="mt-1 font-mono text-[16px] font-semibold tabular-nums text-ink-800">
         {valor}
       </div>
-    </div>
+    </>
+  )
+
+  if (!para) return <div>{corpo}</div>
+
+  return (
+    <Link
+      to={para}
+      className="group/tile -m-1.5 block rounded-lg p-1.5 transition-colors duration-hover ease-saida hover:bg-water-50 focus-visible:bg-water-50"
+    >
+      {corpo}
+    </Link>
   )
 }
 
