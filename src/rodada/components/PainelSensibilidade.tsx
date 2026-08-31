@@ -51,12 +51,13 @@ import {
   comparativoDeObras,
   curvaPronta,
   dinheiroDoDegrau,
-  emVooDaVarredura,
+  emVooDaBase,
   faltouTempoDeSolver,
   fatorDoDegrau,
   faixaValida,
   melhorPorDegrau,
   pontosDaFaixa,
+  pontosForaDaFaixa,
   proximoDegrau,
   situacaoDaVarredura,
   vezesOOrcamento,
@@ -167,6 +168,8 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
   const teto = consulta.data?.teto ?? null
   const melhor = melhorPorDegrau(consulta.data?.pontos ?? [])
   const situacao = situacaoDaVarredura(melhor, degrausPedidos)
+  /** Pontos que já rodaram e ficaram fora da faixa atual — ver a frase abaixo. */
+  const fora = pontosForaDaFaixa(melhor, degrausPedidos)
 
   /**
    * A BASE VEM DO SERVIDOR, como `degrau: 0`, e não é montada aqui a partir de
@@ -187,7 +190,9 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
   const emReais = (degrau: number) =>
     orcamento === null ? null : dinheiroDoDegrau(orcamento, degrau)
 
-  const emExecucao = emVooDaVarredura(situacao)
+  // PELA BASE, e não pela faixa: o bloqueio é regra da FILA, e a fila não sabe
+  // qual faixa está na tela. Ver `emVooDaBase`.
+  const emExecucao = emVooDaBase(todos)
   const proximo = proximoDegrau(situacao)
   const falhou = situacao.find((s) => s.estado === 'erro' && s.degrau === proximo) ?? null
   const jaFalhou = !!falhou
@@ -475,6 +480,19 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
               </p>
             )}
           </div>
+        )}
+
+        {/* O QUE FICOU FORA DA FAIXA, dito em vez de sumido.
+            A faixa é a pergunta, e ponto fora dela é resposta de outra — por
+            isso não entra na curva. Mas quem estreita a faixa acabou de ver a
+            leitura anterior, e o desaparecimento silencioso pareceria perda. Os
+            resultados continuam no banco e voltam assim que a faixa os cobrir. */}
+        {fora.length > 0 && (
+          <p className="mt-3 text-[12px] text-ink-500">
+            {fora.length === 1 ? 'Há 1 ponto já rodado fora' : `Há ${fora.length} pontos já rodados fora`}{' '}
+            desta faixa ({fora.map((d) => `+${d}%`).join(', ')}). Eles não somem — voltam ao
+            gráfico se a faixa os incluir.
+          </p>
         )}
 
         {varrendo && !emExecucao && (

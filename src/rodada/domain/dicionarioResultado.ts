@@ -171,15 +171,4 @@ export const DICIONARIO_RESULTADO: Record<string, Verbete> = {
   },
 
   // -------------------------------------------------- explicabilidade
-  ELO_QUE_TRAVA: {
-    rotulo: 'Obras que liberam mais sub-bacias',
-    tec: 'otim_obra.elo_que_trava',
-    origem: MOTOR,
-    tipo: 'contagem',
-    oque:
-      'Obra não construída que é a última peça faltando na cadeia de outras sub-bacias. O número ao lado é quantas sub-bacias deixam de faturar por causa dela.',
-    porque:
-      'É onde um real a mais rende mais: parte da cadeia já foi construída, e falta um elo para a receita destravar. O motor só nomeia um elo quando parte da cadeia já existe — obra isolada que não foi escolhida não aparece aqui, aparece como motivo na lista ao lado.',
-    exemplo: 'tro_b1b65_1_4 · trava 2',
-  },
 }

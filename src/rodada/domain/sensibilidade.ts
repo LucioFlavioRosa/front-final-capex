@@ -217,19 +217,21 @@ export function situacaoDaVarredura(
   melhor: Map<number, PontoDaCurva>,
   degraus: readonly number[],
 ): SituacaoDoDegrau[] {
-  // OS DEGRAUS PEDIDOS, MAIS OS QUE JÁ RODARAM. Trocar a faixa não apaga o que
-  // já foi executado: aquelas rodadas existem, custaram cluster e são pontos
-  // legítimos desta curva. Some-se a isso que a pessoa costuma estreitar a faixa
-  // DEPOIS de ver a primeira leitura — e escondê-los faria a tela parecer que
-  // ela perdeu o que acabou de rodar.
+  // SÓ OS DEGRAUS PEDIDOS. A faixa é a pergunta, e ponto fora dela é resposta de
+  // outra.
   //
-  // `> 0` PORQUE O ZERO NÃO É DEGRAU: ele é a rodada base, o ponto de partida.
-  // O servidor a devolve junto dos outros pontos, e sem este filtro ela entrava
-  // aqui como se fosse um degrau executado — a tela contava a base duas vezes,
-  // dava a curva por pronta com um ponto só e escondia o teto.
-  const executados = [...melhor.keys()].filter((d) => d > 0)
-  const todos = [...new Set([...degraus, ...executados])].sort((a, b) => a - b)
-  return todos.map((degrau) => {
+  // A versão anterior somava os degraus JÁ EXECUTADOS aos pedidos, com o
+  // argumento de que aquelas rodadas existem e custaram cluster. O argumento era
+  // verdadeiro e a conclusão errada: numa base que já tinha rodado +10% a +50%,
+  // pedir "de 5 a 20 em 4 pontos" devolvia +5% +10% +15% +20% +30% +40% +50% —
+  // o cenário antigo de volta, com o controle de faixa parecendo ignorado. Duas
+  // análises no mesmo gráfico não são uma análise mais completa; são duas
+  // perguntas somadas.
+  //
+  // O que rodou não se perde: continua no banco e reaparece assim que a faixa o
+  // cobrir de novo. E a tela diz quantos pontos ficaram de fora, para a
+  // diferença ser informação e não sumiço.
+  return degraus.map((degrau) => {
     const p = melhor.get(degrau) ?? null
     const estado: EstadoDoDegrau = !p
       ? 'ausente'
@@ -249,7 +251,7 @@ export function situacaoDaVarredura(
 }
 
 /**
- * A rodada da varredura que está em voo agora — no máximo uma, por desenho.
+ * A rodada desta base que está em voo agora — no máximo uma, por desenho.
  *
  * É ela que BLOQUEIA o disparo do próximo, e o bloqueio é separado de
  * `proximoDegrau` de propósito: "qual é o próximo" e "dá para pedir agora" são
@@ -257,9 +259,30 @@ export function situacaoDaVarredura(
  * enfileirar o segundo pedido não o faz chegar antes, só faz a espera parecer
  * maior — e cinco pedidos de uma vez foi o que saturou o Service Bus e devolveu
  * 503 na primeira tentativa real.
+ *
+ * OLHA TODOS OS DEGRAUS DA BASE, e não só os da faixa pedida. A diferença é
+ * exatamente o defeito que a filtragem por faixa introduziu: quem dispara +50%,
+ * estreita a faixa para 5–20 e clica de novo teria DOIS pedidos numa fila de
+ * capacidade 1 — o disparo em voo some da lista, e com ele o bloqueio.
+ *
+ * A regra é a da FILA, e não a da pergunta: a fila não sabe qual faixa está na
+ * tela.
+ *
+ * RECEBE OS PONTOS CRUS, e não o mapa de `melhorPorDegrau`. O mapa colapsa cada
+ * degrau no ponto mais confiável, e é aí que a execução se esconde: com a
+ * estimativa de +20% publicada e a simulação completa do MESMO +20% ainda
+ * rodando, o mapa devolve a estimativa e a rodada em voo desaparece. O painel
+ * então liberaria +30% com a fila ocupada — e confirmar um degrau em modo
+ * completo depois de ver a estimativa é o fluxo NORMAL, não um caso de canto.
  */
-export function emVooDaVarredura(situacao: SituacaoDoDegrau[]): SituacaoDoDegrau | null {
-  return situacao.find((s) => s.estado === 'em voo') ?? null
+export function emVooDaBase(
+  pontos: PontoDaCurva[],
+): { degrau: number; ponto: PontoDaCurva } | null {
+  const voando = pontos
+    .filter((p) => p.degrau > 0 && !FRACASSO.has(p.status) && !temResultado(p))
+    .sort((a, b) => a.degrau - b.degrau)
+  const p = voando[0]
+  return p ? { degrau: p.degrau, ponto: p } : null
 }
 
 /** O próximo degrau a disparar: o menor que falta — inclusive um que falhou. */
@@ -449,4 +472,26 @@ export function comparativoDeObras(pontos: PontoDaCurva[]): ComparativoDeObras |
 export function faltouTempoDeSolver(p: PontoDaCurva | null): boolean {
   if (!p || !p.estimativa || !p.erro) return false
   return /MAX_TIME_S maior|sem coluna selecionada/i.test(p.erro)
+}
+
+
+/**
+ * Quantos pontos publicados ficam FORA da faixa pedida.
+ *
+ * Existe para a tela poder dizer "3 pontos fora desta faixa" em vez de
+ * simplesmente não os mostrar. Some-se a isso que quem estreita a faixa acabou
+ * de ver a leitura anterior: sem a frase, o desaparecimento pareceria perda.
+ */
+export function pontosForaDaFaixa(
+  melhor: Map<number, PontoDaCurva>,
+  degraus: readonly number[],
+): number[] {
+  const pedidos = new Set(degraus)
+  return [...melhor.entries()]
+        // `temResultado`, e não `vpl !== null`: publicar é um passo com partes, e um
+    // ponto pela metade seria contado na frase como "já rodado" sem entrar na
+    // curva, que usa o mesmo predicado.
+    .filter(([degrau, p]) => degrau > 0 && !pedidos.has(degrau) && temResultado(p))
+    .map(([degrau]) => degrau)
+    .sort((a, b) => a - b)
 }

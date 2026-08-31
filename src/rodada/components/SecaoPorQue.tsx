@@ -118,7 +118,12 @@ export function SecaoPorQue({
       <TituloSecao nota="resumo do otimizador — o detalhe de cada caso está na sub-bacia">
         {titulo}
       </TituloSecao>
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/* UM CARTÃO, LARGURA CHEIA. Eram dois lado a lado: este e o de
+          "Obras que, se construídas, liberam mais sub-bacias", removido a
+          pedido — a lista de elos não era usada para decidir nada, e ocupava
+          metade da aba. Com um só, a grade de duas colunas deixaria o
+          restante espremido em meia tela sem nada ao lado. */}
+      <div className="grid gap-4">
         <Cartao titulo="Motivos, por sub-bacia">
           <p className="-mt-1 mb-3 text-[11px] leading-snug text-ink-500">
             {inteiro(dados.naoFaturando)} de {inteiro(dados.totalSubbacias)} sub-bacias não
@@ -178,55 +183,6 @@ export function SecaoPorQue({
           </ul>
         </Cartao>
 
-        {/* "OBRAS QUE TRAVAM MAIS GENTE" ERA O TÍTULO, e a Aegea perguntou o
-            que ele significava (item 15 de 26/08). O novo diz a ação em vez do
-            problema: quem lê a lista está procurando onde investir, não onde
-            reclamar. A ORDENAÇÃO ainda é por contagem de sub-bacias travadas, e
-            passa a ser por vazão liberada junto com o redesenho do bloco — é a
-            metade que precisa de backend. */}
-        <Cartao
-          titulo="Obras que, se construídas, liberam mais sub-bacias"
-          nota="clique para abrir a obra"
-          ajuda="ELO_QUE_TRAVA"
-        >
-          <p className="-mt-1 mb-3 text-[11px] leading-snug text-ink-500">
-            Obras não construídas cuja falta, sozinha, tira outras sub-bacias do plano —
-            ordenadas pela vazão que cada uma libera se entrar no orçamento.
-          </p>
-          {dados.elos.length === 0 ? (
-            <p className="text-[11.5px] text-ink-400">Nenhum elo concentra mais de um caso.</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {dados.elos.map((e) => (
-                <li
-                  key={e.obraId}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-ink-100 px-3 py-2"
-                >
-                  <span className="min-w-0 truncate text-[12.5px]">
-                    <CelulaLink to={`/resultados/${runId}/obras/${e.obraId}`}>
-                      <span className="font-mono">{e.obraId}</span>
-                    </CelulaLink>{' '}
-                    <span className="text-ink-500">· {e.componente}</span>
-                  </span>
-                  {/* VAZÃO LIBERADA, e não a contagem "trava N" (item 15 do
-                      feedback de 26/08) — a contagem sozinha deixava o cartão
-                      parecendo irrelevante, porque o topo é quase sempre
-                      "trava 1" ou "trava 2"; a vazão é a grandeza que muda
-                      dependendo de QUEM está preso, não de QUANTOS. */}
-                  <span className="shrink-0 text-right">
-                    <span className="block font-mono text-[11.5px] tabular-nums text-ink-700">
-                      {vazao(e.vazaoLiberada)}
-                    </span>
-                    <span className="block text-[9.5px] text-ink-400">
-                      libera {inteiro(e.bloqueia)}{' '}
-                      {e.bloqueia === 1 ? 'sub-bacia' : 'sub-bacias'}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Cartao>
       </div>
       <ComoIstoECalculado />
     </>

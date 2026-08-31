@@ -18,10 +18,11 @@ import {
   dinheiroDoDegrau,
   fatorDoDegrau,
   melhorPorDegrau,
-  emVooDaVarredura,
+  emVooDaBase,
   proximoDegrau,
   faixaValida,
   pontosDaFaixa,
+  pontosForaDaFaixa,
   situacaoDaVarredura,
   vezesOOrcamento,
   type PontoDaCurva,
@@ -97,19 +98,18 @@ describe('situacaoDaVarredura', () => {
     expect(s[0].estado).toBe('em voo')
     // E ela BLOQUEIA o disparo, ainda que +20% siga sendo o próximo da lista:
     // são duas perguntas diferentes, e é o bloqueio que respeita a capacidade 1.
-    expect(emVooDaVarredura(s)?.degrau).toBe(10)
+    expect(emVooDaBase([semResultado({ degrau: 10, runId: 'r1', status: 'SUCESSO' })])?.degrau).toBe(10)
     expect(proximoDegrau(s)).toBe(20)
   })
 
   it('em voo bloqueia — a fila tem capacidade 1', () => {
-    const s = situacaoDaVarredura(melhorPorDegrau([semResultado({ degrau: 10, runId: 'r1', status: 'RODANDO' })]), PADRAO)
-    expect(s[0].estado).toBe('em voo')
-    expect(emVooDaVarredura(s)?.degrau).toBe(10)
+    const emVoo = [semResultado({ degrau: 10, runId: 'r1', status: 'RODANDO' })]
+    expect(situacaoDaVarredura(melhorPorDegrau(emVoo), PADRAO)[0].estado).toBe('em voo')
+    expect(emVooDaBase(emVoo)?.degrau).toBe(10)
   })
 
   it('uma que falhou NÃO bloqueia — ela nunca vai publicar', () => {
-    const s = situacaoDaVarredura(melhorPorDegrau([semResultado({ degrau: 10, runId: 'r1', status: 'ERRO' })]), PADRAO)
-    expect(emVooDaVarredura(s)).toBeNull()
+    expect(emVooDaBase([semResultado({ degrau: 10, runId: 'r1', status: 'ERRO' })])).toBeNull()
   })
 
   it('devolve os cinco degraus, com e sem rodada', () => {
@@ -354,20 +354,88 @@ describe('a faixa é de quem analisa', () => {
   })
 })
 
-describe('trocar a faixa não apaga o que já rodou', () => {
-  it('os degraus executados continuam na lista, junto dos novos', () => {
-    // Aquelas rodadas existem, custaram cluster e são pontos legítimos desta
-    // curva. E a pessoa costuma estreitar a faixa DEPOIS de ver a primeira
-    // leitura — escondê-los faria a tela parecer que ela perdeu o que rodou.
-    const melhor = melhorPorDegrau([
-      ponto({ degrau: 30, runId: 'r30' }),
-      ponto({ degrau: 50, runId: 'r50' }),
-    ])
-    const s = situacaoDaVarredura(melhor, pontosDaFaixa({ de: 5, ate: 15, pontos: 3 }))
-    expect(s.map((x) => x.degrau)).toEqual([5, 10, 15, 30, 50])
-    expect(s.filter((x) => x.estado === 'pronto').map((x) => x.degrau)).toEqual([30, 50])
-    // E o próximo a rodar é o menor que falta DA FAIXA NOVA.
+describe('A FAIXA É A PERGUNTA — ponto fora dela é resposta de outra', () => {
+  const JA_RODOU = [
+    ponto({ degrau: 10, runId: 'r10' }),
+    ponto({ degrau: 30, runId: 'r30' }),
+    ponto({ degrau: 50, runId: 'r50' }),
+  ]
+  const ESTREITA = pontosDaFaixa({ de: 5, ate: 20, pontos: 4 })
+
+  it('a lista tem EXATAMENTE os degraus pedidos, e nada mais', () => {
+    // O defeito que isto prende: somar os já executados aos pedidos. Numa base
+    // que rodou +10% a +50%, pedir "de 5 a 20 em 4" devolvia
+    // +5 +10 +15 +20 +30 +40 +50 — o cenário antigo de volta, com o controle de
+    // faixa parecendo ignorado. Duas análises no mesmo gráfico não são uma
+    // análise mais completa: são duas perguntas somadas.
+    const s = situacaoDaVarredura(melhorPorDegrau(JA_RODOU), ESTREITA)
+    expect(s.map((x) => x.degrau)).toEqual([5, 10, 15, 20])
+  })
+
+  it('o que está DENTRO da faixa e já rodou continua pronto', () => {
+    // Estreitar a faixa não manda rodar de novo o que já existe.
+    const s = situacaoDaVarredura(melhorPorDegrau(JA_RODOU), ESTREITA)
+    expect(s.filter((x) => x.estado === 'pronto').map((x) => x.degrau)).toEqual([10])
     expect(proximoDegrau(s)).toBe(5)
+  })
+
+  it('o que ficou fora é CONTADO, para a tela poder dizer', () => {
+    // Quem estreita a faixa acabou de ver a leitura anterior; o
+    // desaparecimento silencioso pareceria perda.
+    expect(pontosForaDaFaixa(melhorPorDegrau(JA_RODOU), ESTREITA)).toEqual([30, 50])
+  })
+
+  it('a rodada base nunca conta como ponto fora da faixa', () => {
+    expect(pontosForaDaFaixa(melhorPorDegrau([ponto({ degrau: 0, runId: 'base' })]), [10, 20]))
+      .toEqual([])
+  })
+
+  it('degrau fora da faixa que ainda não publicou também não conta', () => {
+    // "Há 1 ponto já rodado fora desta faixa" tem de ser verdade: uma rodada em
+    // voo ainda não é um ponto.
+    const emVoo = melhorPorDegrau([semResultado({ degrau: 40, runId: 'r40', status: 'RODANDO' })])
+    expect(pontosForaDaFaixa(emVoo, [10, 20])).toEqual([])
+  })
+})
+
+describe('o bloqueio segue a FILA, e não a faixa', () => {
+  it('degrau em voo FORA da faixa continua bloqueando o disparo', () => {
+    // Nasceu da correção da faixa: com a lista limitada ao intervalo pedido, um
+    // +50% em execução sumia da situação — e com ele o bloqueio. Quem disparasse
+    // +50%, estreitasse para 5–20 e clicasse de novo poria DOIS pedidos numa
+    // fila de capacidade 1, que é o que devolveu 503 na primeira tentativa real.
+    const pontos = [semResultado({ degrau: 50, runId: 'r50', status: 'RODANDO' })]
+    const faixa = pontosDaFaixa({ de: 5, ate: 20, pontos: 4 })
+    expect(situacaoDaVarredura(melhorPorDegrau(pontos), faixa).map((s) => s.degrau))
+      .toEqual([5, 10, 15, 20])
+    expect(emVooDaBase(pontos)?.degrau).toBe(50)
+  })
+
+  it('a execução não se esconde atrás de um resultado do MESMO degrau', () => {
+    // O fluxo normal: ver a estimativa e confirmar aquele degrau em modo
+    // completo. `melhorPorDegrau` colapsa os dois no mais confiável — a
+    // estimativa publicada —, e a rodada em voo desaparecia do mapa. Por isso o
+    // bloqueio olha os pontos CRUS.
+    const pontos = [
+      ponto({ degrau: 20, runId: 'estimativa', estimativa: true }),
+      semResultado({ degrau: 20, runId: 'completa', status: 'RODANDO' }),
+    ]
+    expect(melhorPorDegrau(pontos).get(20)?.runId).toBe('estimativa')
+    expect(emVooDaBase(pontos)?.ponto.runId).toBe('completa')
+  })
+
+  it('a rodada base nunca é o que está em voo', () => {
+    // Ela vem como `degrau: 0` e sem KPIs enquanto o `meta` não chega; contá-la
+    // travaria o painel antes de qualquer disparo.
+    expect(emVooDaBase([semResultado({ degrau: 0, runId: 'base', status: 'SUCESSO' })])).toBeNull()
+  })
+
+  it('com dois em voo, devolve o de MENOR degrau', () => {
+    const pontos = [
+      semResultado({ degrau: 40, runId: 'r40', status: 'RODANDO' }),
+      semResultado({ degrau: 20, runId: 'r20', status: 'PENDENTE' }),
+    ]
+    expect(emVooDaBase(pontos)?.degrau).toBe(20)
   })
 })
 
