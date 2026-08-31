@@ -48,6 +48,17 @@ interface QuadroGraficoProps {
    * lá em cima ele pareceria filtrar a seção inteira.
    */
   acoes?: ReactNode
+  /**
+   * Filtro do quadro — o que o gráfico está contando.
+   *
+   * Fica FORA do painel de abas de propósito: dentro de `children` ele sumiria
+   * ao trocar para Tabela, e o usuário perderia o controle do que está lendo
+   * justamente no modo em que lê números exatos. `acoes` não serve porque é a
+   * direita do cabeçalho, ao lado do alternador — um filtro de conteúdo não é
+   * uma ação sobre o quadro, e misturá-los faz o alternador competir por
+   * atenção com o que ele alterna.
+   */
+  filtro?: ReactNode
   tabela: DadosTabela
   children: ReactNode
 }
@@ -58,6 +69,7 @@ export function QuadroGrafico({
   escopo,
   nota,
   acoes,
+  filtro,
   tabela,
   children,
 }: QuadroGraficoProps) {
@@ -134,6 +146,10 @@ export function QuadroGrafico({
         </div>
         </div>
       </div>
+
+      {filtro && (
+        <div className="flex flex-wrap items-center gap-3 px-4 pt-3 md:px-5">{filtro}</div>
+      )}
 
       <div id={`${id}-painel`} role="tabpanel" aria-labelledby={`${id}-btn-${verTabela ? 'tabela' : 'grafico'}`}>
         {verTabela ? (

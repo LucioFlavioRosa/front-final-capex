@@ -181,6 +181,7 @@ export const resultados = {
       situacao?: string
       cidadeId?: string
       ano?: number
+      recorte?: string
       pagina?: number
       tamanho?: number
       ordenar?: string
@@ -190,6 +191,9 @@ export const resultados = {
     if (filtro?.situacao) q.set('situacao', filtro.situacao)
     if (filtro?.cidadeId) q.set('cidade', filtro.cidadeId)
     if (filtro?.ano) q.set('ano', String(filtro.ano))
+    // 'todas' nao vira parametro: e a ausencia de recorte, e mandar a palavra
+    // criaria uma segunda chave de cache para a mesma lista.
+    if (filtro?.recorte && filtro.recorte !== 'todas') q.set('recorte', filtro.recorte)
     if (filtro?.pagina) q.set('pagina', String(filtro.pagina))
     if (filtro?.tamanho) q.set('tamanho', String(filtro.tamanho))
     if (filtro?.ordenar) q.set('ordenar', filtro.ordenar)

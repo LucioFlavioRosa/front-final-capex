@@ -231,6 +231,19 @@ const SITUACAO: Record<SituacaoObra, { texto: string; tom: 'success' | 'ink' | '
  * tonalidades do mesmo cinza faria o usuário perguntar duas vezes por que
  * aquela linha não tem custo, por dois motivos diferentes.
  */
+/**
+ * O rótulo da situação como TEXTO, sem o chip em volta.
+ *
+ * Existe porque a exportação para Excel precisa da mesma palavra que a tela
+ * mostra: uma planilha com "nao-construida" na coluna Situação entrega ao
+ * usuário o identificador interno, e não o que ele leu na tabela de onde
+ * exportou. O mapa é um só — se um dia entrar uma quinta situação, ela aparece
+ * nos dois lugares junto.
+ */
+export function rotuloSituacao(situacao: SituacaoObra): string {
+  return SITUACAO[situacao]?.texto ?? situacao
+}
+
 export function ChipSituacao({ situacao }: { situacao: SituacaoObra }) {
   const s = SITUACAO[situacao] ?? { texto: situacao, tom: 'ink' as const }
   return (

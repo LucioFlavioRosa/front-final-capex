@@ -46,8 +46,8 @@ import type {
  *      dado e NÃO usar `connectNulls`. O erro a evitar é `?? 0` na montagem da
  *      série — ele só é legítimo no cálculo do domínio do eixo, onde não altera
  *      o traçado.
- *   2. O tooltip pode ter MAIS informação que a série (ver `GraficoDesembolso`,
- *      cujo tooltip mostra o acumulado que a barra do ano não desenha).
+ *   2. O tooltip pode ter MAIS informação que a série — o do Desembolso mostra
+ *      o teto, que é desenhado como tampa e não como barra do grupo.
  *   3. Unidade física ausente vira `'—'`, nunca 0.
  *   4. `indireta` só existe no ano da conexão — segmento ausente, não zerado.
  *
@@ -80,7 +80,7 @@ const eixoBase = {
  * Tooltip único de todos os gráficos.
  *
  * `linhas` é montado por quem chama, e não derivado da série, porque o do
- * Desembolso mostra o acumulado — que tem eixo próprio e não é uma barra do
+ * Desembolso mostra o teto — que é desenhado como tampa e não como barra do
  * grupo. Derivar do payload padrão do recharts perderia essa leitura.
  */
 function Dica({
@@ -342,45 +342,39 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
    * do gráfico. Passando `null` e sem `connectNulls`, a linha simplesmente
    * PARA onde a janela acaba — que é a verdade.
    *
-   * `acumulado` é a antiga Curva S, incorporada aqui por decisão da reunião de
-   * validação de 18/08 ("essa curva do capex acumulado, ela nem faz sentido
-   * ter ela separada assim"). Como a série anual já é a soma do que a Curva S
-   * media mês a mês, o acumulado sai de uma soma corrida sobre `capex` — sem
-   * pedir nada novo ao backend, e sem que as duas leituras possam discordar
-   * sobre quanto já foi gasto.
+   * O CAPEX ACUMULADO SAIU DAQUI. Ele era a antiga Curva S, trazida para este
+   * quadro em 18/08, e vivia num segundo eixo Y à direita — a única escala
+   * dupla que tinha sobrado nos gráficos. Duas escalas no mesmo desenho fazem o
+   * cruzamento entre a linha e as barras parecer um evento, quando ele só
+   * reflete onde cada eixo foi ancorado. Com ela fora, o quadro tem um eixo só
+   * e as três barras voltam a ser comparáveis entre si sem ressalva.
    */
-  let corrido = 0
-  const dados = anos.map((a) => {
-    corrido += a.capex
-    return {
-      ano: a.ano,
-      capex: a.capex,
-      opex: a.opex,
-      receita: a.receita,
-      teto: a.tetoCapex,
-      acumulado: corrido,
-    }
-  })
+  const dados = anos.map((a) => ({
+    ano: a.ano,
+    capex: a.capex,
+    opex: a.opex,
+    receita: a.receita,
+    teto: a.tetoCapex,
+  }))
 
   return (
     <QuadroGrafico
       titulo="Desembolso por ano"
-      subtitulo="CAPEX, OPEX e receita, nominal · CAPEX acumulado no eixo direito"
+      subtitulo="CAPEX, OPEX e receita, nominal"
       nota={
         <>
           A linha do <strong>teto</strong> some nos anos fora da janela de orçamento — ausente,
-          não zero. O <strong>acumulado</strong> (eixo à direita) é a soma corrida do CAPEX anual.
+          não zero.
         </>
       }
       tabela={{
-        colunas: ['Ano', 'CAPEX', 'OPEX', 'Receita', 'Teto', 'CAPEX acumulado'],
-        linhas: anos.map((a, i) => [
+        colunas: ['Ano', 'CAPEX', 'OPEX', 'Receita', 'Teto'],
+        linhas: anos.map((a) => [
           a.ano,
           brlMi(a.capex),
           brlMi(a.opex),
           brlMi(a.receita),
           brlMi(a.tetoCapex),
-          brlMi(dados[i].acumulado),
         ]),
       }}
     >
@@ -389,17 +383,6 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
           <CartesianGrid stroke={COR.grid} vertical={false} />
           <XAxis dataKey="ano" {...eixoBase} />
           <YAxis yAxisId="reais" {...eixoBase} tickFormatter={tickBrl} width={52} />
-          {/* Eixo próprio para o acumulado, pintado na cor da série — mesma
-              mitigação do EBITDA para o eixo duplo: cada escala fica
-              visivelmente amarrada à sua série, e não à barra do lado. */}
-          <YAxis
-            yAxisId="acumulado"
-            orientation="right"
-            {...eixoBase}
-            tickFormatter={tickBrl}
-            width={52}
-            tick={{ ...eixoBase.tick, fill: COR_FLUXO.acumulado }}
-          />
           <Tooltip
             cursor={{ fill: COR.cursor }}
             content={({ active, payload, label }) => {
@@ -415,7 +398,6 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
                     // `brl` devolve '—' para nulo: o tooltip diz "não há teto",
                     // e não "teto R$ 0".
                     { rotulo: 'teto', valor: brlMi(d?.teto), cor: COR_FLUXO.teto },
-                    { rotulo: 'acumulado', valor: brlMi(d?.acumulado), cor: COR_FLUXO.acumulado },
                   ]}
                 />
               )
@@ -477,17 +459,6 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
               )
             }}
           />
-          {/* O acumulado no eixo PRÓPRIO — sem ele, a soma corrida (que só
-              cresce) puxaria a escala das barras anuais e as achataria. */}
-          <Line
-            yAxisId="acumulado"
-            type="monotone"
-            dataKey="acumulado"
-            stroke={COR_FLUXO.acumulado}
-            strokeWidth={2.5}
-            dot={{ r: 3.5, fill: 'var(--viz-surface)', stroke: COR_FLUXO.acumulado, strokeWidth: 2.5 }}
-            isAnimationActive={false}
-          />
         </ComposedChart>
       </ResponsiveContainer>
       <Legenda
@@ -496,7 +467,6 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
           { rotulo: 'OPEX', cor: COR_FLUXO.opex },
           { rotulo: 'Receita', cor: COR_FLUXO.receita },
           { rotulo: 'Teto de CAPEX', cor: COR_FLUXO.teto, traco: true },
-          { rotulo: 'CAPEX acumulado (eixo dir.)', cor: COR_FLUXO.acumulado, traco: true },
         ]}
       />
     </QuadroGrafico>

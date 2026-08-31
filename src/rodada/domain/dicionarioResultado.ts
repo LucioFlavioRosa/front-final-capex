@@ -30,13 +30,13 @@ export const DICIONARIO_RESULTADO: Record<string, Verbete> = {
   // ------------------------------------------------------------- nível 1
   VPL_PLANO: {
     rotulo: 'VPL do plano',
-    tec: 'otim_meta.vpl',
+    tec: 'otim_meta.vpl − vp_efeito_base',
     origem: MOTOR,
     tipo: 'R$, valor presente',
     oque:
-      'A soma do valor presente de todas as sub-bacias do plano: receita menos CAPEX e OPEX, descontados pelo WACC até a data-base.',
+      'A soma do valor presente de todas as sub-bacias do plano: receita menos CAPEX e OPEX, descontados pelo WACC até a data-base. O efeito-base de paridade fica DE FORA — ele é receita que existiria sem o plano.',
     porque:
-      'É a função que o otimizador maximiza quando o objetivo é "Só VPL", e o placar do plano em qualquer objetivo. Comparar duas rodadas da mesma unidade é comparar este número.',
+      'É o placar do plano, e o que comparar entre duas rodadas da mesma unidade. Uma ressalva: o otimizador ainda ESCOLHE o plano maximizando o VPL com o efeito-base incluído, então este número não é exatamente a função que ele maximizou — a diferença é o efeito-base, que aparece à parte no detalhe da sub-bacia.',
     exemplo: 'R$ 451,3 Mi',
   },
   CAPEX_TOTAL: {

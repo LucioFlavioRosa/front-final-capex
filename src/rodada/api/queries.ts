@@ -22,7 +22,15 @@ import type { RunResumo } from '@/rodada/domain/resultado'
 import type { CorpoNovaRodada } from '@/rodada/domain/simulacao'
 import type { Faixa } from '@/rodada/domain/sensibilidade'
 
-const chaves = {
+/**
+ * As chaves de cache do react-query.
+ *
+ * EXPORTADA de propósito, e não só por causa do teste: a chave é o contrato de
+ * identidade de cada consulta — é por ela que se invalida e é por ela que duas
+ * telas compartilham (ou não) o mesmo dado. Um defeito aqui não falha, não
+ * avisa, e devolve o resultado de outro filtro.
+ */
+export const chaves = {
   /** A lista do histórico. Muda com exclusão/favorita — não é "para sempre". */
   runs: (filtro?: { unidadeId?: string; usuario?: string }) =>
     ['runs', 'lista', filtro?.unidadeId ?? '*', filtro?.usuario ?? '*'] as const,
@@ -38,14 +46,24 @@ const chaves = {
   fluxo: (runId: string, sistemaId: string) => ['runs', runId, 'sistemas', sistemaId] as const,
   subbacia: (runId: string, subId: string) => ['runs', runId, 'subbacias', subId] as const,
   obra: (runId: string, obraId: string) => ['runs', runId, 'obras', obraId] as const,
-  /** O filtro inteiro entra na chave: página, ordenação e recorte são cortes
-   *  DIFERENTES da mesma lista, não a mesma consulta com resultado igual. */
+  /**
+   * O filtro inteiro entra na chave: página, ordenação e recorte são cortes
+   * DIFERENTES da mesma lista, não a mesma consulta com resultado igual.
+   *
+   * A CHAVE É MONTADA CAMPO A CAMPO, e não pelo objeto — então todo filtro novo
+   * TEM de ser acrescentado aqui também. `recorte` foi esquecido quando entrou,
+   * e o defeito era silencioso: `IMUTAVEL` usa `staleTime: Infinity`, então
+   * abrir 2027 em "todas" e depois em "de terceiro" servia as 163 linhas do
+   * cache no lugar das 91 — inclusive para a exportação, que leva o que a lista
+   * tem. Nada reclamava; só o número estava errado.
+   */
   obras: (
     runId: string,
     filtro?: {
       situacao?: string
       cidadeId?: string
       ano?: number
+      recorte?: string
       pagina?: number
       tamanho?: number
       ordenar?: string
@@ -59,6 +77,7 @@ const chaves = {
       filtro?.situacao ?? '*',
       filtro?.cidadeId ?? '*',
       filtro?.ano ?? '*',
+      filtro?.recorte ?? '*',
       filtro?.pagina ?? 1,
       filtro?.tamanho ?? 50,
       filtro?.ordenar ?? 'inicio',
@@ -166,6 +185,7 @@ export function useObras(
     situacao?: string
     cidadeId?: string
     ano?: number
+    recorte?: string
     pagina?: number
     tamanho?: number
     ordenar?: string

@@ -677,7 +677,15 @@ export interface ObraLinha {
   capex: number
   quantidade: number | null
   unidade: string | null
+  /**
+   * POR QUE a obra está no plano: a mesma partição do cronograma, decidida no
+   * servidor. Vem por linha para que a lista e a planilha possam dizer a
+   * classificação sem refazer a regra aqui.
+   */
+  recorte: 'terceiro' | 'obrigatoria' | 'escolhida'
   anoInicio: number | null
+  /** Conclusão, 'AAAA-MM'. Para obra de terceiro é a única data que existe. */
+  dataPronta: string | null
   prazoMeses: number | null
 }
 
@@ -697,13 +705,30 @@ export interface ObrasPagina {
  *
  * Só obras que ENTRAM no plano: as não construídas não têm ano de execução.
  */
-export interface AnoDeObras {
-  ano: number
+/** Um dos três recortes de um ano — as parcelas que somadas dão "todas". */
+export interface RecorteDoAno {
   obras: number
   capex: number
-  /** Quantas daquelas obras são de terceiro — acontecem sem CAPEX da Aegea. */
-  obrasTerceiro: number
   porComponente: { componente: string; obras: number; capex: number }[]
+}
+
+/**
+ * Um ano do cronograma, particionado por POR QUE a obra está no plano.
+ *
+ * Os três recortes são disjuntos e exaustivos por construção (o servidor os
+ * decide num `CASE` de um ramo só por obra), então "todas as obras" é a soma
+ * deles — e é o cliente que soma, em vez de receber um total que poderia
+ * divergir das parcelas sem nada acusar.
+ *
+ * O ANO NÃO SIGNIFICA O MESMO PARA TODO RECORTE: obra da Aegea entra pelo ano
+ * em que COMEÇA; obra de terceiro, pelo ano em que fica PRONTA — o motor não a
+ * sequencia, e essa é a única data que ele calcula para ela.
+ */
+export interface AnoDeObras {
+  ano: number
+  terceiro: RecorteDoAno
+  obrigatoria: RecorteDoAno
+  escolhida: RecorteDoAno
 }
 
 export interface CronogramaDeObras {

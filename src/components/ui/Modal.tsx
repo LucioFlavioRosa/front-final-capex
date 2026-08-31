@@ -3,13 +3,18 @@ import { createPortal } from 'react-dom'
 import { X, type Icon } from '@phosphor-icons/react'
 import { useSaidaMontada } from './useSaidaMontada'
 
-type Size = 'sm' | 'md' | 'lg' | 'xl'
+type Size = 'sm' | 'md' | 'lg' | 'xl' | '2xl'
 
 const sizes: Record<Size, string> = {
   sm: 'max-w-md',
   md: 'max-w-xl',
   lg: 'max-w-3xl',
   xl: 'max-w-5xl',
+  // Para tabela larga: a lista de obras de um ano tem nove colunas, e em
+  // `max-w-5xl` o CAPEX — a última — caía fora da área visível. Rolagem
+  // horizontal existe, mas esconder justamente a coluna de dinheiro atrás dela
+  // é esconder o que a tabela existe para mostrar.
+  '2xl': 'max-w-7xl',
 }
 
 interface ModalProps {
