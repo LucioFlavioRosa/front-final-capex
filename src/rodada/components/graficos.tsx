@@ -20,10 +20,9 @@ import {
   COR_FLUXO,
   COR_META,
 } from '@/rodada/components/cores'
-import { VAZIO, brMi, brlMi, inteiro, pct, sinalMi } from '@/rodada/lib/formato'
+import { VAZIO, brlMi, pct, sinalMi } from '@/rodada/lib/formato'
 import type {
   AnoFinanceiro,
-  CapexPorComponente,
   EbitdaAno,
   MetaCobertura,
   ParcelaFluxoEscoamento,
@@ -508,110 +507,6 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
 //  3 · CAPEX por componente (Global)
 // ===========================================================================
 
-export function GraficoCapexComponente({ itens }: { itens: CapexPorComponente[] }) {
-  /**
-   * A quantidade física, e o motivo de ela não poder virar 0.
-   *
-   * Sem `unidadesConstruidas`, mostra '—'. E na ETE o número é a CAPACIDADE
-   * ACRESCENTADA pelos módulos, não a contagem de unidades — por isso o texto
-   * vem do par (quantidade, unidade) que o backend manda, e não de uma regra
-   * inventada aqui.
-   */
-  const fisica = (i: CapexPorComponente) => {
-    if (i.unidadesConstruidas === null || i.unidade === null) return VAZIO
-    const capacidade = `${inteiro(i.unidadesConstruidas)} ${i.unidade}`
-    return i.modulosConstruidos === null
-      ? capacidade
-      : `${inteiro(i.modulosConstruidos)} módulo(s) · ${capacidade}`
-  }
-
-  // Maior CAPEX primeiro — é a ordem do design, e faz a barra mais longa
-  // ancorar a leitura no topo, onde o olho começa.
-  const ordenados = [...itens].sort((a, b) => b.capex - a.capex)
-  const maior = Math.max(1, ...ordenados.map((i) => i.capex))
-
-  return (
-    <QuadroGrafico
-      titulo="CAPEX por componente"
-      subtitulo={`CAPEX total ${brMi(ordenados.reduce((s, i) => s + i.capex, 0))}`}
-      nota={
-        <>
-          Cor única de propósito: o nome já identifica cada linha. Na ETE, a quantidade é a{' '}
-          <strong>capacidade acrescentada pelos módulos</strong>.
-        </>
-      }
-      tabela={{
-        colunas: ['Componente', 'CAPEX', '% do total', 'Quantidade construída'],
-        linhas: ordenados.map((i) => [i.componente, brlMi(i.capex), pct(i.pctDoTotal), fisica(i)]),
-      }}
-    >
-      {/* Lista ranqueada, e não um gráfico de colunas: é o desenho do design
-          de 19/08 — nome, barra, valor e quantidade na mesma linha, sem eixo
-          nenhum para ler. */}
-      <div className="flex flex-col gap-3.5 px-1.5 py-2">
-        {ordenados.map((i) => (
-          <div
-            key={i.componente}
-            /* `minmax(0,…)` em toda coluna elástica e `min-w-0` nas células de
-               texto: sem isso o conteúdo define o mínimo, a soma passa da
-               largura da carta e a última coluna é cortada — foi o que
-               aconteceu na primeira versão. */
-            className="grid grid-cols-[minmax(0,1fr)_minmax(60px,1.1fr)_minmax(0,auto)] items-center gap-x-3 gap-y-1 sm:grid-cols-[minmax(0,132px)_minmax(60px,1fr)_minmax(0,auto)_minmax(0,auto)]"
-          >
-            <div className="min-w-0 truncate text-[13px] text-ink-700">{i.componente}</div>
-            <div className="h-3.5 min-w-0 overflow-hidden rounded-[3px] bg-ink-100">
-              <div
-                className="h-full rounded-[3px]"
-                style={{
-                  width: `${Math.max(2, (i.capex / maior) * 100)}%`,
-                  background: 'var(--viz-fluxo-primaria)',
-                }}
-              />
-            </div>
-            {/* Régua única (`brMi`): a lista existe para comparar linhas
-                vizinhas, e alternar "R$ 2,0 mi" com "R$ 900.000" obriga a
-                converter de cabeça justamente na comparação. */}
-            <div className="whitespace-nowrap text-right font-mono text-[13px] font-semibold tabular-nums text-ink-800">
-              {brMi(i.capex)}
-            </div>
-            <div className="hidden whitespace-nowrap text-right font-mono text-[12px] tabular-nums text-ink-500 sm:block">
-              {fisica(i)}
-            </div>
-          </div>
-        ))}
-      </div>
-    </QuadroGrafico>
-  )
-}
-
-// ===========================================================================
-//  4 · Elementos e preço unitário — MUDOU DE ARQUIVO
-// ===========================================================================
-//
-//  `GraficoElementosPorAno` e `GraficoPrecoUnitarioPorAno` saíram daqui: o par
-//  virou uma seção com duas vistas (panorama de componentes → detalhe de um) em
-//  `SecaoElementos.tsx`, que explica por quê. O que morreu junto foi o estado
-//  "Todos", que abria N quadros por unidade física e desmontava o par dentro do
-//  grid de duas colunas das quatro páginas.
-
-// ===========================================================================
-//  5 · EBITDA — DOIS painéis, X compartilhado (Global, Cidade)
-// ===========================================================================
-
-/**
- * EBITDA e margem — UM gráfico, DOIS eixos.
- *
- * Vinha desenhado como dois painéis empilhados, para não usar eixo duplo (a
- * proibição mais dura do método de dataviz: o alinhamento entre as duas escalas
- * é arbitrário, então o gráfico pode sugerir uma correlação que não está no
- * dado). O design de 19/08 pede o eixo duplo, e a decisão de 20/08 foi seguir o
- * design — as duas séries são do MESMO recorte e o eixo da direita é rotulado em
- * %, com a cor da linha, o que é a mitigação que o método admite: cada escala
- * fica visivelmente amarrada à sua série.
- *
- * O que NÃO muda: a margem nula não é plotada, e a tabela continua trazendo as
- * duas séries — é ela que sustenta a leitura precisa que um eixo duplo não dá.
- */
 export function GraficoEbitda({
   anos,
   total,

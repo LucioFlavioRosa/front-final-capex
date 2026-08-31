@@ -89,32 +89,14 @@ describe('Global — a tabela equivalente é obrigatória, e é o alívio de con
       screen.getByRole('button', { name: /Rede coletora .* abrir o detalhe ano a ano/ }),
     )
 
-    // Pelo SUBTÍTULO, e não pelo título: "Rede coletora" também é uma linha da
-    // tabela do CAPEX por componente, logo acima na mesma tela.
+    // Pelo SUBTÍTULO, e não pelo título: "Rede coletora" também é o rótulo do
+    // botão do panorama que acabou de ser clicado.
     const quadro = (await screen.findByText(/ano a ano, em m/)).closest('figure')!
     await userEvent.click(within(quadro).getByRole('tab', { name: 'Tabela' }))
     // As três colunas de número: a identidade quantidade x preço = CAPEX.
     expect(within(quadro).getByText('Quantidade (m)')).toBeInTheDocument()
     expect(within(quadro).getByText('Preço unitário (R$/m)')).toBeInTheDocument()
     expect(within(quadro).getByText('CAPEX')).toBeInTheDocument()
-  })
-
-  it('a tabela do CAPEX por componente mostra o traço onde não há quantidade', async () => {
-    abrir()
-    const titulo = await screen.findByText('CAPEX por componente')
-    const quadro = titulo.closest('figure')!
-
-    await userEvent.click(within(quadro).getByRole('tab', { name: 'Tabela' }))
-
-    const tabela = within(quadro).getByRole('table')
-    const linhaEte = within(tabela).getByText('ETE (módulo)').closest('tr')!
-    // `unidadesConstruidas: null` → '—', nunca 0. Na ETE o número seria a
-    // capacidade acrescentada, e inventar zero afirmaria que nada foi
-    // construído.
-    expect(within(linhaEte).getByText('—')).toBeInTheDocument()
-
-    const linhaRede = within(tabela).getByText('Rede coletora').closest('tr')!
-    expect(within(linhaRede).getByText('14.823 m')).toBeInTheDocument()
   })
 
   it('o teto de CAPEX ausente aparece como traço, e não como zero', async () => {

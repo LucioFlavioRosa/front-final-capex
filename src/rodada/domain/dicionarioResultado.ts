@@ -158,17 +158,6 @@ export const DICIONARIO_RESULTADO: Record<string, Verbete> = {
       'É o mesmo conceito do nível 1, no recorte do sistema. Sub-bacia que recebeu obra e não fatura continua contando no CAPEX e não conta aqui, e essa diferença é o que o diagrama de escoamento mostra em vermelho.',
     exemplo: '7',
   },
-  COMPONENTES_NO_PLANO: {
-    rotulo: 'Componentes no plano',
-    tec: 'otim_obra.construida, por nó',
-    origem: MOTOR,
-    tipo: 'contagem',
-    oque:
-      'Quantos componentes de obra desta sub-bacia o plano executa, do total que ela tem cadastrado — até cinco: ligação, rede, coletor tronco, EEE e linha de recalque. Obra de terceiro conta no numerador: ela acontece e a cadeia existe, só não consome CAPEX da Aegea.',
-    porque:
-      'A escolha do otimizador é componente a componente, e não sub-bacia inteira. É por isso que existe sub-bacia com só o coletor tronco construído: o tronco leva a vazão de montante até a ETE, enquanto a rede dela não entrou — e, sem rede, ela não fatura.',
-    exemplo: '2 de 5',
-  },
 
   // -------------------------------------------------- explicabilidade
 }

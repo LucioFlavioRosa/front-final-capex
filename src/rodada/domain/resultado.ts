@@ -429,6 +429,18 @@ export interface PainelEbitda {
 }
 
 /** Linha da tabela de cidades do nivel global. */
+/**
+ * Uma linha da lista de cidades da rodada.
+ *
+ * SEM a série de cobertura e sem as metas, que vinham aqui para o cartão-gráfico
+ * do nível 1 desenhar o par de cada cidade sem abrir N requisições. Aquela grade
+ * de cartões saiu da tela, e os dois campos eram 89% do payload — 39 KB de 44 KB
+ * numa unidade de 27 cidades, carregados em toda abertura de qualquer nível,
+ * porque a árvore de escopo também chama esta lista.
+ *
+ * Quem precisa da série de uma cidade é o nível 2, e ele a recebe no próprio
+ * payload de detalhe.
+ */
 export interface CidadeLinha {
   id: string
   nome: string
@@ -438,14 +450,6 @@ export interface CidadeLinha {
   metasAtingidas: number
   metasTotal: number
   sistemas: number
-  /**
-   * A série de cobertura × meta desta cidade (item 17 do feedback de 26/08) —
-   * o mesmo par que `Cidade.tsx` já usa em `GraficoCobertura`, agora também no
-   * cartão-gráfico do nível 1. Vem junto da lista para não abrir N requisições
-   * ao montar a grade de cartões.
-   */
-  cobertura: PontoCobertura[]
-  metas: MetaCobertura[]
 }
 
 // ===========================================================================

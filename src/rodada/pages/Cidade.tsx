@@ -133,10 +133,10 @@ export function Cidade() {
               /**
                * SAIU O TILE DE CAPEX, e no lugar entrou a PARTICIPAÇÃO.
                *
-               * O CAPEX desta cidade já está na tabela de cidades do nível 1,
-               * na linha de onde a pessoa clicou para chegar aqui — repeti-lo
-               * como tile faz o nível 2 parecer o nível 1 com números menores,
-               * que é a sensação que a reorganização veio tirar.
+               * Repetir o CAPEX aqui faz o nível 2 parecer o nível 1 com
+               * números menores, que é a sensação que a reorganização veio
+               * tirar. A participação responde outra pergunta — "quanto desta
+               * rodada é esta cidade" —, que só existe neste nível.
                *
                * A participação é o número que só existe NESTE nível: quanto do
                * plano inteiro passa por esta cidade. Ela não cabe no nível 1

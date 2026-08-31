@@ -13,15 +13,12 @@ import { SecaoPorQue } from '@/rodada/components/SecaoPorQue'
 import { PainelSensibilidade } from '@/rodada/components/PainelSensibilidade'
 import { useAbaResultado } from '@/rodada/layout/abaResultado'
 import {
-  GraficoCapexComponente,
   GraficoFluxoEscoamento,
   GraficoDesembolso,
   GraficoEbitda,
 } from '@/rodada/components/graficos'
 import { GraficoCronogramaObras } from '@/rodada/components/GraficoCronogramaObras'
-import { GraficoMetaCobertura } from '@/rodada/components/GraficoMetaCobertura'
-import { CartoesCidades } from '@/rodada/components/CartoesCidades'
-import { useCidades, useEbitda, useExplicabilidade, usePainel, useRunMeta } from '@/rodada/api/queries'
+import { useEbitda, useExplicabilidade, usePainel, useRunMeta } from '@/rodada/api/queries'
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
 import { brlMi, dataHora, deTotal, inteiro, pct } from '@/rodada/lib/formato'
@@ -59,7 +56,6 @@ export function Global() {
   const meta = useRunMeta(runId)
   const painel = usePainel(runId)
   const ebitda = useEbitda(runId)
-  const cidades = useCidades(runId)
   const explicabilidade = useExplicabilidade(runId)
   const aba = useAbaResultado({ comSensibilidade: true })
   /**
@@ -316,20 +312,20 @@ export function Global() {
             {aba === 'plano' && (
               <>
 
-            {/* "SINTO FALTA DE DUAS INFORMAÇÕES COM DESTAQUE" — itens 3 e 4 do
-                feedback de 26/08, nas leituras corrigidas em 27/08:
+                {/* O CRONOGRAMA de obras, e não uma lista ordenada — item 3 do
+                    feedback de 26/08, na leitura corrigida em 27/08. Carrega e
+                    falha por conta própria: vem de um endpoint diferente do
+                    painel.
 
-                  3. o CRONOGRAMA de obras (aqui), e não uma lista ordenada;
-                  4. a cobertura CONTRA META por cidade, num quadro só com
-                     filtro (logo abaixo, junto das cidades a que ela pertence).
+                    O item 4 daquele feedback (a cobertura contra meta POR
+                    CIDADE) ficava logo abaixo, na seção Cidades, que saiu a
+                    pedido — o nível 1 termina no bloco de componentes, e a
+                    cobertura por cidade se lê no nível 2. */}
+                <TituloSecao nota="clique num ano para ver as obras">Plano de obras</TituloSecao>
+                <GraficoCronogramaObras runId={runId} />
 
-                Os dois carregam e falham por conta própria — cada um vem de um
-                endpoint diferente do painel. */}
-            <TituloSecao nota="clique num ano para ver as obras">Plano de obras</TituloSecao>
-            <GraficoCronogramaObras runId={runId} />
-
-            <TituloSecao>Painel da rodada</TituloSecao>
-            {/* O bloco INTEIRO tem um estado, porque o payload é um só. */}
+                <TituloSecao>Painel da rodada</TituloSecao>
+                {/* O bloco INTEIRO tem um estado, porque o payload é um só. */}
             <Estado
               consulta={painel}
               rotulo="Carregando os quadros do painel…"
@@ -344,13 +340,17 @@ export function Global() {
               {(p) => (
                 <>
                   {/* A ORDEM E AS LARGURAS SÃO AS DO DESIGN, e não um grid de
-                      duas colunas para tudo. Fluxo de escoamento, Desembolso, EBITDA e
-                      CAPEX por componente são largura cheia: a Curva S saiu
-                      como quadro próprio (decisão de 18/08, incorporada ao
-                      Desembolso) e não deixou par para o EBITDA dividir a
-                      linha — cada um destes tem seis+ categorias ou duas
-                      séries com eixo duplo, e em meia largura os rótulos
-                      colidem. */}
+                      duas colunas para tudo. Fluxo de escoamento, Desembolso e
+                      EBITDA são largura cheia: a Curva S saiu como quadro
+                      próprio (decisão de 18/08, incorporada ao Desembolso) e não
+                      deixou par para o EBITDA dividir a linha — cada um destes
+                      tem seis+ categorias ou duas séries com eixo duplo, e em
+                      meia largura os rótulos colidem.
+
+                      "CAPEX por componente" saiu a pedido: o mesmo número já
+                      está em "Componentes e preço unitário", na aba CAPEX de
+                      cada card. Dois quadros contando a mesma coisa em telas
+                      diferentes convidam a procurar a diferença entre eles. */}
                   <div className="flex flex-col gap-4">
                     <GraficoFluxoEscoamento
                       parcelas={p.cascata}
@@ -382,36 +382,19 @@ export function Global() {
                       )}
                     </Estado>
 
-                    <GraficoCapexComponente itens={p.capexPorComponente} />
                   </div>
 
+                  {/* O ÚLTIMO BLOCO DA PÁGINA, a pedido.
+                      Depois dele vinha a seção "Cidades" — o quadro de cobertura
+                      × meta por cidade e os cartões para descer de nível —, e ela
+                      saiu inteira. Descer para uma cidade continua sendo o que
+                      sempre foi: a árvore de escopo, à esquerda, que existe em
+                      todos os níveis e não some ao rolar a página. */}
                   <SecaoElementos anos={p.elementosPorAno} />
                 </>
               )}
             </Estado>
 
-            <TituloSecao nota="clique para descer um nível">Cidades</TituloSecao>
-            <Estado
-              consulta={cidades}
-              rotulo="Carregando as cidades…"
-              tituloErro="Não foi possível carregar a lista de cidades."
-              vazio={{
-                checar: (c) => c.length === 0,
-                titulo: 'Nenhuma cidade nesta rodada',
-                texto: 'A rodada não tem cidades com resultado — não é filtro, é ausência de dado.',
-              }}
-            >
-              {(lista) => (
-                <div className="flex flex-col gap-4">
-                  {/* O QUADRO DE META VEM ANTES DOS CARTÕES, e dentro do mesmo
-                      `Estado`: ele lê a MESMA lista (`cidades`), então separá-lo
-                      numa seção própria abriria um segundo estado de carga para
-                      o mesmo payload — e os dois piscariam fora de sincronia. */}
-                  <GraficoMetaCobertura cidades={lista} />
-                  <CartoesCidades runId={runId} cidades={lista} />
-                </div>
-              )}
-            </Estado>
               </>
             )}
           </>

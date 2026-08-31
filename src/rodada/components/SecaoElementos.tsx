@@ -33,9 +33,10 @@ import type { ElementoDoAno } from '@/rodada/domain/resultado'
  *
  * A raiz é que "Todos" é um estado que aqueles dois gráficos não conseguiam
  * honrar: com a regra da unidade física, "todos os componentes" nunca pode ser
- * um gráfico — só N gráficos. E a visão agregada legítima já existe logo acima
- * na página, em `GraficoCapexComponente`, onde a unidade é R$ e empilhar tem
- * significado.
+ * um gráfico — só N gráficos. A visão agregada em R$ vive AQUI, na métrica
+ * CAPEX: ela é a única em que somar componentes tem significado, e por isso o
+ * quadro "CAPEX por componente" que existia logo acima saiu — dois quadros
+ * contando a mesma coisa convidam a procurar a diferença entre eles.
  *
  * ## O que existe agora
  *
