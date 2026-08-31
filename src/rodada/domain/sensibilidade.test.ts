@@ -9,6 +9,10 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
+  FAIXA_PADRAO,
+  MAIOR_DEGRAU,
+  MAXIMO_DE_PONTOS,
+  MINIMO_DE_PONTOS,
   comparativoDeObras,
   curvaPronta,
   dinheiroDoDegrau,
@@ -16,6 +20,8 @@ import {
   melhorPorDegrau,
   emVooDaVarredura,
   proximoDegrau,
+  faixaValida,
+  pontosDaFaixa,
   situacaoDaVarredura,
   vezesOOrcamento,
   type PontoDaCurva,
@@ -41,6 +47,9 @@ const obras = (m: Record<string, number>) =>
 
 const semResultado = (p: Partial<PontoDaCurva> & { degrau: number; runId: string }) =>
   ponto({ ...p, vpl: null, coberturaFimPct: null })
+
+/** Os cinco degraus da faixa padrão, que era a lista fixa de antes. */
+const PADRAO = pontosDaFaixa(FAIXA_PADRAO)
 
 describe('melhorPorDegrau', () => {
   it('a simulação completa vence a estimativa, mesmo a estimativa sendo mais recente', () => {
@@ -75,9 +84,7 @@ describe('situacaoDaVarredura', () => {
   it('rodada que FALHOU não bloqueia a análise — ela volta para a fila do que rodar', () => {
     // O defeito que isto prende: tratar "sem resultado" como "em execução". Uma
     // rodada em ERRO nunca publica, então ela travaria o botão para sempre.
-    const s = situacaoDaVarredura(
-      melhorPorDegrau([semResultado({ degrau: 10, runId: 'r1', status: 'ERRO' })]),
-    )
+    const s = situacaoDaVarredura(melhorPorDegrau([semResultado({ degrau: 10, runId: 'r1', status: 'ERRO' })]), PADRAO)
     expect(s[0].estado).toBe('erro')
     expect(proximoDegrau(s)).toBe(10)
   })
@@ -86,9 +93,7 @@ describe('situacaoDaVarredura', () => {
     // Perguntar pelos KPIs antes do status fazia uma rodada `SUCESSO` recém
     // publicada cair no ramo do erro — e como ela nunca volta a ser PENDENTE,
     // ficava assim para sempre, com o resultado pronto no banco.
-    const s = situacaoDaVarredura(
-      melhorPorDegrau([semResultado({ degrau: 10, runId: 'r1', status: 'SUCESSO' })]),
-    )
+    const s = situacaoDaVarredura(melhorPorDegrau([semResultado({ degrau: 10, runId: 'r1', status: 'SUCESSO' })]), PADRAO)
     expect(s[0].estado).toBe('em voo')
     // E ela BLOQUEIA o disparo, ainda que +20% siga sendo o próximo da lista:
     // são duas perguntas diferentes, e é o bloqueio que respeita a capacidade 1.
@@ -97,24 +102,18 @@ describe('situacaoDaVarredura', () => {
   })
 
   it('em voo bloqueia — a fila tem capacidade 1', () => {
-    const s = situacaoDaVarredura(
-      melhorPorDegrau([semResultado({ degrau: 10, runId: 'r1', status: 'RODANDO' })]),
-    )
+    const s = situacaoDaVarredura(melhorPorDegrau([semResultado({ degrau: 10, runId: 'r1', status: 'RODANDO' })]), PADRAO)
     expect(s[0].estado).toBe('em voo')
     expect(emVooDaVarredura(s)?.degrau).toBe(10)
   })
 
   it('uma que falhou NÃO bloqueia — ela nunca vai publicar', () => {
-    const s = situacaoDaVarredura(
-      melhorPorDegrau([semResultado({ degrau: 10, runId: 'r1', status: 'ERRO' })]),
-    )
+    const s = situacaoDaVarredura(melhorPorDegrau([semResultado({ degrau: 10, runId: 'r1', status: 'ERRO' })]), PADRAO)
     expect(emVooDaVarredura(s)).toBeNull()
   })
 
   it('devolve os cinco degraus, com e sem rodada', () => {
-    const s = situacaoDaVarredura(
-      melhorPorDegrau([ponto({ degrau: 10, runId: 'a' }), ponto({ degrau: 30, runId: 'b' })]),
-    )
+    const s = situacaoDaVarredura(melhorPorDegrau([ponto({ degrau: 10, runId: 'a' }), ponto({ degrau: 30, runId: 'b' })]), PADRAO)
     expect(s.map((x) => x.degrau)).toEqual([10, 20, 30, 40, 50])
     expect(s.map((x) => x.estado)).toEqual(['pronto', 'ausente', 'pronto', 'ausente', 'ausente'])
     // O próximo é o MENOR que falta, e não o primeiro da lista de tudo.
@@ -125,7 +124,7 @@ describe('situacaoDaVarredura', () => {
     const todos = melhorPorDegrau(
       [10, 20, 30, 40, 50].map((degrau) => ponto({ degrau, runId: `r${degrau}` })),
     )
-    expect(proximoDegrau(situacaoDaVarredura(todos))).toBeNull()
+    expect(proximoDegrau(situacaoDaVarredura(todos, PADRAO))).toBeNull()
   })
 })
 
@@ -303,5 +302,84 @@ describe('comparativoDeObras', () => {
       ponto({ degrau: 10, runId: 'r10', obras: obras({ Tronco: 11 }) }),
     ])!
     expect(c.porDegrau.map((d) => d.rotulo)).toEqual(['hoje', '+10%', '+20%'])
+  })
+})
+
+describe('a faixa é de quem analisa', () => {
+  it('as duas pontas sempre entram, com qualquer quantidade de pontos', () => {
+    // São elas que a pessoa escolheu; os intermediários mostram o meio. Uma
+    // varredura que não passasse pelos extremos responderia outra pergunta.
+    for (let pontos = MINIMO_DE_PONTOS; pontos <= MAXIMO_DE_PONTOS; pontos++) {
+      const p = pontosDaFaixa({ de: 10, ate: 50, pontos })
+      expect(p[0]).toBe(10)
+      expect(p[p.length - 1]).toBe(50)
+    }
+  })
+
+  it('dois pontos são só as pontas; cinco reproduzem a faixa padrão', () => {
+    expect(pontosDaFaixa({ de: 10, ate: 50, pontos: 2 })).toEqual([10, 50])
+    expect(pontosDaFaixa(FAIXA_PADRAO)).toEqual([10, 20, 30, 40, 50])
+  })
+
+  it('os intermediários são igualmente espaçados', () => {
+    expect(pontosDaFaixa({ de: 10, ate: 50, pontos: 3 })).toEqual([10, 30, 50])
+    expect(pontosDaFaixa({ de: 5, ate: 20, pontos: 4 })).toEqual([5, 10, 15, 20])
+  })
+
+  it('faixa estreita rende menos pontos que os pedidos, e não repetidos', () => {
+    // Rodar duas vezes o mesmo orçamento gastaria cluster para desenhar o mesmo
+    // ponto duas vezes.
+    expect(pontosDaFaixa({ de: 10, ate: 12, pontos: 5 })).toEqual([10, 11, 12])
+  })
+
+  it('a mesma conta do backend, nos mesmos casos', () => {
+    // Se as duas divergirem, o teto vem para degraus que a tela não vai rodar —
+    // com os dois números plausíveis e nada denunciando.
+    //
+    // O caso de 1 a 100 cai em 50.5 no meio exato, e foi ele que pegou a
+    // divergência: `Math.round` arredonda para cima (51) e o `round` do Python
+    // arredondava para o PAR (50). O backend passou a usar `floor(x + 0.5)`.
+    expect(pontosDaFaixa({ de: 1, ate: 100, pontos: 5 })).toEqual([1, 26, 51, 75, 100])
+    expect(pontosDaFaixa({ de: 15, ate: 25, pontos: 3 })).toEqual([15, 20, 25])
+  })
+
+  it('faixa que não sobe, ou fora dos limites, não vira varredura', () => {
+    expect(faixaValida({ de: 50, ate: 50, pontos: 3 })).toBe(false)
+    expect(faixaValida({ de: 50, ate: 10, pontos: 3 })).toBe(false)
+    expect(faixaValida({ de: 0, ate: 50, pontos: 3 })).toBe(false)
+    expect(faixaValida({ de: 10, ate: MAIOR_DEGRAU + 1, pontos: 3 })).toBe(false)
+    expect(faixaValida({ de: 10, ate: 50, pontos: 1 })).toBe(false)
+    expect(faixaValida({ de: 10, ate: 50, pontos: 6 })).toBe(false)
+    expect(faixaValida(FAIXA_PADRAO)).toBe(true)
+  })
+})
+
+describe('trocar a faixa não apaga o que já rodou', () => {
+  it('os degraus executados continuam na lista, junto dos novos', () => {
+    // Aquelas rodadas existem, custaram cluster e são pontos legítimos desta
+    // curva. E a pessoa costuma estreitar a faixa DEPOIS de ver a primeira
+    // leitura — escondê-los faria a tela parecer que ela perdeu o que rodou.
+    const melhor = melhorPorDegrau([
+      ponto({ degrau: 30, runId: 'r30' }),
+      ponto({ degrau: 50, runId: 'r50' }),
+    ])
+    const s = situacaoDaVarredura(melhor, pontosDaFaixa({ de: 5, ate: 15, pontos: 3 }))
+    expect(s.map((x) => x.degrau)).toEqual([5, 10, 15, 30, 50])
+    expect(s.filter((x) => x.estado === 'pronto').map((x) => x.degrau)).toEqual([30, 50])
+    // E o próximo a rodar é o menor que falta DA FAIXA NOVA.
+    expect(proximoDegrau(s)).toBe(5)
+  })
+})
+
+describe('o zero não é degrau', () => {
+  it('a rodada base não entra na lista de degraus', () => {
+    // O servidor devolve a base junto dos outros pontos, como `degrau: 0`. Sem
+    // filtrá-la, ela entrava como se fosse um degrau executado: a tela contava a
+    // base duas vezes, dava a curva por pronta com um ponto só e escondia o
+    // teto — que é justamente a resposta de quem ainda não rodou nada.
+    const melhor = melhorPorDegrau([ponto({ degrau: 0, runId: 'base' })])
+    const s = situacaoDaVarredura(melhor, PADRAO)
+    expect(s.map((x) => x.degrau)).toEqual([10, 20, 30, 40, 50])
+    expect(s.every((x) => x.estado === 'ausente')).toBe(true)
   })
 })

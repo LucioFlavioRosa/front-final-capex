@@ -18,6 +18,7 @@ import { renderizar } from '@/testes/render'
 import { servidor } from '@/testes/servidor'
 import { PainelSensibilidade } from '@/rodada/components/PainelSensibilidade'
 import type { RunMeta } from '@/rodada/domain/resultado'
+import { pontosDaFaixa } from '@/rodada/domain/sensibilidade'
 
 beforeAll(() => servidor.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => servidor.resetHandlers())
@@ -68,8 +69,32 @@ const BASE_PONTO = {
   obras: obras({ 'Rede coletora': 13, Tronco: 10, 'ETE (módulo)': 23 }),
 }
 
+/**
+ * O servidor falso RESPEITA A FAIXA da querystring, como o de verdade: o teto é
+ * calculado para os degraus pedidos. Um duplo fixo esconderia justamente o que
+ * a faixa configurável tem de novo — se a chave da consulta não incluísse a
+ * faixa, o teste passaria com a tela mostrando o intervalo anterior.
+ */
 function servirSensibilidade(corpo: Record<string, unknown>) {
-  servidor.use(http.get('/api/runs/:runId/sensibilidade', () => HttpResponse.json(corpo)))
+  servidor.use(
+    http.get('/api/runs/:runId/sensibilidade', ({ request }) => {
+      const q = new URL(request.url).searchParams
+      const faixa = {
+        de: Number(q.get('de') ?? 10),
+        ate: Number(q.get('ate') ?? 50),
+        pontos: Number(q.get('pontos') ?? 5),
+      }
+      const teto = corpo.teto as { degraus: { degrau: number }[] } | null
+      if (!teto) return HttpResponse.json(corpo)
+      const degraus = pontosDaFaixa(faixa).map((degrau) => ({
+        degrau,
+        folga: (110_000_000 * degrau) / 100,
+        subbaciasNoMaximo: degrau * 2,
+        vazaoNoMaximo: degrau * 100,
+      }))
+      return HttpResponse.json({ ...corpo, teto: { ...teto, degraus } })
+    }),
+  )
 }
 
 function abrir() {
@@ -250,6 +275,138 @@ describe('o quadro de obras', () => {
     const total = within(quadro).getByRole('cell', { name: 'Total' }).closest('tr')!
     expect(within(total).getByText('46')).toBeInTheDocument()
     expect(within(total).getByText('49 (+3)')).toBeInTheDocument()
+  })
+})
+
+describe('quando um degrau falha, a tela diz por quê', () => {
+  const COM_FALHA = (erro: string) => ({
+    teto: TETO,
+    pontos: [
+      BASE_PONTO,
+      {
+        ...BASE_PONTO,
+        degrau: 10,
+        runId: 'run_10',
+        status: 'ERRO',
+        estimativa: true,
+        vpl: null,
+        coberturaFimPct: null,
+        erro,
+        obras: [],
+      },
+    ],
+  })
+
+  const POR_TEMPO =
+    "O solver falhou ao reparar o teto anual: a cidade 'Araruama Leste1' ficou sem " +
+    'coluna selecionada. Tente de novo com MAX_TIME_S maior ou janela de CAPEX menor.'
+
+  it('mostra a frase que o motor escreveu, e não só "erro"', async () => {
+    // Ela aparecia como "erro" e mais nada. A resposta estava gravada no banco e
+    // a tela não a pedia — o que transforma uma explicação em pergunta para
+    // outra pessoa.
+    servirSensibilidade(COM_FALHA(POR_TEMPO))
+    abrir()
+    expect(await screen.findByText(/\+10% não completou/)).toBeInTheDocument()
+    expect(screen.getByText(/MAX_TIME_S maior/)).toBeInTheDocument()
+  })
+
+  it('falha por falta de tempo ESCALA para o modo completo', async () => {
+    // Repetir em 60s reproduziria a mesma falha: o defeito do motor aparece
+    // quando o solver não tem tempo para a janela.
+    let corpo: Record<string, unknown> | null = null
+    servidor.use(
+      http.post('/api/runs/:runId/variacao', async ({ request }) => {
+        corpo = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json({
+          runId: 'novo',
+          status: 'PENDENTE',
+          jaExistia: false,
+          naCurva: true,
+        })
+      }),
+    )
+    servirSensibilidade(COM_FALHA(POR_TEMPO))
+    abrir()
+
+    await userEvent.click(await screen.findByRole('button', { name: /Rodar \+10% completo/ }))
+    expect(corpo).toMatchObject({ modo: 'completo', fator: 1.1 })
+  })
+
+  it('falha de OUTRA natureza não vira sugestão de trocar de modo', async () => {
+    // Só o defeito conhecido do motor tem essa saída. Sugerir "rode completo"
+    // para um banco fora do ar mandaria alguém gastar mil segundos de cluster
+    // para reencontrar o mesmo problema.
+    servirSensibilidade(COM_FALHA('ConnectionError: o banco recusou a conexão.'))
+    abrir()
+
+    expect(await screen.findByText(/o banco recusou a conexão/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /completo/ })).not.toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Tentar de novo \+10%/ })).toBeInTheDocument()
+  })
+})
+
+describe('a faixa é escolhida na tela', () => {
+  it('o padrão é de 10% a 50% em cinco pontos', async () => {
+    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
+    abrir()
+    await screen.findByText('Antes de simular: o teto')
+    expect(screen.getByLabelText('Menor acréscimo de CAPEX, em %')).toHaveValue(10)
+    expect(screen.getByLabelText('Maior acréscimo de CAPEX, em %')).toHaveValue(50)
+    expect(screen.getByLabelText('Quantos pontos a análise tem')).toHaveValue('5')
+  })
+
+  it('estreitar a faixa muda os degraus oferecidos', async () => {
+    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
+    abrir()
+    await screen.findByText('Antes de simular: o teto')
+
+    const ate = screen.getByLabelText('Maior acréscimo de CAPEX, em %')
+    await userEvent.clear(ate)
+    await userEvent.type(ate, '20')
+    await userEvent.selectOptions(screen.getByLabelText('Quantos pontos a análise tem'), '3')
+
+    // 10 a 20 em três pontos: 10, 15, 20.
+    expect(
+      await screen.findByRole('button', { name: /Rodar a análise · 3 estimativas/ }),
+    ).toBeInTheDocument()
+    // A lista de degraus é a régua: o +15% entra e o +30% sai. (`+15%` também
+    // aparece na tabela do teto, por isso o recorte pela lista.)
+    const chips = screen.getByRole('list')
+    expect(within(chips).getByText('+15%')).toBeInTheDocument()
+    expect(within(chips).queryByText('+30%')).not.toBeInTheDocument()
+    expect(within(chips).getAllByText(/^\+\d+%$/).map((e) => e.textContent)).toEqual([
+      '+10%',
+      '+15%',
+      '+20%',
+    ])
+  })
+
+  it('faixa estreita avisa quantos pontos distintos vão rodar', async () => {
+    // Os degraus são inteiros — a identidade do ponto na curva depende disso —,
+    // então de 10 a 12 em cinco sobram três. Mostrar "5" prometeria duas
+    // execuções que não vão acontecer.
+    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
+    abrir()
+    await screen.findByText('Antes de simular: o teto')
+
+    const ate = screen.getByLabelText('Maior acréscimo de CAPEX, em %')
+    await userEvent.clear(ate)
+    await userEvent.type(ate, '12')
+
+    expect(await screen.findByText(/faixa estreita: 3 pontos distintos/)).toBeInTheDocument()
+  })
+
+  it('faixa que não sobe é recusada ANTES de virar requisição', async () => {
+    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
+    abrir()
+    await screen.findByText('Antes de simular: o teto')
+
+    const ate = screen.getByLabelText('Maior acréscimo de CAPEX, em %')
+    await userEvent.clear(ate)
+    await userEvent.type(ate, '5')
+
+    expect(await screen.findByText(/o fim precisa ser maior que o início/)).toBeInTheDocument()
   })
 })
 

@@ -44,17 +44,25 @@ import { QuadroGrafico } from '@/rodada/components/QuadroGrafico'
 import { useDispararVariacao, useSensibilidade, useStatusDaRodada } from '@/rodada/api/queries'
 import type { ModoDaVariacao } from '@/rodada/api/endpoints'
 import {
+  FAIXA_PADRAO,
+  MAIOR_DEGRAU,
+  MAXIMO_DE_PONTOS,
+  MINIMO_DE_PONTOS,
   comparativoDeObras,
   curvaPronta,
   dinheiroDoDegrau,
   emVooDaVarredura,
+  faltouTempoDeSolver,
   fatorDoDegrau,
+  faixaValida,
   melhorPorDegrau,
+  pontosDaFaixa,
   proximoDegrau,
   situacaoDaVarredura,
   vezesOOrcamento,
   type ComparativoDeObras,
   type EstadoDoDegrau,
+  type Faixa,
   type PontoDaCurva,
   type TetoDeSensibilidade,
 } from '@/rodada/domain/sensibilidade'
@@ -132,7 +140,17 @@ const MEDIDAS: Medida[] = [
 ]
 
 export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
-  const consulta = useSensibilidade(meta.runId)
+  /**
+   * A FAIXA VIVE NA TELA, e não no servidor.
+   *
+   * Ela é uma pergunta em aberto — "e se fosse de 5 a 15?" —, não uma
+   * propriedade da rodada, e guardá-la obrigaria a decidir de quem ela é quando
+   * duas pessoas olham a mesma rodada com intervalos diferentes. O que persiste
+   * são os PONTOS que rodaram, e esses o servidor guarda.
+   */
+  const [faixa, setFaixa] = useState<Faixa>({ ...FAIXA_PADRAO })
+  const degrausPedidos = pontosDaFaixa(faixa)
+  const consulta = useSensibilidade(meta.runId, faixaValida(faixa) ? faixa : FAIXA_PADRAO)
   const disparar = useDispararVariacao()
 
   /**
@@ -148,7 +166,7 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
 
   const teto = consulta.data?.teto ?? null
   const melhor = melhorPorDegrau(consulta.data?.pontos ?? [])
-  const situacao = situacaoDaVarredura(melhor)
+  const situacao = situacaoDaVarredura(melhor, degrausPedidos)
 
   /**
    * A BASE VEM DO SERVIDOR, como `degrau: 0`, e não é montada aqui a partir de
@@ -171,19 +189,26 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
 
   const emExecucao = emVooDaVarredura(situacao)
   const proximo = proximoDegrau(situacao)
-  const jaFalhou = situacao.some((s) => s.estado === 'erro' && s.degrau === proximo)
+  const falhou = situacao.find((s) => s.estado === 'erro' && s.degrau === proximo) ?? null
+  const jaFalhou = !!falhou
+  /**
+   * A falha foi de TEMPO DE SOLVER numa estimativa? Então repetir em 60s
+   * reproduz o mesmo erro. O modo completo é o caminho — e é o que a própria
+   * mensagem do motor sugere.
+   */
+  const escalar = faltouTempoDeSolver(falhou?.ponto ?? null)
+  const modoDoPedido: ModoDaVariacao = escalar ? 'completo' : modo
   const faltam = situacao.filter((s) => s.estado === 'ausente' || s.estado === 'erro').length
 
-  const nomeDoPedido = (degrau: number) =>
-    `${modo === 'rapido' ? 'estimativa' : 'simulação'} +${degrau}% de CAPEX`
-
-  const pedir = (degrau: number) =>
+  const pedir = (degrau: number, forcado?: ModoDaVariacao) => {
+    const m = forcado ?? modo
     disparar.mutate({
       runId: meta.runId,
       fator: fatorDoDegrau(degrau),
-      nome: nomeDoPedido(degrau),
-      modo,
+      nome: `${m === 'rapido' ? 'estimativa' : 'simulação'} +${degrau}% de CAPEX`,
+      modo: m,
     })
+  }
 
   /**
    * A VARREDURA COMPLETA, UMA DE CADA VEZ.
@@ -297,6 +322,14 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
             )}
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
+            <SeletorDeFaixa
+              faixa={faixa}
+              aoTrocar={setFaixa}
+              /* Trocar a faixa no meio de uma varredura mudaria o alvo com a
+                 corrente andando: o próximo degrau seria de outro intervalo, e
+                 quem pediu "de 10 a 50" receberia metade de cada. */
+              desabilitado={varrendo}
+            />
             <SeletorDeModo modo={modo} aoTrocar={setModo} desabilitado={!!emExecucao || varrendo} />
             {proximo !== null &&
               (varrendo ? (
@@ -328,7 +361,7 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
                   )}
                   <button
                     type="button"
-                    onClick={() => pedir(proximo)}
+                    onClick={() => pedir(proximo, modoDoPedido)}
                     /* Enquanto uma está em voo, não se pede outra: a fila tem
                        capacidade 1, e enfileirar a segunda só faria a espera
                        parecer maior sem chegar antes. */
@@ -343,11 +376,13 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
                       ? 'Disparando…'
                       : emExecucao
                         ? 'Aguardando a rodada em curso'
-                        : `${jaFalhou ? 'Tentar de novo' : faltam > 1 ? 'Só' : 'Rodar'} +${proximo}%${
+                        : escalar
+                          ? `Rodar +${proximo}% completo`
+                          : `${jaFalhou ? 'Tentar de novo' : faltam > 1 ? 'Só' : 'Rodar'} +${proximo}%${
                             emReais(proximo)
                               ? ` · +${brlMi(emReais(proximo)!.aMais)} no plano`
                               : ''
-                          }`}
+                            }`}
                   </button>
                 </div>
               ))}
@@ -414,6 +449,33 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
             )
           })}
         </ul>
+
+        {/* POR QUE O DEGRAU FALHOU, na tela.
+            Ele aparecia como "erro" e mais nada. Quem olhava não tinha como
+            saber se valia tentar de novo, mudar de modo ou desistir — e a
+            resposta estava gravada no banco, com a frase que o próprio motor
+            escreveu dizendo o que fazer. Uma explicação que só existe no banco
+            vira pergunta para outra pessoa. */}
+        {falhou?.ponto?.erro && (
+          <div className="mt-3 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3">
+            <p className="text-[12.5px] leading-relaxed text-ink-700">
+              <strong className="font-semibold">+{falhou.degrau}% não completou.</strong>{' '}
+              {falhou.ponto.erro}
+            </p>
+            {escalar && (
+              /* A SUGESTÃO É TROCAR DE MODO, e não repetir. Tentar de novo em 60s
+                 reproduz a falha e gasta cluster para chegar ao mesmo lugar: o
+                 motor tem um defeito conhecido que aparece quando o solver não
+                 tem tempo para a janela, e nas unidades grandes 60s bastam para
+                 provocá-lo. */
+              <p className="mt-1.5 text-[12px] text-ink-600">
+                Foi uma estimativa de 60s. Nesta unidade o solver precisa de mais
+                tempo — o botão ao lado repete o degrau como{' '}
+                <strong className="font-semibold text-ink-800">simulação completa</strong>.
+              </p>
+            )}
+          </div>
+        )}
 
         {varrendo && !emExecucao && (
           <p className="mt-3 text-[12px] text-ink-500">
@@ -484,6 +546,100 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
           {comparativo && <QuadroDeObras comparativo={comparativo} orcamento={orcamento} />}
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * A FAIXA DA ANÁLISE — de quanto a quanto, em quantos pontos.
+ *
+ * Era fixa em +10% a +50% de dez em dez. "Quanto a mais é plausível" é decisão
+ * de negócio e muda por unidade: uma concessão em fim de ciclo discute +5% a
+ * +15%, e a faixa fixa gastava cinco execuções para responder fora do intervalo
+ * que importa.
+ *
+ * O CONTADOR DIZ QUANTOS VÃO RODAR DE VERDADE, e não quantos foram pedidos. Os
+ * degraus são inteiros — a identidade do ponto na curva depende disso —, então
+ * uma faixa estreita rende menos: de 10 a 12 em cinco sobram três. Mostrar "5"
+ * ali prometeria duas execuções que não vão acontecer.
+ */
+function SeletorDeFaixa({
+  faixa,
+  aoTrocar,
+  desabilitado,
+}: {
+  faixa: Faixa
+  aoTrocar: (f: Faixa) => void
+  desabilitado: boolean
+}) {
+  const degraus = pontosDaFaixa(faixa)
+  const valida = degraus.length >= MINIMO_DE_PONTOS
+  const menosQuePedidos = valida && degraus.length < faixa.pontos
+
+  const campo =
+    'w-[4.5rem] rounded-lg border border-ink-200 bg-white px-2 py-1 text-right font-mono text-[12.5px] tabular-nums text-ink-800 focus:border-water-500 focus:outline-none disabled:opacity-50'
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px] text-ink-600">
+      <label className="flex items-center gap-1.5">
+        <span>De</span>
+        <input
+          type="number"
+          min={1}
+          max={MAIOR_DEGRAU}
+          value={faixa.de}
+          disabled={desabilitado}
+          onChange={(e) => aoTrocar({ ...faixa, de: Number(e.target.value) })}
+          className={campo}
+          aria-label="Menor acréscimo de CAPEX, em %"
+        />
+        <span>%</span>
+      </label>
+      <label className="flex items-center gap-1.5">
+        <span>a</span>
+        <input
+          type="number"
+          min={1}
+          max={MAIOR_DEGRAU}
+          value={faixa.ate}
+          disabled={desabilitado}
+          onChange={(e) => aoTrocar({ ...faixa, ate: Number(e.target.value) })}
+          className={campo}
+          aria-label="Maior acréscimo de CAPEX, em %"
+        />
+        <span>%</span>
+      </label>
+      <label className="flex items-center gap-1.5">
+        <span>em</span>
+        <select
+          value={faixa.pontos}
+          disabled={desabilitado}
+          onChange={(e) => aoTrocar({ ...faixa, pontos: Number(e.target.value) })}
+          className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-[12.5px] text-ink-800 focus:border-water-500 focus:outline-none disabled:opacity-50"
+          aria-label="Quantos pontos a análise tem"
+        >
+          {Array.from(
+            { length: MAXIMO_DE_PONTOS - MINIMO_DE_PONTOS + 1 },
+            (_, i) => MINIMO_DE_PONTOS + i,
+          ).map((n) => (
+            <option key={n} value={n}>
+              {n} pontos
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {!valida ? (
+        /* A recusa acontece ANTES do servidor: a faixa inválida não vira
+           requisição, e a frase diz o que consertar em vez de um 422. */
+        <span className="text-[12px] font-semibold text-amber-700">
+          o fim precisa ser maior que o início, e ambos entre 1% e {MAIOR_DEGRAU}%
+        </span>
+      ) : menosQuePedidos ? (
+        <span className="text-[12px] text-ink-500">
+          faixa estreita: {degraus.length} pontos distintos ({degraus.map((d) => `+${d}%`).join(', ')})
+        </span>
+      ) : null}
     </div>
   )
 }

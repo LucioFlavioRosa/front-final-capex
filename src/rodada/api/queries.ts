@@ -20,6 +20,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { resultados, simulacao, type ModoDaVariacao } from '@/rodada/api/endpoints'
 import type { RunResumo } from '@/rodada/domain/resultado'
 import type { CorpoNovaRodada } from '@/rodada/domain/simulacao'
+import type { Faixa } from '@/rodada/domain/sensibilidade'
 
 const chaves = {
   /** A lista do histórico. Muda com exclusão/favorita — não é "para sempre". */
@@ -350,10 +351,13 @@ export function useCriarRodada() {
  * rodada que terminou em ERRO nunca vai ter resultado, e "repetir até ter" seria
  * bater no servidor a cada oito segundos para sempre.
  */
-export function useSensibilidade(runId: string | undefined) {
+export function useSensibilidade(runId: string | undefined, faixa: Faixa) {
   return useQuery({
-    queryKey: ['runs', runId ?? '—', 'sensibilidade'],
-    queryFn: () => resultados.sensibilidade(runId as string),
+    // A FAIXA ENTRA NA CHAVE. O teto é calculado para os degraus pedidos, então
+    // mudar a faixa muda a resposta — sem isto, estreitar o intervalo mostraria
+    // o teto do intervalo anterior até alguém recarregar a página.
+    queryKey: ['runs', runId ?? '—', 'sensibilidade', faixa.de, faixa.ate, faixa.pontos],
+    queryFn: () => resultados.sensibilidade(runId as string, faixa),
     enabled: !!runId,
     refetchInterval: (consulta) => {
       const pontos = consulta.state.data?.pontos ?? []

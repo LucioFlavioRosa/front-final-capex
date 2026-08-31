@@ -34,7 +34,7 @@ import type {
   SubBaciaDetalhe,
 } from '@/rodada/domain/resultado'
 import type { CorpoNovaRodada, Prontidao } from '@/rodada/domain/simulacao'
-import type { Sensibilidade } from '@/rodada/domain/sensibilidade'
+import type { Faixa, Sensibilidade } from '@/rodada/domain/sensibilidade'
 
 /**
  * `rapido` é o padrão da análise: solver de 60s, resultado marcado como
@@ -100,8 +100,10 @@ export const resultados = {
    * pelo rótulo da rodada, que é livre e editável, então renomear desmanchava a
    * curva em silêncio.
    */
-  sensibilidade: (runId: string) =>
-    api.get<Sensibilidade>(`${BASE}/${runId}/sensibilidade`),
+  sensibilidade: (runId: string, faixa: Faixa) =>
+    api.get<Sensibilidade>(
+      `${BASE}/${runId}/sensibilidade?de=${faixa.de}&ate=${faixa.ate}&pontos=${faixa.pontos}`,
+    ),
 
   variacao: (runId: string, fator: number, nome: string, modo: ModoDaVariacao) =>
     api.post<{

@@ -37,8 +37,61 @@
  * deduplicou sob outro nome nunca era encontrada.
  */
 
-/** Os degraus da varredura, em % a mais de CAPEX por ano. */
-export const DEGRAUS = [10, 20, 30, 40, 50] as const
+/**
+ * A FAIXA PADRÃO da varredura, em % a mais de CAPEX por ano.
+ *
+ * Padrão, e não regra: "quanto a mais é plausível" é decisão de negócio e muda
+ * por unidade — uma concessão em fim de ciclo discute +5% a +15%, e uma curva de
+ * +10% a +50% ali gasta cinco execuções para responder fora do intervalo que
+ * importa.
+ */
+export const FAIXA_PADRAO = { de: 10, ate: 50, pontos: 5 } as const
+
+/** Quantos pontos uma varredura pode ter. */
+export const MINIMO_DE_PONTOS = 2
+export const MAXIMO_DE_PONTOS = 5
+
+/** O maior acréscimo aceito — acima disso a pergunta vira "outro plano". */
+export const MAIOR_DEGRAU = 200
+
+export interface Faixa {
+  de: number
+  ate: number
+  pontos: number
+}
+
+/**
+ * Os degraus de uma varredura: `pontos` valores de `de` até `ate`.
+ *
+ * AS DUAS PONTAS SEMPRE ENTRAM — são elas que a pessoa escolheu, e os
+ * intermediários existem para mostrar o que acontece no meio. Uma varredura que
+ * não passasse pelos extremos responderia outra pergunta.
+ *
+ * INTEIROS, e repetidos são descartados. O degrau é a IDENTIDADE do ponto na
+ * curva: é por ele que a tela casa a rodada que voltou com a coluna do gráfico.
+ * Fracionário, essa identidade passaria a depender de dois arredondamentos
+ * concordarem — o do servidor ao ler o fator gravado e o do cliente ao planejar
+ * o ponto —, e um centésimo de diferença faria o ponto sumir do gráfico com a
+ * rodada pronta no banco.
+ *
+ * O preço é faixa estreita render menos pontos que os pedidos: de 10 a 12 em
+ * cinco daria 10, 10,5, 11, 11,5, 12, e sobram três inteiros. Devolver três é o
+ * certo — rodar duas vezes o mesmo orçamento gastaria cluster para desenhar o
+ * mesmo ponto duas vezes. **A tela mostra quantos vão rodar de verdade**, e é
+ * a mesma conta do backend (`dominio/teto.pontos_da_faixa`).
+ */
+export function pontosDaFaixa({ de, ate, pontos }: Faixa): number[] {
+  if (pontos < MINIMO_DE_PONTOS || pontos > MAXIMO_DE_PONTOS) return []
+  if (de < 1 || ate <= de || ate > MAIOR_DEGRAU) return []
+  const passo = (ate - de) / (pontos - 1)
+  const brutos = Array.from({ length: pontos }, (_, i) => Math.round(de + passo * i))
+  return [...new Set(brutos)]
+}
+
+/** A faixa faz sentido? A tela usa para recusar antes de pedir ao servidor. */
+export function faixaValida(f: Faixa): boolean {
+  return pontosDaFaixa(f).length >= MINIMO_DE_PONTOS
+}
 
 /** Quantas obras de um componente a rodada construiu. */
 export interface ObrasDoComponente {
@@ -63,6 +116,8 @@ export interface PontoDaCurva {
   metasTotal: number | null
   capexTotal: number | null
   tempoS: number | null
+  /** O motivo da falha, quando `status` é ERRO. A frase costuma dizer o que fazer. */
+  erro?: string | null
   /** Vazia enquanto a rodada não publicou: não há plano ainda. */
   obras: ObrasDoComponente[]
 }
@@ -158,8 +213,23 @@ export interface SituacaoDoDegrau {
  * é o caso que "sem resultado = em voo" quebraria: uma rodada que falhou nunca
  * vai publicar, então ela travaria o botão para sempre.
  */
-export function situacaoDaVarredura(melhor: Map<number, PontoDaCurva>): SituacaoDoDegrau[] {
-  return DEGRAUS.map((degrau) => {
+export function situacaoDaVarredura(
+  melhor: Map<number, PontoDaCurva>,
+  degraus: readonly number[],
+): SituacaoDoDegrau[] {
+  // OS DEGRAUS PEDIDOS, MAIS OS QUE JÁ RODARAM. Trocar a faixa não apaga o que
+  // já foi executado: aquelas rodadas existem, custaram cluster e são pontos
+  // legítimos desta curva. Some-se a isso que a pessoa costuma estreitar a faixa
+  // DEPOIS de ver a primeira leitura — e escondê-los faria a tela parecer que
+  // ela perdeu o que acabou de rodar.
+  //
+  // `> 0` PORQUE O ZERO NÃO É DEGRAU: ele é a rodada base, o ponto de partida.
+  // O servidor a devolve junto dos outros pontos, e sem este filtro ela entrava
+  // aqui como se fosse um degrau executado — a tela contava a base duas vezes,
+  // dava a curva por pronta com um ponto só e escondia o teto.
+  const executados = [...melhor.keys()].filter((d) => d > 0)
+  const todos = [...new Set([...degraus, ...executados])].sort((a, b) => a - b)
+  return todos.map((degrau) => {
     const p = melhor.get(degrau) ?? null
     const estado: EstadoDoDegrau = !p
       ? 'ausente'
@@ -355,4 +425,28 @@ export function comparativoDeObras(pontos: PontoDaCurva[]): ComparativoDeObras |
     })),
     totalHoje,
   }
+}
+
+
+/**
+ * A ESTIMATIVA FALHOU POR FALTA DE TEMPO DE SOLVER?
+ *
+ * O motor tem um defeito conhecido — documentado em
+ * `dev/patches/motor_status_do_solver.md` no backend — que aparece quando o
+ * solver não tem tempo para a janela pedida: o reparo do teto anual indexa uma
+ * cidade que ficou sem coluna selecionada e a rodada morre. Nas unidades grandes
+ * (8.079 obras, 9 anos de janela) os 60s do modo rápido bastam para provocá-lo;
+ * nas menores a mesma variação fecha sem problema.
+ *
+ * Importa porque muda o que oferecer a quem clicou. "Tentar de novo" no mesmo
+ * modo reproduz a falha e gasta cluster para chegar ao mesmo lugar; o caminho é
+ * a simulação completa, que é o que a própria mensagem do motor sugere.
+ *
+ * Reconhecer pela FRASE é frágil e está dito: se a mensagem do backend mudar,
+ * isto deixa de reconhecer e a tela volta a oferecer o mesmo modo — perde-se a
+ * sugestão, não a correção. É o lado seguro de errar.
+ */
+export function faltouTempoDeSolver(p: PontoDaCurva | null): boolean {
+  if (!p || !p.estimativa || !p.erro) return false
+  return /MAX_TIME_S maior|sem coluna selecionada/i.test(p.erro)
 }
