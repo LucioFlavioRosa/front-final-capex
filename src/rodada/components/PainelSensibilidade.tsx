@@ -54,10 +54,10 @@ import {
   emVooDaBase,
   faltouTempoDeSolver,
   fatorDoDegrau,
+  faixaDosPontos,
   faixaValida,
   melhorPorDegrau,
   pontosDaFaixa,
-  pontosForaDaFaixa,
   proximoDegrau,
   situacaoDaVarredura,
   vezesOOrcamento,
@@ -142,16 +142,46 @@ const MEDIDAS: Medida[] = [
 
 export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
   /**
-   * A FAIXA VIVE NA TELA, e não no servidor.
+   * A FAIXA VIVE NA TELA, e a tela ABRE SOBRE O QUE EXISTE.
    *
    * Ela é uma pergunta em aberto — "e se fosse de 5 a 15?" —, não uma
-   * propriedade da rodada, e guardá-la obrigaria a decidir de quem ela é quando
-   * duas pessoas olham a mesma rodada com intervalos diferentes. O que persiste
-   * são os PONTOS que rodaram, e esses o servidor guarda.
+   * propriedade da rodada, e guardá-la no servidor obrigaria a decidir de quem
+   * ela é quando duas pessoas olham a mesma rodada com intervalos diferentes.
+   *
+   * Mas viver na tela não pode significar perder-se ao sair dela. Quem rodava
+   * "de 5 a 20 em 4 pontos", saía e voltava, reencontrava o padrão de +10% a
+   * +50% — e como a lista é exatamente a faixa pedida, os pontos rodados em +5%
+   * e +15% ficavam fora. A tela abria como se nenhuma análise tivesse sido
+   * feita, com o trabalho intacto no banco e invisível.
+   *
+   * A saída não é guardar a escolha: é LER a faixa de volta dos degraus que
+   * rodaram, porque foi ela que os gerou. Ver `faixaDosPontos`.
    */
   const [faixa, setFaixa] = useState<Faixa>({ ...FAIXA_PADRAO })
+
+  /**
+   * Quem escolheu a faixa: a pessoa, ou a leitura do que existe.
+   *
+   * O efeito abaixo só adota a faixa da análise ANTES de a pessoa mexer nos
+   * controles. Sem esta trava, cada refetch — e a curva refaz a consulta a cada
+   * oito segundos enquanto há rodada em voo — desfaria a escolha dela no meio
+   * da configuração.
+   */
+  const faixaEscolhida = useRef(false)
   const degrausPedidos = pontosDaFaixa(faixa)
   const consulta = useSensibilidade(meta.runId, faixaValida(faixa) ? faixa : FAIXA_PADRAO)
+
+  // A ANÁLISE QUE EXISTE DEFINE A FAIXA, na primeira vez que os pontos chegam.
+  // O payload traz TODAS as variações da base independentemente da faixa pedida
+  // (só o teto é calculado para ela), então uma consulta basta para descobrir o
+  // que rodar mostrar.
+  const pontosDoServidor = consulta.data?.pontos
+  useEffect(() => {
+    if (faixaEscolhida.current || !pontosDoServidor) return
+    const daAnalise = faixaDosPontos(pontosDoServidor)
+    if (daAnalise) setFaixa(daAnalise)
+    faixaEscolhida.current = true
+  }, [pontosDoServidor])
   const disparar = useDispararVariacao()
 
   /**
@@ -168,8 +198,6 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
   const teto = consulta.data?.teto ?? null
   const melhor = melhorPorDegrau(consulta.data?.pontos ?? [])
   const situacao = situacaoDaVarredura(melhor, degrausPedidos)
-  /** Pontos que já rodaram e ficaram fora da faixa atual — ver a frase abaixo. */
-  const fora = pontosForaDaFaixa(melhor, degrausPedidos)
 
   /**
    * A BASE VEM DO SERVIDOR, como `degrau: 0`, e não é montada aqui a partir de
@@ -179,9 +207,27 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
    */
   const todos = consulta.data?.pontos ?? []
   const baseDoServidor = todos.find((p) => p.degrau === 0) ?? null
+  /**
+   * A CURVA MOSTRA TUDO O QUE RODOU; A FAIXA DIZ O QUE AINDA FALTA RODAR.
+   *
+   * São duas perguntas e dois lugares, e confundi-las já errou nas duas
+   * direções. Primeiro a lista de degraus somava os já executados aos pedidos, e
+   * definir "de 5 a 20" devolvia o cenário antigo de volta — a faixa parecia
+   * ignorada. Depois a curva passou a mostrar só a faixa, e aí uma rodada de
+   * +60% que alguém pagou para executar sumia do gráfico.
+   *
+   * O corte certo é por PAPEL: os chips são o PLANO (o que a faixa pede, e o que
+   * o botão vai disparar) e o gráfico é o RESULTADO (tudo o que existe). Ponto
+   * que rodou nunca sai do gráfico — foi execução de verdade, com custo de
+   * cluster, e escondê-lo por causa de um filtro de tela seria jogar fora
+   * resposta já paga.
+   */
   const pontos = [
     ...(baseDoServidor ? [baseDoServidor] : []),
-    ...situacao.map((s) => s.ponto).filter((p): p is PontoDaCurva => !!p),
+    ...[...melhor.entries()]
+      .filter(([degrau]) => degrau > 0)
+      .sort((a, b) => a[0] - b[0])
+      .map(([, ponto]) => ponto),
   ]
   const pronta = curvaPronta(pontos)
   const temEstimativa = pontos.some((p) => p.estimativa && p.vpl !== null)
@@ -293,6 +339,11 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
   ])
 
   const comecarVarredura = () => {
+    // TRAVA A ADOÇÃO ANTES DE COMEÇAR. Os controles de faixa ficam desabilitados
+    // durante a varredura, então uma primeira resposta atrasada — a que lê a
+    // faixa do que já rodou — trocaria o alvo com a corrente andando, e sem
+    // ninguém poder desfazer.
+    faixaEscolhida.current = true
     ultimoPedido.current = null
     setVarrendo(true)
   }
@@ -329,7 +380,11 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
           <div className="flex shrink-0 flex-col items-end gap-2">
             <SeletorDeFaixa
               faixa={faixa}
-              aoTrocar={setFaixa}
+              aoTrocar={(f) => {
+                // A partir daqui a faixa é DELA, e nenhuma leitura a desfaz.
+                faixaEscolhida.current = true
+                setFaixa(f)
+              }}
               /* Trocar a faixa no meio de uma varredura mudaria o alvo com a
                  corrente andando: o próximo degrau seria de outro intervalo, e
                  quem pediu "de 10 a 50" receberia metade de cada. */
@@ -480,19 +535,6 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
               </p>
             )}
           </div>
-        )}
-
-        {/* O QUE FICOU FORA DA FAIXA, dito em vez de sumido.
-            A faixa é a pergunta, e ponto fora dela é resposta de outra — por
-            isso não entra na curva. Mas quem estreita a faixa acabou de ver a
-            leitura anterior, e o desaparecimento silencioso pareceria perda. Os
-            resultados continuam no banco e voltam assim que a faixa os cobrir. */}
-        {fora.length > 0 && (
-          <p className="mt-3 text-[12px] text-ink-500">
-            {fora.length === 1 ? 'Há 1 ponto já rodado fora' : `Há ${fora.length} pontos já rodados fora`}{' '}
-            desta faixa ({fora.map((d) => `+${d}%`).join(', ')}). Eles não somem — voltam ao
-            gráfico se a faixa os incluir.
-          </p>
         )}
 
         {varrendo && !emExecucao && (

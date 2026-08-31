@@ -304,7 +304,14 @@ export function Global() {
                 não é a mesma coisa que fechar o caminho, e a aba vive na URL —
                 um link antigo ou uma URL editada à mão chegam aqui sem passar
                 pela barra de abas. */}
-            {aba === 'sensibilidade' && !m.variacaoDe && <PainelSensibilidade meta={m} />}
+            {aba === 'sensibilidade' && !m.variacaoDe && (
+              /* `key` PELO runId: trocar de rodada pelo seletor não desmonta a
+                 página — é a mesma rota com outro parâmetro —, então sem isto o
+                 painel levava para a rodada nova o estado da anterior: a faixa
+                 escolhida, o modo, e pior, uma varredura ligada, que passaria a
+                 disparar degraus na rodada errada. */
+              <PainelSensibilidade key={m.runId} meta={m} />
+            )}
 
             {aba === 'plano' && (
               <>

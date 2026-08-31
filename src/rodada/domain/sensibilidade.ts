@@ -475,23 +475,54 @@ export function faltouTempoDeSolver(p: PontoDaCurva | null): boolean {
 }
 
 
+
+
 /**
- * Quantos pontos publicados ficam FORA da faixa pedida.
+ * A FAIXA QUE A ANÁLISE EXISTENTE DESCREVE — o que a tela deve abrir mostrando.
  *
- * Existe para a tela poder dizer "3 pontos fora desta faixa" em vez de
- * simplesmente não os mostrar. Some-se a isso que quem estreita a faixa acabou
- * de ver a leitura anterior: sem a frase, o desaparecimento pareceria perda.
+ * A faixa vive na tela, e por isso ela se perdia ao sair: quem rodava "de 5 a 20
+ * em 4 pontos", saía e voltava, reencontrava o padrão de +10% a +50% — e como a
+ * lista passou a ser exatamente a faixa pedida, os pontos rodados em +5% e +15%
+ * ficavam fora dela. A tela abria como se nenhuma análise tivesse sido feita,
+ * com o trabalho intacto no banco e invisível.
+ *
+ * A correção não é guardar a escolha em algum lugar: é a tela abrir sobre O QUE
+ * EXISTE. A faixa não precisa ser lembrada porque ela pode ser LIDA — os degraus
+ * que rodaram foram gerados por `pontosDaFaixa`, então eles descrevem o
+ * intervalo e a quantidade que os produziu.
+ *
+ * `null` quando não há o que descrever:
+ *
+ *   - nenhuma variação: não há análise, e o padrão é a proposta certa;
+ *   - uma variação só: um ponto não define intervalo (`de` seria igual a `ate`,
+ *     que `pontosDaFaixa` recusa), e ele aparece de qualquer forma se estiver
+ *     dentro do padrão.
+ *
+ * E `null` também quando os degraus vieram de DUAS faixas diferentes — alguém
+ * rodou 10..50 e depois 5..20 —, porque aí nenhuma faixa os regenera. A primeira
+ * versão devolvia a que os COBRE (de 5 a 50 em 5 pontos), e o resultado era pior
+ * que o padrão: a tela abria em +5% +16% +28% +39% +50%, mostrando três degraus
+ * que nunca rodaram e escondendo quatro que rodaram. Uma faixa inventada é pior
+ * que a faixa padrão, porque parece a análise de alguém.
+ *
+ * Devolvendo `null`, a tela fica no padrão e a frase de `pontosForaDaFaixa` diz
+ * o que está fora dele — que é informação verdadeira, e não um palpite.
  */
-export function pontosForaDaFaixa(
-  melhor: Map<number, PontoDaCurva>,
-  degraus: readonly number[],
-): number[] {
-  const pedidos = new Set(degraus)
-  return [...melhor.entries()]
-        // `temResultado`, e não `vpl !== null`: publicar é um passo com partes, e um
-    // ponto pela metade seria contado na frase como "já rodado" sem entrar na
-    // curva, que usa o mesmo predicado.
-    .filter(([degrau, p]) => degrau > 0 && !pedidos.has(degrau) && temResultado(p))
-    .map(([degrau]) => degrau)
-    .sort((a, b) => a - b)
+export function faixaDosPontos(pontos: PontoDaCurva[]): Faixa | null {
+  const degraus = [...new Set(pontos.filter((p) => p.degrau > 0).map((p) => p.degrau))].sort(
+    (a, b) => a - b,
+  )
+  if (degraus.length < MINIMO_DE_PONTOS) return null
+
+  const de = degraus[0]
+  const ate = degraus[degraus.length - 1]
+  // A quantidade que REGENERA exatamente estes degraus, quando existe. Ela
+  // existe sempre que eles saíram de uma faixa só — que é o caso comum.
+  for (let pontos = MINIMO_DE_PONTOS; pontos <= MAXIMO_DE_PONTOS; pontos++) {
+    const tentativa = pontosDaFaixa({ de, ate, pontos })
+    if (tentativa.length === degraus.length && tentativa.every((d, i) => d === degraus[i])) {
+      return { de, ate, pontos }
+    }
+  }
+  return null
 }

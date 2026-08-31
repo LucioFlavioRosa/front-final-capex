@@ -20,9 +20,9 @@ import {
   melhorPorDegrau,
   emVooDaBase,
   proximoDegrau,
+  faixaDosPontos,
   faixaValida,
   pontosDaFaixa,
-  pontosForaDaFaixa,
   situacaoDaVarredura,
   vezesOOrcamento,
   type PontoDaCurva,
@@ -379,23 +379,18 @@ describe('A FAIXA É A PERGUNTA — ponto fora dela é resposta de outra', () =>
     expect(proximoDegrau(s)).toBe(5)
   })
 
-  it('o que ficou fora é CONTADO, para a tela poder dizer', () => {
-    // Quem estreita a faixa acabou de ver a leitura anterior; o
-    // desaparecimento silencioso pareceria perda.
-    expect(pontosForaDaFaixa(melhorPorDegrau(JA_RODOU), ESTREITA)).toEqual([30, 50])
+  it('o que ficou fora da faixa NÃO some da curva — a faixa é o plano, não o resultado', () => {
+    // Os dois papéis, e o corte entre eles. Os chips são o PLANO: o que a faixa
+    // pede e o botão vai disparar. O gráfico é o RESULTADO: tudo o que existe.
+    // Ponto que rodou foi execução paga, e escondê-lo por causa de um filtro de
+    // tela jogaria fora resposta já comprada.
+    const melhor = melhorPorDegrau(JA_RODOU)
+    // o plano fica na faixa…
+    expect(situacaoDaVarredura(melhor, ESTREITA).map((x) => x.degrau)).toEqual([5, 10, 15, 20])
+    // …e o resultado continua inteiro, com os degraus de fora dentro do mapa.
+    expect([...melhor.keys()].sort((a, b) => a - b)).toEqual([10, 30, 50])
   })
 
-  it('a rodada base nunca conta como ponto fora da faixa', () => {
-    expect(pontosForaDaFaixa(melhorPorDegrau([ponto({ degrau: 0, runId: 'base' })]), [10, 20]))
-      .toEqual([])
-  })
-
-  it('degrau fora da faixa que ainda não publicou também não conta', () => {
-    // "Há 1 ponto já rodado fora desta faixa" tem de ser verdade: uma rodada em
-    // voo ainda não é um ponto.
-    const emVoo = melhorPorDegrau([semResultado({ degrau: 40, runId: 'r40', status: 'RODANDO' })])
-    expect(pontosForaDaFaixa(emVoo, [10, 20])).toEqual([])
-  })
 })
 
 describe('o bloqueio segue a FILA, e não a faixa', () => {
@@ -449,5 +444,57 @@ describe('o zero não é degrau', () => {
     const s = situacaoDaVarredura(melhor, PADRAO)
     expect(s.map((x) => x.degrau)).toEqual([10, 20, 30, 40, 50])
     expect(s.every((x) => x.estado === 'ausente')).toBe(true)
+  })
+})
+
+describe('a tela abre sobre a análise que EXISTE', () => {
+  const comDegraus = (...ds: number[]) => ds.map((degrau) => ponto({ degrau, runId: `r${degrau}` }))
+
+  it('lê de volta a faixa que gerou os degraus', () => {
+    // O defeito: a faixa vivia só na tela e se perdia ao sair. Quem rodava
+    // "de 5 a 20 em 4", saía e voltava, reencontrava o padrão +10% a +50% — e
+    // como a lista é exatamente a faixa pedida, os pontos em +5% e +15% ficavam
+    // fora. A tela abria como se nada tivesse sido feito, com o trabalho no
+    // banco e invisível.
+    expect(faixaDosPontos(comDegraus(5, 10, 15, 20))).toEqual({ de: 5, ate: 20, pontos: 4 })
+    expect(faixaDosPontos(comDegraus(10, 20, 30, 40, 50))).toEqual({ de: 10, ate: 50, pontos: 5 })
+    expect(faixaDosPontos(comDegraus(10, 30, 50))).toEqual({ de: 10, ate: 50, pontos: 3 })
+    expect(faixaDosPontos(comDegraus(5, 20))).toEqual({ de: 5, ate: 20, pontos: 2 })
+  })
+
+  it('a faixa lida REGENERA os mesmos degraus — é o que fecha o ciclo', () => {
+    for (const ds of [[5, 10, 15, 20], [10, 20, 30, 40, 50], [10, 30, 50], [7, 9]]) {
+      const f = faixaDosPontos(comDegraus(...ds))!
+      expect(pontosDaFaixa(f)).toEqual(ds)
+    }
+  })
+
+  it('sem análise, não há faixa a propor — a tela usa o padrão', () => {
+    expect(faixaDosPontos([])).toBeNull()
+    expect(faixaDosPontos([ponto({ degrau: 0, runId: 'base' })])).toBeNull()
+  })
+
+  it('um ponto só não define intervalo', () => {
+    // `de` seria igual a `ate`, que `pontosDaFaixa` recusa. E o ponto aparece
+    // de qualquer forma se estiver dentro do padrão.
+    expect(faixaDosPontos(comDegraus(10))).toBeNull()
+  })
+
+  it('a rodada em voo também conta — ela é a análise em curso', () => {
+    const pontos = [
+      ponto({ degrau: 5, runId: 'r5' }),
+      semResultado({ degrau: 20, runId: 'r20', status: 'RODANDO' }),
+    ]
+    expect(faixaDosPontos(pontos)).toEqual({ de: 5, ate: 20, pontos: 2 })
+  })
+
+  it('degraus de DUAS faixas não viram faixa nenhuma', () => {
+    // Alguém rodou 10..50 e depois 5..20: nenhuma faixa regenera os seis. A
+    // primeira versão devolvia a que os COBRE, e o resultado era pior que o
+    // padrão — a tela abria em +5% +16% +28% +39% +50%, mostrando três degraus
+    // que nunca rodaram e escondendo quatro que rodaram. Uma faixa inventada é
+    // pior que a padrão, porque parece a análise de alguém.
+    expect(faixaDosPontos(comDegraus(5, 10, 20, 30, 40, 50))).toBeNull()
+    expect(faixaDosPontos(comDegraus(5, 10, 15, 20, 30, 40, 50))).toBeNull()
   })
 })

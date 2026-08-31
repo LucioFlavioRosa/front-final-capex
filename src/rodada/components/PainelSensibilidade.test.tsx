@@ -346,8 +346,58 @@ describe('quando um degrau falha, a tela diz por quê', () => {
   })
 })
 
+describe('sair da tela e voltar não apaga a análise', () => {
+  it('a faixa abre sobre os degraus que JÁ rodaram', async () => {
+    // O defeito: a faixa vivia só no estado do componente. Quem rodava "de 5 a
+    // 20 em 4 pontos", saía e voltava, reencontrava o padrão +10% a +50% — e
+    // como a lista é exatamente a faixa pedida, os pontos em +5% e +15% ficavam
+    // fora dela. A tela abria como se nada tivesse sido feito.
+    servirSensibilidade({
+      teto: TETO,
+      pontos: [
+        BASE_PONTO,
+        ...[5, 10, 15, 20].map((degrau) => ({
+          ...BASE_PONTO,
+          degrau,
+          runId: `r${degrau}`,
+          estimativa: true,
+        })),
+      ],
+    })
+    abrir()
+
+    // Sem a leitura, isto seria 10 / 50 / 5.
+    expect(await screen.findByDisplayValue('5')).toBeInTheDocument()
+    expect(screen.getByLabelText('Menor acréscimo de CAPEX, em %')).toHaveValue(5)
+    expect(screen.getByLabelText('Maior acréscimo de CAPEX, em %')).toHaveValue(20)
+    expect(screen.getByLabelText('Quantos pontos a análise tem')).toHaveValue('4')
+  })
+
+  it('a escolha da pessoa vence a leitura, e nenhum refetch a desfaz', async () => {
+    servirSensibilidade({
+      teto: TETO,
+      pontos: [
+        BASE_PONTO,
+        ...[10, 20, 30, 40, 50].map((degrau) => ({
+          ...BASE_PONTO,
+          degrau,
+          runId: `r${degrau}`,
+        })),
+      ],
+    })
+    abrir()
+    await screen.findByText('Cobertura ao fim')
+
+    const ate = screen.getByLabelText('Maior acréscimo de CAPEX, em %')
+    await userEvent.clear(ate)
+    await userEvent.type(ate, '30')
+    await new Promise((r) => setTimeout(r, 250))
+    expect(ate).toHaveValue(30)
+  })
+})
+
 describe('a faixa é escolhida na tela', () => {
-  it('o padrão é de 10% a 50% em cinco pontos', async () => {
+  it('sem análise nenhuma, o padrão é de 10% a 50% em cinco pontos', async () => {
     servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
     abrir()
     await screen.findByText('Antes de simular: o teto')
@@ -407,6 +457,53 @@ describe('a faixa é escolhida na tela', () => {
     await userEvent.type(ate, '5')
 
     expect(await screen.findByText(/o fim precisa ser maior que o início/)).toBeInTheDocument()
+  })
+})
+
+describe('a curva mostra tudo o que rodou, mesmo fora da faixa', () => {
+  it('um degrau fora da faixa continua no gráfico e na tabela', async () => {
+    // Ponto que rodou foi execução paga. Escondê-lo porque um filtro de tela
+    // mudou jogaria fora resposta já comprada — e foi o que aconteceu com um
+    // +60% e um +90% quando a curva passou a mostrar só a faixa.
+    servirSensibilidade({
+      teto: TETO,
+      pontos: [
+        BASE_PONTO,
+        { ...BASE_PONTO, degrau: 10, runId: 'r10', coberturaFimPct: 44 },
+        { ...BASE_PONTO, degrau: 60, runId: 'r60', coberturaFimPct: 46 },
+        { ...BASE_PONTO, degrau: 90, runId: 'r90', coberturaFimPct: 48 },
+      ],
+    })
+    abrir()
+
+    // A faixa lida não descreve 10/60/90, então a tela fica no padrão…
+    expect(await screen.findByText('Cobertura ao fim')).toBeInTheDocument()
+    const chips = screen.getByRole('list')
+    expect(within(chips).getAllByText(/^\+\d+%$/).map((e) => e.textContent)).toEqual([
+      '+10%',
+      '+20%',
+      '+30%',
+      '+40%',
+      '+50%',
+    ])
+
+    // …e a curva mostra os três, inclusive os de fora.
+    const quadro = screen.getByRole('figure', { name: 'Cobertura ao fim' })
+    await userEvent.click(within(quadro).getByRole('tab', { name: 'Tabela' }))
+    const linhas = within(quadro).getAllByRole('row').map((r) => r.textContent ?? '')
+    expect(linhas.some((l) => l.includes('+60%'))).toBe(true)
+    expect(linhas.some((l) => l.includes('+90%'))).toBe(true)
+  })
+
+  it('e a tela não diz mais que eles ficaram "fora"', async () => {
+    servirSensibilidade({
+      teto: TETO,
+      pontos: [BASE_PONTO, { ...BASE_PONTO, degrau: 60, runId: 'r60', coberturaFimPct: 46 }],
+    })
+    abrir()
+    // Com a base e o +60% publicados, a curva já tem dois pontos e aparece.
+    await screen.findByText('Cobertura ao fim')
+    expect(screen.queryByText(/já rodados? fora desta faixa/)).not.toBeInTheDocument()
   })
 })
 
