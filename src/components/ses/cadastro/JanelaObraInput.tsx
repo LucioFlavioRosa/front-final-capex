@@ -1,17 +1,13 @@
 /**
  * Controle das janelas de obra — `obra_obrigatoria_ano` e `obra_proibida_ate`.
  *
- * ⚠️ SEM USO NO CADASTRO desde 30/07/2026, de propósito. As duas colunas saíram
- * das abas de CAPEX na sessão com a Aegea: obrigar ou proibir uma obra não é
- * cadastro da unidade, é premissa de uma rodada — muda a cada simulação, sem
- * alterar a base. O destino delas é a TELA DE SIMULAÇÃO, que hoje não existe na
- * `main` (vive em `prototipos_frontend`, como `pages/Otimizacao.tsx`, e lá o
- * card "Restrições vindas da base" ainda é somente leitura).
+ * ⚠️ SEM USO NO CADASTRO, de propósito: as duas colunas não ficam nas abas de
+ * CAPEX. Obrigar ou proibir uma obra não é cadastro da unidade, é premissa de
+ * uma rodada — muda a cada simulação, sem alterar a base. O lugar delas é a tela
+ * de simulação.
  *
- * Este arquivo fica parado à espera dessa tela em vez de ser apagado porque a
- * armadilha que ele resolve (descrita abaixo) é a mesma lá — e é justamente o
- * tipo de raciocínio que se perde quando o código volta do histórico do git.
- * Ver ANALISE-MUDANCAS-AEGEA-30-07.md, item 9.
+ * O arquivo fica aqui, e não apagado, porque a armadilha que ele resolve
+ * (descrita abaixo) é a mesma lá.
  *
  * As duas colunas guardam um código, não um número:
  *

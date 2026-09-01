@@ -82,10 +82,9 @@ export function useSelecaoGrade({
   /**
    * Devolve o foco do DOM para a célula certa depois de navegar.
    *
-   * A ORDEM DE PREFERÊNCIA É O PONTO (11/08/2026). Antes daqui só existia a
-   * primeira opção — `input`/`select` dentro da célula — porque TODA célula
-   * tinha um `<input>`, mesmo as travadas. Agora a célula fora de edição é
-   * texto, e é o próprio `<td>` (com `tabIndex={-1}`) que recebe o foco.
+   * A ORDEM DE PREFERÊNCIA É O PONTO: `input`/`select` dentro da célula quando
+   * há um, e o próprio `<td>` (com `tabIndex={-1}`) quando não há — a célula
+   * fora de edição é texto, não campo.
    *
    * Isso não é detalhe de aparência: é o que mantém teclado e área de
    * transferência funcionando. `onKeyDown`, `onCopy` e `onPaste` vivem no

@@ -36,9 +36,7 @@ export type Procedencia = 'subbacias' | 'cts' | 'depara' | 'mock' | 'vazio' | 'm
  *
  * A procedência é OBRIGATÓRIA de propósito: assim o compilador cobra a
  * classificação de toda coluna nova, e nenhuma entra na tela sem que alguém
- * tenha dito se é dado real ou invenção. Era o pedido da Aegea de 30/07/2026 —
- * "precisamos de um tracking melhor do que é informação mockada e o que é dado
- * real".
+ * tenha dito se é dado real ou invenção.
  */
 export interface ColDef {
   coluna: string
@@ -50,15 +48,33 @@ export interface ColDef {
   porque?: string
   /** Exemplo de valor. */
   exemplo?: string
+  /**
+   * CAMPO QUE PODE FICAR VAZIO SEM O CADASTRO ESTAR INCOMPLETO.
+   *
+   * Existe porque a completude da tela contradizia a prontidão do servidor: ela
+   * contava TODA coluna `un` como obrigatória e anunciava "89% · 4 abas
+   * incompletas" para uma unidade que o backend dava como pronta, com zero
+   * pendências. Os 4.004 campos que faltavam eram quatro colunas, e nenhuma
+   * delas é exigida:
+   *
+   *   `wacc`               herda o WACC médio da unidade quando vazio — é o que
+   *                        o próprio campo do WACC promete na tela.
+   *   `..._jusante`        nó terminal (a ETE) não tem para onde drenar.
+   *   `universo_populacao` só valem quando o município mede cobertura POR
+   *   `populacao_atual`    POPULAÇÃO; medindo por ligações, ficam vazios.
+   *
+   * O texto explica ao leitor por que aquele vazio é aceitável, e aparece no
+   * lugar do "faltando" na Revisão.
+   */
+  opcional?: string
 }
 
 /**
  * DE ONDE SAI A CIDADE DE UMA LINHA — e por que isso é declaração, não código.
  *
- * A barra de escopo (cidade + sistema) nasceu dentro da aba de representação e
- * virou controle de TODAS as abas em 20/08/2026. O problema é que nenhuma aba tem
- * as duas colunas: a de metas tem `cidade_id` e nenhum sistema; a de CAPEX da CTS
- * não tem nem um nem outro, só `cts_id`. Cada aba chega ao mesmo par por um
+ * A barra de escopo (cidade + sistema) recorta TODAS as abas, e nenhuma aba tem
+ * as duas colunas: a de metas tem `cidade_id` e nenhum sistema; a de CAPEX da
+ * CTS não tem nem um nem outro, só `cts_id`. Cada aba chega ao mesmo par por um
  * caminho diferente.
  *
  * Declarar o caminho aqui, e não num `if` por aba dentro do componente, é o que
@@ -104,16 +120,20 @@ export interface AbaDef {
   /** Rótulo do bloco/seção exibido no stepper acima desta aba (só na primeira aba de cada bloco). */
   bloco?: string
   /**
-   * ABA QUE SAI DA TELA MAS FICA NO CADASTRO (05/08/2026).
+   * ABA QUE SAI DA TELA MAS FICA NO CADASTRO.
    *
-   * Quatro abas foram tiradas da navegação por pedido da Aegea — Ano-base,
-   * Superintendências, Sistemas de esgoto e Cidades atendidas. O pedido é sobre a
-   * TELA, não sobre o dado: "talvez a gente não precise mostrar ela, mas ela
-   * precisa estar, para questão de organização dos dados" (Lúcio, 04/08).
+   * Quase sempre a razão é não haver o que preencher (todas as colunas 'db' ou
+   * 'calc'). Não é a única: `subbacia-cts` tem colunas editáveis e `addRow`, e
+   * está oculta porque o backend não serve nem aceita a aba — ver `ABAS_SEM_ESCRITA`.
    *
-   * E o dado precisa ficar por um motivo concreto: as quatro são elos da
+   * ATENÇÃO ao segundo caso: aba oculta não tem porta de entrada nenhuma
+   * (`irParaAba`/`BLOCOS` filtram aba oculta antes de montar destino), então
+   * campo editável + aba oculta = dado inalcançável. Ao religar uma, tire a
+   * flag E a trava de escrita na mesma passada.
+   *
+   * O DADO PRECISA FICAR por um motivo concreto: as abas ocultas são elos da
    * hierarquia que o motor lê —
-   * `unidade_regional ▸ regional_superintendencia ▸ superintendencia_cidade ▸
+   * `unidade_regional ▸ empresa ▸ cidade_empresa ▸ cidade ▸
    * cidade_sistema ▸ sistema_topologia`, todas com FK. Um elo quebrado não custa
    * uma tela: produz sub-bacia órfã, que desaparece do resultado sem erro.
    *
@@ -123,19 +143,12 @@ export interface AbaDef {
    */
   ocultaNoWizard?: boolean
   /*
-   * `semDados` FOI DAQUI, e saiu em 20/08/2026 junto da única aba que a usava.
+   * NÃO EXISTE UM `semDados` — o inverso de `ocultaNoWizard`, para uma aba que
+   * aparece na tela sem ter dado nenhum. Toda aba visível tem linhas próprias.
    *
-   * Ela marcava "aparece na tela e não tem dado nenhum" — o inverso exato de
-   * `ocultaNoWizard` — e existia só para a aba de representação (item 34), que
-   * desenhava o que as outras cadastravam sem guardar linha própria. A marca a
-   * tirava de `ABAS_VISIVEIS` e de `progressoPorBloco`, porque `contarAba`
-   * devolvia `total: 0` e `progressoAba` traduzia isso como "OK · somente
-   * Databricks" — uma aba dizendo que seus dados vinham do Databricks quando ela
-   * não tinha dados.
-   *
-   * Com a fusão do desenho na aba do Fluxo, ela ficou sem dono. O campo saiu em
-   * vez de ficar: numa base em que cada `AbaDef` é lida para saber o que a tela
-   * faz, uma opção que nenhuma aba usa é convite a usá-la errado.
+   * Se alguma voltar a não ter, o cuidado é a completude: `contarAba` devolveria
+   * `total: 0` e `progressoAba` traduziria isso como "OK · somente Databricks" —
+   * uma aba dizendo que seus dados vêm do Databricks quando ela não tem dados.
    */
   cols: ColDef[]
   /** Permite adicionar/remover linhas (abas de metas/curvas, sem 1 linha fixa por entidade). */
@@ -145,9 +158,8 @@ export interface AbaDef {
   /**
    * Coluna usada só para alternar uma listra sutil de fundo a cada bloco de
    * linhas (ex.: as 5 linhas de componente de uma mesma sub-bacia). Puramente
-   * visual — não agrupa nem esconde nada, ao contrário do antigo layout
-   * mestre-detalhe (removido no item 6 da sessão de 30/07/2026: a Aegea pediu
-   * tabela única estilo Excel, não acordeão). Assume que as linhas do bloco já
+   * visual — não agrupa nem esconde nada: a leitura da grade é de planilha,
+   * tabela única, não acordeão mestre-detalhe. Assume que as linhas do bloco já
    * chegam consecutivas no array; se um import futuro as espalhar, a listra
    * some, mas os dados continuam corretos.
    */
@@ -155,9 +167,8 @@ export interface AbaDef {
   /**
    * A COLUNA QUE AGRUPA LINHAS QUE DEVERIAM TER O MESMO VALOR.
    *
-   * Liga o botão "repetir nas linhas de…" da grade. Existe por causa do fim de
-   * concessão (item 12 do feedback de 26/08): ele é definido POR CONTRATO, e a
-   * ficha o guarda por cidade — então uma empresa com sete cidades tem sete
+   * Liga o botão "repetir nas linhas de…" da grade, para o caso em que um valor
+   * é decidido num nível ACIMA da linha: uma empresa com sete cidades tem sete
    * células que precisam concordar, e nada além da atenção de quem digita
    * garante que concordem.
    *

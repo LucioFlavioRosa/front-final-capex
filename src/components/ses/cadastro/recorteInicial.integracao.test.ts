@@ -12,8 +12,8 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { lerCadastro } from '@/lib/cadastroApi'
 import { SCHEMA } from '@/data/cadastroUnidade/schema'
-import { casaComEscopo, escopoInicial, opcoesEscopo } from '@/lib/cadastroEscopo'
-import type { Dados } from '@/lib/cadastroFluxo'
+import { casaComEscopo, escopoInicial, opcoesEscopo } from '@/domain/escopo'
+import type { Dados } from '@/domain/fluxo'
 import type { Row } from '@/data/cadastroUnidade/types'
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
@@ -77,8 +77,8 @@ describe('as abas grandes abrem recortadas', () => {
     if (!noAr) return console.log('backend fora do ar — pulado')
 
     // `cidade-operacional` tem 21 linhas na uB1: acima do mínimo, tem barra.
-    // `regional-superintendencia` tem 8: abaixo, e abre inteira.
-    const { total, recortada } = linhasAoAbrir('regional-superintendencia')
+    // `empresa` tem 8: abaixo, e abre inteira.
+    const { total, recortada } = linhasAoAbrir('empresa')
     expect(recortada).toBe(total)
   }, 120_000)
 })

@@ -11,9 +11,9 @@ afterAll(() => servidor.close())
 
 /**
  * Objetivo, receita, curva, penalidade e os dois interruptores vivem sob
- * "Parâmetros do motor", que NASCE ABERTO desde o item 1 do feedback de 26/08
- * — a Aegea disse que são os controles mais usados, e uma gaveta fechada
- * escondia justamente os que mudam o resultado de quem só clica Iniciar.
+ * "Parâmetros do motor", que NASCE ABERTO: são os controles mais usados, e uma
+ * gaveta fechada esconderia justamente os que mudam o resultado de quem só clica
+ * Iniciar.
  *
  * A função ficou como asserção em vez de sumir: se o bloco voltar a nascer
  * fechado, o teste falha AQUI, com o motivo escrito, em vez de falhar cinco

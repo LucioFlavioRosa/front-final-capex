@@ -17,7 +17,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { AbaGrid } from './AbaGrid'
 import { SCHEMA } from '@/data/cadastroUnidade/schema'
-import type { Dados } from '@/lib/cadastroFluxo'
+import type { Dados } from '@/domain/fluxo'
 import type { Row } from '@/data/cadastroUnidade/types'
 
 // O papel REAL, e nao um 'admin' inventado: `podeEditarCampoCadastro` compara

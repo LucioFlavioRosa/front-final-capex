@@ -1,8 +1,8 @@
 /**
  * Espelho de `app/cadastro/permissoes.py::CAMPOS_WACC` — os quatro campos de
- * WACC do cadastro, por aba. Mesma decisão de 18/08/2026: o financeiro edita
- * os quatro sem distinção entre eles, em vez do recorte fino que o documento
- * de perfis sugere (ver `docs/PENDENCIAS.md`, ambiguidades A2/A3).
+ * WACC do cadastro, por aba. O financeiro edita os quatro sem distinção entre
+ * eles, e não com o recorte fino que o documento de perfis sugere (ver
+ * `docs/PENDENCIAS.md`, ambiguidades A2/A3).
  *
  * SEM checagem automática de paridade com o lado Python — ao contrário de
  * `auth/papeis.ts` (que tem `papeis.test.ts` comparando com uma cópia da

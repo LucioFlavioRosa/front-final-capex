@@ -9,7 +9,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** Sublinhado turquesa animado — reservar para os poucos CTAs de destaque (login, nova simulação, executar). */
   sweep?: boolean
   /**
-   * Pílula em caixa alta — a gramática das telas de rodada (design de 19/08).
+   * Pílula em caixa alta — a gramática das telas de rodada.
    *
    * É opt-in, e não o padrão do kit, porque virar o raio e a caixa de TODO
    * botão redesenharia Cadastro, Simular e Login de carona. Quem quer a

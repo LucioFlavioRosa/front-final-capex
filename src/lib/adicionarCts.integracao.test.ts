@@ -11,6 +11,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { api } from './api'
 import { lerCadastro, salvarCadastro } from './cadastroApi'
+import type { BaseDoCadastro } from './cadastroApi'
 import type { UnidadeState } from '../data/cadastroUnidade/types'
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
@@ -32,15 +33,35 @@ afterAll(async () => {
   await api.del(`/api/unidades/${UNIDADE}/topologia/${colocada}`)
 })
 
+/**
+ * A BASE PAREADA COM O ESTADO QUE VEIO COM ELA.
+ *
+ * `salvarCadastro` passou a exigir a linha-base como parâmetro — antes ela vinha
+ * de um `Map` escondido dentro de `cadastroApi`. Guardar num `let` solto daria
+ * certo por sorte (a base do último `abrir` seria a de qualquer salvamento);
+ * o `WeakMap` amarra cada base ao seu estado, e aí a ordem das chamadas não
+ * importa.
+ */
+const bases = new WeakMap<UnidadeState, BaseDoCadastro>()
+
+/** Salva o estado com a base que a leitura dele devolveu. */
+function salvar(estado: UnidadeState) {
+  const base = bases.get(estado)
+  if (!base) throw new Error('estado montado sem `abrir()` — não há base para o diff')
+  return salvarCadastro(estado, base)
+}
+
 async function abrir(): Promise<UnidadeState> {
   const lido = await lerCadastro(UNIDADE)
-  return {
+  const estado: UnidadeState = {
     id: lido.unidade_id,
     name: lido.unidade_nome,
     regionalName: lido.regional_nome,
     cidades: [],
     data: lido.dados,
   }
+  bases.set(estado, lido.base)
+  return estado
 }
 
 describe('adicionar CTS ao sistema', () => {
@@ -64,7 +85,7 @@ describe('adicionar CTS ao sistema', () => {
     // O QUE A TELA FAZ: escreve o sistema na linha da CTS.
     alvo.sistema_id = semLimite.sistema_id
     alvo.sistema_name = semLimite.sistema_name
-    await salvarCadastro(estado)
+    await salvar(estado)
 
     const depois = await abrir()
     const linha = depois.data['sistema-topologia'].find(

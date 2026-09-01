@@ -103,11 +103,9 @@ export function SecaoPorQue({
   dados: ExplicabilidadeGlobal
   runId: string | undefined
   /**
-   * Nível 2 (item 10 do feedback de 26/08) reaproveita este bloco COM RECORTE
-   * DE CIDADE — mesma consulta, mesmo componente, só o título muda para "sub-
-   * bacias fora do plano", que é como o pedido foi feito ("quais sistemas e
-   * sub-bacias estão sendo priorizados e quais ficaram de fora"). O padrão
-   * global fica "Por que nem tudo fatura".
+   * O nível 2 reaproveita este bloco COM RECORTE DE CIDADE — mesma consulta,
+   * mesmo componente, só o título muda para "sub-bacias fora do plano". O padrão
+   * global é "Por que nem tudo fatura".
    */
   titulo?: string
 }) {
@@ -118,9 +116,14 @@ export function SecaoPorQue({
       <TituloSecao nota="resumo do otimizador — o detalhe de cada caso está na sub-bacia">
         {titulo}
       </TituloSecao>
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/* UM CARTÃO, LARGURA CHEIA. Eram dois lado a lado: este e o de
+          "Obras que, se construídas, liberam mais sub-bacias", removido a
+          pedido — a lista de elos não era usada para decidir nada, e ocupava
+          metade da aba. Com um só, a grade de duas colunas deixaria o
+          restante espremido em meia tela sem nada ao lado. */}
+      <div className="grid gap-4">
         <Cartao titulo="Motivos, por sub-bacia">
-          <p className="-mt-1 mb-3 text-[11px] leading-snug text-ink-500">
+          <p className="-mt-1 mb-3 text-[11px] leading-snug text-ink-water">
             {inteiro(dados.naoFaturando)} de {inteiro(dados.totalSubbacias)} sub-bacias não
             faturam nesta rodada — agrupadas abaixo pelo motivo que o otimizador registrou
             para cada uma.
@@ -138,16 +141,16 @@ export function SecaoPorQue({
                       <span className="min-w-0 truncate text-[12.5px] font-medium text-ink-700">
                         {rotulo}
                       </span>
-                      <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11.5px] tabular-nums text-ink-500">
+                      <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11.5px] tabular-nums text-ink-water">
                         {inteiro(c.subbacias)} sub-bacia{c.subbacias === 1 ? '' : 's'} ·{' '}
                         {vazao(c.vazaoPresa)} presa
-                        <span className="text-ink-400 transition-transform duration-hover ease-saida group-open:rotate-180">
+                        <span className="text-ink-water transition-transform duration-hover ease-saida group-open:rotate-180">
                           ⌄
                         </span>
                       </span>
                     </summary>
                     {explicacao && (
-                      <p className="mt-1 text-[11px] leading-snug text-ink-500">{explicacao}</p>
+                      <p className="mt-1 text-[11px] leading-snug text-ink-water">{explicacao}</p>
                     )}
                     {c.itens.length > 0 && (
                       <ul className="mt-2 flex flex-col gap-1 border-t border-ink-200 pt-2">
@@ -160,11 +163,11 @@ export function SecaoPorQue({
                               <CelulaLink to={`/resultados/${runId}/sub-bacias/${i.subBaciaId}`}>
                                 <span className="font-mono">{i.subBaciaId}</span>
                               </CelulaLink>{' '}
-                              <span className="text-ink-500">
+                              <span className="text-ink-water">
                                 · {i.cidadeId} · sistema {i.sistemaId}
                               </span>
                             </span>
-                            <span className="shrink-0 font-mono tabular-nums text-ink-500">
+                            <span className="shrink-0 font-mono tabular-nums text-ink-water">
                               {vazao(i.vazaoPresa)}
                             </span>
                           </li>
@@ -178,55 +181,6 @@ export function SecaoPorQue({
           </ul>
         </Cartao>
 
-        {/* "OBRAS QUE TRAVAM MAIS GENTE" ERA O TÍTULO, e a Aegea perguntou o
-            que ele significava (item 15 de 26/08). O novo diz a ação em vez do
-            problema: quem lê a lista está procurando onde investir, não onde
-            reclamar. A ORDENAÇÃO ainda é por contagem de sub-bacias travadas, e
-            passa a ser por vazão liberada junto com o redesenho do bloco — é a
-            metade que precisa de backend. */}
-        <Cartao
-          titulo="Obras que, se construídas, liberam mais sub-bacias"
-          nota="clique para abrir a obra"
-          ajuda="ELO_QUE_TRAVA"
-        >
-          <p className="-mt-1 mb-3 text-[11px] leading-snug text-ink-500">
-            Obras não construídas cuja falta, sozinha, tira outras sub-bacias do plano —
-            ordenadas pela vazão que cada uma libera se entrar no orçamento.
-          </p>
-          {dados.elos.length === 0 ? (
-            <p className="text-[11.5px] text-ink-400">Nenhum elo concentra mais de um caso.</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {dados.elos.map((e) => (
-                <li
-                  key={e.obraId}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-ink-100 px-3 py-2"
-                >
-                  <span className="min-w-0 truncate text-[12.5px]">
-                    <CelulaLink to={`/resultados/${runId}/obras/${e.obraId}`}>
-                      <span className="font-mono">{e.obraId}</span>
-                    </CelulaLink>{' '}
-                    <span className="text-ink-500">· {e.componente}</span>
-                  </span>
-                  {/* VAZÃO LIBERADA, e não a contagem "trava N" (item 15 do
-                      feedback de 26/08) — a contagem sozinha deixava o cartão
-                      parecendo irrelevante, porque o topo é quase sempre
-                      "trava 1" ou "trava 2"; a vazão é a grandeza que muda
-                      dependendo de QUEM está preso, não de QUANTOS. */}
-                  <span className="shrink-0 text-right">
-                    <span className="block font-mono text-[11.5px] tabular-nums text-ink-700">
-                      {vazao(e.vazaoLiberada)}
-                    </span>
-                    <span className="block text-[9.5px] text-ink-400">
-                      libera {inteiro(e.bloqueia)}{' '}
-                      {e.bloqueia === 1 ? 'sub-bacia' : 'sub-bacias'}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Cartao>
       </div>
       <ComoIstoECalculado />
     </>
@@ -234,10 +188,10 @@ export function SecaoPorQue({
 }
 
 /**
- * "SÃO CLASSIFICAÇÕES OU INTERPRETAÇÃO DE IA?" — a pergunta da Aegea em 26/08
- * (item 24), respondida na própria tela.
+ * "SÃO CLASSIFICAÇÕES OU INTERPRETAÇÃO DE IA?" — respondido na própria tela.
  *
- * Ela vai voltar: um bloco que escreve frases em português sobre o porquê de
+ * A pergunta é inevitável: um bloco que escreve frases em português sobre o
+ * porquê de
  * cada decisão parece saída de modelo de linguagem, e num app que sustenta
  * decisão de investimento a diferença entre "uma regra decidiu" e "um modelo
  * achou" é a diferença entre auditável e não auditável. Responder no e-mail
@@ -254,7 +208,7 @@ function ComoIstoECalculado() {
         Como isto é calculado
         <span
           aria-hidden="true"
-          className="text-ink-400 transition-transform duration-hover ease-saida group-open:rotate-180"
+          className="text-ink-water transition-transform duration-hover ease-saida group-open:rotate-180"
         >
           ⌄
         </span>

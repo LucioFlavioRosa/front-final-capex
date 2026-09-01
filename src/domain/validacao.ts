@@ -12,8 +12,8 @@
  */
 
 import type { Row } from '../data/cadastroUnidade/types'
-import { toNum } from './cadastroCalc'
-import { caminhoAteEte, sistemaDoNo, tipoDoNo } from './cadastroFluxo'
+import { toNum } from './numero'
+import { caminhoAteEte, sistemaDoNo, tipoDoNo } from './fluxo'
 
 export type NivelProblema = 'critico' | 'aviso'
 
@@ -46,12 +46,10 @@ const listar = (xs: string[], max = 4) =>
   xs.slice(0, max).join(', ') + (xs.length > max ? ` e mais ${xs.length - max}` : '')
 
 /**
- * TOPOLOGIA DO FLUXO DE ESCOAMENTO — item 23 do pedido de 05/08/2026.
+ * TOPOLOGIA DO FLUXO DE ESCOAMENTO — as regras que impedem um nó "folha".
  *
- * O pedido é do Wagner (13:51): *"lembra que a gente tinha até um botãozinho de
- * validação de topologia do fluxo de escoamento? Porque se passarem nós aqui… que vira uma
- * folha"* — e ele mesmo definiu o termo (14:13): *"folha é quando não tem um nó no
- * gráfico que não é conectado em nada"*. Lúcio confirmou que a checagem já existe
+ * FOLHA é o nó que não se conecta a nada: o esgoto entra e não sai, ou ninguém
+ * manda esgoto para ele. Ver a definição operacional de cada regra abaixo.
  * do outro lado (14:28): *"eu fiz lá no otimizador — lá tem alguns testes que
  * olham exatamente isso, se a topologia do sistema está atrelada corretamente,
  * desde o início até a ETE."*
@@ -64,11 +62,10 @@ const listar = (xs: string[], max = 4) =>
  * que uma linha de erro apareça em lugar nenhum. É o dano silencioso que é o
  * critério de tudo o que entra neste arquivo.
  *
- * ONDE ISSO APARECE, e a decisão que precisou de arbitragem: a lista de 30/07
- * TIROU os painéis de problema das telas de cadastro e os concentrou na Revisão,
- * porque "um problema aqui nunca é local" — e o pedido do item 23 diz "na tela de
- * cadastro". As duas coisas convivem porque a topologia é a exceção que confirma
- * a regra de 30/07: ela É local. O erro está na própria aba, a correção também, e
+ * ONDE ISSO APARECE, e é a exceção da regra geral: os painéis de problema ficam
+ * na REVISÃO, e não ao lado de cada aba, porque um problema de cadastro quase
+ * nunca é local. A topologia É local — o erro está na própria aba, a correção
+ * também, e
  * a lista de problemas cabe ao lado da tabela que os produz. Então: painel enxuto
  * na aba do Fluxo, só com estas regras, e a Revisão seguindo como o portão que
  * bloqueia a rodada — sem ressuscitar o painel geral em todas as abas.
@@ -250,11 +247,11 @@ export function validarCadastro(dados: Dados): Problema[] {
     new Set(linhas(aba).map((r) => String(r[col] ?? '').trim()).filter(Boolean))
 
   const elos: { aba: string; col: string; alvoAba: string; alvoCol: string; rotulo: string }[] = [
-    { aba: 'regional-superintendencia', col: 'unidade_id', alvoAba: 'unidade-regional', alvoCol: 'unidade_id', rotulo: 'unidade' },
-    { aba: 'superintendencia-cidade', col: 'superintendencia_id', alvoAba: 'regional-superintendencia', alvoCol: 'superintendencia_id', rotulo: 'superintendência' },
-    { aba: 'cidade-sistema', col: 'cidade_id', alvoAba: 'superintendencia-cidade', alvoCol: 'cidade_id', rotulo: 'cidade' },
+    { aba: 'empresa', col: 'unidade_id', alvoAba: 'unidade-regional', alvoCol: 'unidade_id', rotulo: 'unidade' },
+    { aba: 'cidade-empresa', col: 'emp_codigo', alvoAba: 'empresa', alvoCol: 'emp_codigo', rotulo: 'empresa' },
+    { aba: 'cidade-sistema', col: 'cidade_id', alvoAba: 'cidade-empresa', alvoCol: 'cidade_id', rotulo: 'cidade' },
     { aba: 'sistema-topologia', col: 'sistema_id', alvoAba: 'cidade-sistema', alvoCol: 'sistema_id', rotulo: 'sistema' },
-    { aba: 'cidade-operacional', col: 'cidade_id', alvoAba: 'superintendencia-cidade', alvoCol: 'cidade_id', rotulo: 'cidade' },
+    { aba: 'cidade-operacional', col: 'cidade_id', alvoAba: 'cidade-empresa', alvoCol: 'cidade_id', rotulo: 'cidade' },
     { aba: 'componentes-subbacias-capex', col: 'sub_bacia_id', alvoAba: 'subbacia-operacional', alvoCol: 'sub_bacia_id', rotulo: 'sub-bacia' },
     { aba: 'subbacia-cts', col: 'sub_bacia_id', alvoAba: 'subbacia-operacional', alvoCol: 'sub_bacia_id', rotulo: 'sub-bacia' },
     { aba: 'subbacia-cts', col: 'cts_id', alvoAba: 'cts-operacional', alvoCol: 'cts_id', rotulo: 'CTS' },
@@ -286,21 +283,25 @@ export function validarCadastro(dados: Dados): Problema[] {
   p.push(...validarTopologia(dados))
 
   // ------------------------------------------------------ (c) o que impede rodar
-  const cidadesSemFimConcessao = linhas('cidade-operacional')
+  // A CONCESSAO E COBRADA DA EMPRESA, e nao do municipio: quem assina o contrato
+  // e a operadora, e o banco desce o ano dela para as cidades que ela atende.
+  // Cobrar por municipio pediria 141 preenchimentos para o que se resolve em 48
+  // — e apontaria para uma aba que nem mostra a coluna.
+  const empresasSemFimConcessao = linhas('empresa')
     .filter((r) => !naoVazio(r.data_fim_concessao))
-    .map((r) => String(r.cidade_id ?? '?'))
-  if (cidadesSemFimConcessao.length) {
+    .map((r) => String(r.emp_codigo ?? '?'))
+  if (empresasSemFimConcessao.length) {
     p.push({
       nivel: 'aviso',
-      abaKey: 'cidade-operacional',
-      titulo: 'Cidade sem fim de concessão',
-      detalhe: `${listar(cidadesSemFimConcessao)} está sem o ano de fim da concessão, que define o horizonte do sistema.`,
-      ocorrencias: cidadesSemFimConcessao.length,
+      abaKey: 'empresa',
+      titulo: 'Empresa sem fim de concessão',
+      detalhe: `${listar(empresasSemFimConcessao)} está sem o ano de fim da concessão, que define até quando os municípios dela geram receita.`,
+      ocorrencias: empresasSemFimConcessao.length,
     })
   }
 
   const cidadesComParidade = ids('fator-esgoto', 'cidade_id')
-  const cidadesSemParidade = [...ids('superintendencia-cidade', 'cidade_id')].filter(
+  const cidadesSemParidade = [...ids('cidade-empresa', 'cidade_id')].filter(
     (c) => !cidadesComParidade.has(c),
   )
   if (cidadesSemParidade.length) {

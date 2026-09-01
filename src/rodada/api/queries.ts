@@ -17,11 +17,20 @@
  * no Trilho troca a subárvore inteira do cache sem tocar nas outras já lidas.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { resultados, simulacao } from '@/rodada/api/endpoints'
+import { resultados, simulacao, type ModoDaVariacao } from '@/rodada/api/endpoints'
 import type { RunResumo } from '@/rodada/domain/resultado'
 import type { CorpoNovaRodada } from '@/rodada/domain/simulacao'
+import type { Faixa } from '@/rodada/domain/sensibilidade'
 
-const chaves = {
+/**
+ * As chaves de cache do react-query.
+ *
+ * EXPORTADA de propósito, e não só por causa do teste: a chave é o contrato de
+ * identidade de cada consulta — é por ela que se invalida e é por ela que duas
+ * telas compartilham (ou não) o mesmo dado. Um defeito aqui não falha, não
+ * avisa, e devolve o resultado de outro filtro.
+ */
+export const chaves = {
   /** A lista do histórico. Muda com exclusão/favorita — não é "para sempre". */
   runs: (filtro?: { unidadeId?: string; usuario?: string }) =>
     ['runs', 'lista', filtro?.unidadeId ?? '*', filtro?.usuario ?? '*'] as const,
@@ -37,14 +46,24 @@ const chaves = {
   fluxo: (runId: string, sistemaId: string) => ['runs', runId, 'sistemas', sistemaId] as const,
   subbacia: (runId: string, subId: string) => ['runs', runId, 'subbacias', subId] as const,
   obra: (runId: string, obraId: string) => ['runs', runId, 'obras', obraId] as const,
-  /** O filtro inteiro entra na chave: página, ordenação e recorte são cortes
-   *  DIFERENTES da mesma lista, não a mesma consulta com resultado igual. */
+  /**
+   * O filtro inteiro entra na chave: página, ordenação e recorte são cortes
+   * DIFERENTES da mesma lista, não a mesma consulta com resultado igual.
+   *
+   * A CHAVE É MONTADA CAMPO A CAMPO, e não pelo objeto — então todo filtro novo
+   * TEM de ser acrescentado aqui também. `recorte` foi esquecido quando entrou,
+   * e o defeito era silencioso: `IMUTAVEL` usa `staleTime: Infinity`, então
+   * abrir 2027 em "todas" e depois em "de terceiro" servia as 163 linhas do
+   * cache no lugar das 91 — inclusive para a exportação, que leva o que a lista
+   * tem. Nada reclamava; só o número estava errado.
+   */
   obras: (
     runId: string,
     filtro?: {
       situacao?: string
       cidadeId?: string
       ano?: number
+      recorte?: string
       pagina?: number
       tamanho?: number
       ordenar?: string
@@ -58,6 +77,7 @@ const chaves = {
       filtro?.situacao ?? '*',
       filtro?.cidadeId ?? '*',
       filtro?.ano ?? '*',
+      filtro?.recorte ?? '*',
       filtro?.pagina ?? 1,
       filtro?.tamanho ?? 50,
       filtro?.ordenar ?? 'inicio',
@@ -145,7 +165,7 @@ export function useCidade(runId: string | undefined, cidadeId: string | undefine
   })
 }
 
-/** "Sub-bacias fora do plano" do nível 2 — item 10 de 26/08. */
+/** "Sub-bacias fora do plano" do nível 2. */
 export function useExplicabilidadeDaCidade(
   runId: string | undefined,
   cidadeId: string | undefined,
@@ -158,13 +178,14 @@ export function useExplicabilidadeDaCidade(
   })
 }
 
-/** Lista de obras por ordem de execução, nível 1 — item 3 de 26/08. */
+/** Lista de obras por ordem de execução, nível 1. */
 export function useObras(
   runId: string | undefined,
   filtro?: {
     situacao?: string
     cidadeId?: string
     ano?: number
+    recorte?: string
     pagina?: number
     tamanho?: number
     ordenar?: string
@@ -182,7 +203,7 @@ export function useObras(
   })
 }
 
-/** O cronograma de obras do plano — item 3, na leitura corrigida em 27/08. */
+/** O cronograma de obras do plano — quantas de cada componente por ano. */
 export function useCronogramaDeObras(runId: string | undefined) {
   return useQuery({
     queryKey: chaves.cronogramaDeObras(runId ?? '—'),
@@ -337,6 +358,77 @@ export function useCriarRodada() {
     mutationFn: (corpo: CorpoNovaRodada) => simulacao.criar(corpo),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['runs', 'lista'] })
+    },
+  })
+}
+
+
+/**
+ * A CURVA DE SENSIBILIDADE — teto e pontos, numa consulta só.
+ *
+ * Repete enquanto houver ponto em voo, e para sozinha quando todos publicarem.
+ * A condição olha o STATUS de cada ponto e não a presença de resultado: uma
+ * rodada que terminou em ERRO nunca vai ter resultado, e "repetir até ter" seria
+ * bater no servidor a cada oito segundos para sempre.
+ */
+export function useSensibilidade(runId: string | undefined, faixa: Faixa) {
+  return useQuery({
+    // A FAIXA ENTRA NA CHAVE. O teto é calculado para os degraus pedidos, então
+    // mudar a faixa muda a resposta — sem isto, estreitar o intervalo mostraria
+    // o teto do intervalo anterior até alguém recarregar a página.
+    queryKey: ['runs', runId ?? '—', 'sensibilidade', faixa.de, faixa.ate, faixa.pontos],
+    queryFn: () => resultados.sensibilidade(runId as string, faixa),
+    enabled: !!runId,
+    refetchInterval: (consulta) => {
+      const pontos = consulta.state.data?.pontos ?? []
+      const emVoo = pontos.some((p) => p.status === 'PENDENTE' || p.status === 'RODANDO')
+      return emVoo ? 8_000 : false
+    },
+  })
+}
+
+export function useDispararVariacao() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      runId,
+      fator,
+      nome,
+      modo,
+    }: {
+      runId: string
+      fator: number
+      nome: string
+      modo: ModoDaVariacao
+    }) => resultados.variacao(runId, fator, nome, modo),
+    onSuccess: (_r, { runId }) => {
+      // A CURVA PRIMEIRO, e a lista também. A curva porque é a tela que a pessoa
+      // está olhando; a lista porque uma variação em modo COMPLETO é uma rodada
+      // do histórico como qualquer outra — a rápida não aparece lá, e o servidor
+      // é quem decide isso, não este `invalidate`.
+      void qc.invalidateQueries({ queryKey: ['runs', runId, 'sensibilidade'] })
+      void qc.invalidateQueries({ queryKey: ['runs', 'lista'] })
+    },
+  })
+}
+
+
+/**
+ * O sinal de vida de uma rodada em execução.
+ *
+ * `refetchInterval` só enquanto ela NÃO terminou: rodada publicada é imutável, e
+ * continuar perguntando por ela seria bater no servidor para receber sempre a
+ * mesma resposta. Quando termina, o intervalo vira `false` sozinho — o
+ * `refetchInterval` de função recebe a última resposta e decide.
+ */
+export function useStatusDaRodada(runId: string | undefined, ativo: boolean) {
+  return useQuery({
+    queryKey: ['runs', runId ?? '—', 'status'],
+    queryFn: () => resultados.status(runId as string),
+    enabled: !!runId && ativo,
+    refetchInterval: (consulta) => {
+      const s = consulta.state.data?.status
+      return s === 'PENDENTE' || s === 'RODANDO' ? 8_000 : false
     },
   })
 }

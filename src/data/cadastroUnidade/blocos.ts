@@ -14,7 +14,7 @@
 
 import { SCHEMA } from './schema'
 import type { AbaDef, Row } from './types'
-import { contarAba } from '../../lib/cadastroCalc'
+import { contarAba } from '../../domain/calc'
 
 export interface Bloco {
   nome: string
@@ -25,10 +25,9 @@ export interface Bloco {
  * A ORDEM DOS DOIS PASSOS IMPORTA — e é o detalhe que faz as abas ocultas
  * (`ocultaNoWizard`) não levarem o nome do bloco embora.
  *
- * O nome de cada bloco vive na PRIMEIRA aba dele, e duas das quatro abas ocultadas
- * em 05/08/2026 eram exatamente a primeira do seu bloco: `regional-superintendencia`
- * declara "Estrutura". Filtrar antes de agrupar apagaria esse rótulo e faria as abas
- * seguintes cairem no bloco anterior.
+ * O nome de cada bloco vive na PRIMEIRA aba dele, e uma aba oculta pode ser
+ * justamente a primeira do bloco. Filtrar antes de agrupar apagaria esse rótulo
+ * e faria as abas seguintes caírem no bloco anterior.
  *
  * Então: agrupa sobre o SCHEMA inteiro, e só depois filtra dentro de cada bloco,
  * descartando bloco que ficou sem nenhuma aba visível.
@@ -44,17 +43,16 @@ export const BLOCOS: Bloco[] = SCHEMA.reduce<Bloco[]>((acc, aba) => {
 /**
  * As abas que a Revisão e a completude consideram: as visíveis.
  *
- * Existe porque `SCHEMA` deixou de ser sinônimo de "o que aparece". Aba oculta não
- * tem campo que alguém possa preencher, então contá-la na completude produziria um
+ * Existe porque `SCHEMA` não é sinônimo de "o que aparece". Aba oculta não tem
+ * campo que alguém possa preencher, então contá-la na completude produziria um
  * percentual que nunca fecha — e a Revisão bloquearia a rodada para sempre.
  * `validarCadastro` é a exceção deliberada: ela varre o SCHEMA inteiro, porque as
  * FKs das abas ocultas continuam valendo.
  *
- * O filtro tinha um segundo termo (`!a.semDados`) até 20/08/2026, para a aba de
- * representação: ela não tinha coluna nenhuma, `contarAba` devolvia `total: 0` e
- * `progressoAba` a classificava como 'so-db' — a Revisão exibiria "OK · somente
- * Databricks" para uma aba que não tinha dado nem vinha do Databricks. Com a fusão
- * do desenho na aba do Fluxo, não existe mais aba sem coluna, e o termo saiu.
+ * O FILTRO É SÓ `ocultaNoWizard` porque toda aba visível tem coluna. Uma aba sem
+ * coluna nenhuma faria `contarAba` devolver `total: 0` e `progressoAba`
+ * classificá-la como 'so-db' — a Revisão exibiria "OK · somente Databricks" para
+ * uma aba que não tem dado nem vem do Databricks.
  */
 export const ABAS_VISIVEIS: AbaDef[] = SCHEMA.filter((a) => !a.ocultaNoWizard)
 
@@ -118,9 +116,8 @@ export function progressoAba(aba: AbaDef, rows: Row[]): ProgressoAba {
 /**
  * Progresso de todas as abas, agrupado pelos blocos de navegação.
  *
- * Havia um `.filter(aba => !aba.semDados)` aqui, pelo mesmo motivo de
- * `ABAS_VISIVEIS`, e ele saiu com a fusão de 20/08/2026: toda aba de `BLOCOS`
- * agora tem coluna, então toda aba tem completude que significa algo.
+ * Sem filtro extra: toda aba de `BLOCOS` tem coluna, então toda aba tem
+ * completude que significa algo. Ver a ressalva em `ABAS_VISIVEIS`.
  */
 export function progressoPorBloco(
   dados: Record<string, Row[]>,

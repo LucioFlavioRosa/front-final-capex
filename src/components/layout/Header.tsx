@@ -6,11 +6,11 @@ import { useIndicador } from '../ui/useIndicador'
 import { useContextoTrilho } from './ContextoCabecalho'
 
 /**
- * CABEÇALHO "TRILHO" — direção A do estudo de redesign (11/08/2026).
+ * CABEÇALHO "TRILHO".
  *
- * O que mudou e por quê, porque as três coisas foram pedidas juntas:
+ * Três decisões, e as três se sustentam juntas:
  *
- *   MENOS INFORMAÇÃO. Saíram o rótulo "SES / Sequenciamento de obras" (a marca
+ *   MENOS INFORMAÇÃO. Sem o rótulo "SES / Sequenciamento de obras" (a marca
  *     já diz de quem é o produto, e a aba do navegador diz o resto) e o
  *     nome+cargo por extenso ao lado do avatar (viraram `title` do avatar, que
  *     é onde se procura por isso). O que sobrou é o que muda a leitura do que
@@ -25,8 +25,8 @@ import { useContextoTrilho } from './ContextoCabecalho'
  *     curva vêm dos tokens de `tailwind.config.js` (duration-hover,
  *     ease-saida), não de números soltos.
  *
- * O tema é CLARO e continua claro: o redesign dark não passou na Aegea
- * (11/08/2026). Não reintroduzir `#070B2E` nem as fontes do protótipo dark.
+ * O tema é CLARO, e é decisão firmada: não reintroduzir `#070B2E` nem as fontes
+ * do protótipo dark.
  */
 
 /** Classes do chip — compartilhadas pelas duas formas, estática e clicável. */
@@ -72,7 +72,10 @@ function ChipContexto() {
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
-    'relative flex items-center rounded-t-md px-3.5 text-[13px] font-semibold',
+    // `min-h-6`: os links do topo tinham 23px de altura, um pixel abaixo do alvo
+    // de ponteiro de 24 CSS px da WCAG 2.2. A barra ja tem folga vertical, entao
+    // o minimo nao muda nada no desenho.
+    'relative flex min-h-6 items-center rounded-t-md px-3.5 text-[13px] font-semibold',
     'transition-colors duration-hover ease-saida',
     isActive ? 'text-header-text' : 'text-header-text/70 hover:bg-white/10 hover:text-header-text',
   ].join(' ')
@@ -94,9 +97,8 @@ export function Header({ onOpenCmd }: HeaderProps) {
   const itensVisiveis = navItemsVisiveis(user?.papeis ?? [])
 
   // Com um destino só, a barrinha sublinharia o único item possível —
-  // decoração que não informa nada. Sem o "Início" na barra (Home
-  // desligada, 21/08/2026), o indicador só faz sentido a partir de dois
-  // módulos visíveis.
+  // decoração que não informa nada. Sem o "Início" na barra (a Home está
+  // desligada), o indicador só faz sentido a partir de dois módulos visíveis.
   const mostrarIndicador = itensVisiveis.length > 1
 
   function handleLogout() {
@@ -121,9 +123,8 @@ export function Header({ onOpenCmd }: HeaderProps) {
 
         <span className="hidden h-5 w-px flex-none bg-white/20 sm:block" />
 
-        {/* Navegação principal. Sem o link "Início": a Home está desligada
-            (21/08/2026, ainda em desenvolvimento) e não deve aparecer no menu.
-            Religar junto com a Home no `router.tsx`. */}
+        {/* Navegação principal. Sem o link "Início": a Home está desligada e não
+            deve aparecer no menu. Religar junto com a Home no `router.tsx`. */}
         <nav
           ref={navRef}
           className="relative flex h-14 flex-none items-stretch gap-0.5"
@@ -159,8 +160,8 @@ export function Header({ onOpenCmd }: HeaderProps) {
         <ChipContexto />
 
 
-        {/* PARA A APRESENTAÇÃO DE 18/08/2026: dropdown com os 8 perfis do
-            documento + "Super-admin" (sem restrição nenhuma) — escolha
+        {/* SÓ NO MOCK DE DEV: dropdown com os 8 perfis do documento +
+            "Super-admin" (sem restrição nenhuma) — escolha
             direta, sem precisar clicar N vezes até chegar no perfil que se
             quer mostrar. `<select>` nativo de propósito: é o controle mais
             confiável para uma demo ao vivo. */}
@@ -174,7 +175,7 @@ export function Header({ onOpenCmd }: HeaderProps) {
             <select
               value={perfilDev}
               onChange={(e) => definirPerfilDev(e.target.value as typeof perfilDev)}
-              className="cursor-pointer border-none bg-transparent text-[11px] font-semibold text-amber-100 outline-none [color-scheme:dark]"
+              className="min-h-6 cursor-pointer border-none bg-transparent text-[11px] font-semibold text-amber-100 outline-none [color-scheme:dark]"
             >
               {opcoesPerfilDev.map((p) => (
                 <option key={p} value={p} className="text-ink-900">
@@ -202,7 +203,12 @@ export function Header({ onOpenCmd }: HeaderProps) {
               espaço de volta. */}
           <span
             title={user ? `${user.name}${user.role ? ` · ${user.role}` : ''}` : 'Visitante'}
-            className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-gradient-to-br from-aegea-400 to-aegea-600 text-[11px] font-bold text-water-950 ring-1 ring-white/25"
+            /* `water-900` (navy) e nao `water-950`: aquele token resolve para
+              `--color-secondary`, que hoje e aegea-600 — a MESMA cor do fim do
+              gradiente. As iniciais eram teal sobre teal, e sumiam na metade
+              escura do circulo. O gradiente tambem encurtou: terminar em
+              aegea-500 mantem a marca e da folga de contraste ao texto. */
+            className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-gradient-to-br from-aegea-300 to-aegea-500 text-[11px] font-bold text-water-900 ring-1 ring-white/25"
           >
             {user?.initials ?? '—'}
           </span>

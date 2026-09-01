@@ -13,8 +13,8 @@
  * no painel lateral do cadastro, outra na Revisão. O agrupamento por bloco é
  * ganho das duas — o mapa mental passa a ser o mesmo da navegação do wizard.
  *
- * PALETA CLARA (07/08/2026): veio da branch do redesign dark reescrito nos
- * tokens desta base. As cores dos selos seguem as dos badges de célula da grade
+ * PALETA CLARA, nos tokens desta base. As cores dos selos seguem as dos badges
+ * de célula da grade
  * (`AbaGrid`), que é o que faz "âmbar = falta preencher" significar a mesma coisa
  * na lista e na tabela.
  */
@@ -55,7 +55,7 @@ export function ListaAbasProgresso({ dados, onIrParaAba, variante = 'compacta' }
     <div className={variante === 'compacta' ? 'space-y-3.5' : 'space-y-5'}>
       {blocos.map((bloco) => (
         <div key={bloco.nome}>
-          <h4 className="mb-1.5 text-[12px] font-semibold text-ink-400">{rotuloBloco(bloco.indice)}</h4>
+          <h4 className="mb-1.5 text-[12px] font-semibold text-ink-water">{rotuloBloco(bloco.indice)}</h4>
           <ul className={variante === 'compacta' ? 'space-y-1.5' : 'space-y-1'}>
             {bloco.abas.map((p) =>
               variante === 'compacta' ? (
@@ -83,7 +83,7 @@ function ItemCompacto({ p, onIr }: { p: ProgressoAba; onIr?: (k: string) => void
           <span className="truncate text-[13px] text-ink-700 transition-colors duration-hover ease-saida group-hover:text-water-700">
             {p.aba.titulo}
           </span>
-          <span className="shrink-0 font-mono text-[11px] tabular-nums text-ink-500">
+          <span className="shrink-0 font-mono text-[11px] tabular-nums text-ink-water">
             {p.estado === 'so-db' ? '— OK' : `${p.pct}%`}
           </span>
         </div>
@@ -117,7 +117,7 @@ function ItemRevisao({ p, onIr }: { p: ProgressoAba; onIr?: (k: string) => void 
           <span className="block truncate text-[13.5px] font-semibold text-ink-900">{p.aba.titulo}</span>
           {/* "somente Databricks" é o que explica uma aba contar como OK sem
               ter campo preenchido — sem isso o selo parece erro. */}
-          <span className="mt-0.5 block text-[12px] text-ink-500">
+          <span className="mt-0.5 block text-[12px] text-ink-water">
             {p.estado === 'so-db' ? 'somente Databricks' : 'origem unidade'}
           </span>
         </span>

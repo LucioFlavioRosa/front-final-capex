@@ -29,7 +29,7 @@ export function Carregando({ rotulo, linhas = 3 }: { rotulo: string; linhas?: nu
     <div role="status" aria-live="polite" className="animate-fade-in">
       <span className="sr-only">{rotulo}</span>
       <div aria-hidden="true" className="flex flex-col gap-3">
-        <div className="text-[11px] font-semibold uppercase tracking-[.09em] text-ink-400">
+        <div className="text-[11px] font-semibold uppercase tracking-[.09em] text-ink-water">
           {rotulo}
         </div>
         {Array.from({ length: linhas }, (_, i) => (
@@ -68,7 +68,7 @@ export function ErroCarga({
         <Warning weight="fill" className="mt-0.5 shrink-0 text-lg text-danger" />
         <div className="min-w-0">
           <p className="text-sm font-semibold text-ink-800">{titulo}</p>
-          {causa && <p className="mt-1 text-[12.5px] leading-snug text-ink-500">{causa}</p>}
+          {causa && <p className="mt-1 text-[12.5px] leading-snug text-ink-water">{causa}</p>}
           <Button variant="secondary" className="mt-3.5" onClick={aoRecarregar}>
             <ArrowClockwise className="text-base" />
             Tentar de novo
@@ -97,11 +97,11 @@ export function Vazio({
 }) {
   return (
     <div className="animate-fade-in rounded-2xl border-[1.5px] border-dashed border-ink-300 bg-white p-8 text-center">
-      <span className="mx-auto mb-2.5 flex h-11 w-11 items-center justify-center rounded-full bg-ink-100 text-ink-400">
+      <span className="mx-auto mb-2.5 flex h-11 w-11 items-center justify-center rounded-full bg-ink-100 text-ink-water">
         <Tray weight="fill" className="text-xl" />
       </span>
       <p className="text-sm font-semibold text-ink-800">{titulo}</p>
-      <p className="mx-auto mt-1 max-w-[38ch] text-[12.5px] leading-snug text-ink-500">{texto}</p>
+      <p className="mx-auto mt-1 max-w-[38ch] text-[12.5px] leading-snug text-ink-water">{texto}</p>
       {acao && <div className="mt-4 flex justify-center">{acao}</div>}
     </div>
   )

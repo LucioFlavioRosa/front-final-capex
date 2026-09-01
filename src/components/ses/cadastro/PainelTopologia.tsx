@@ -1,22 +1,23 @@
 /**
- * PROBLEMAS DE TOPOLOGIA, na própria aba do Fluxo de escoamento — item 23.
+ * PROBLEMAS DE TOPOLOGIA, na própria aba do Fluxo de escoamento.
  *
  * É a ÚNICA aba do cadastro com painel de problemas, e a exceção é deliberada.
  *
- * A sessão de 30/07/2026 tirou os painéis de todas as telas de cadastro e os
- * concentrou na Revisão, com um argumento que continua valendo: "um problema aqui
- * nunca é local" — "referência de sub-bacia inexistente" nasce da relação entre
+ * A REGRA GERAL concentra os painéis de problema na Revisão, e o argumento é que
+ * um problema de cadastro quase nunca é local: "referência de sub-bacia
+ * inexistente" nasce da relação entre
  * duas abas, e mostrá-lo enquanto a pessoa digita preço unitário interrompe sem
  * oferecer nada acionável.
  *
- * A topologia é o caso que não se encaixa nesse argumento, e é por isso que Wagner
- * pediu a conferência aqui (13:51). O erro está NESTA tabela, a correção também: a
- * linha que não tem destino é a linha que a pessoa está olhando, e resolver é
+ * A topologia é o caso que não se encaixa nesse argumento. O erro está NESTA
+ * tabela, a correção também: a linha que não tem destino é a linha que a pessoa
+ * está olhando, e resolver é
  * escolher na lista suspensa ao lado. Levar isso para outra tela seria mandar
  * alguém sair da página para descobrir o que precisa fazer nela.
  *
- * A CONCILIAÇÃO com 30/07 está no escopo: este painel lista SÓ topologia, e não
- * volta a ser o painel geral em todas as abas. A Revisão segue sendo o portão que
+ * O QUE MANTÉM A EXCEÇÃO SOB CONTROLE é o escopo: este painel lista SÓ
+ * topologia, e não vira o painel geral em todas as abas. A Revisão segue sendo o
+ * portão que
  * bloqueia a rodada — os mesmos problemas aparecem lá, porque `validarCadastro`
  * chama `validarTopologia`.
  *
@@ -27,7 +28,7 @@
 
 import { useState } from 'react'
 import { CaretDown, CaretRight, WarningCircle, XCircle } from '@phosphor-icons/react'
-import type { Problema } from '../../../lib/cadastroValidacao'
+import type { Problema } from '../../../domain/validacao'
 
 /** Quantos problemas ficam à vista antes de o painel virar lista recolhida. */
 const VISIVEIS_SEM_EXPANDIR = 2
@@ -83,7 +84,7 @@ export function PainelTopologia({ problemas }: { problemas: Problema[] }) {
           >
             <p className={`text-[12px] font-semibold ${p.nivel === 'critico' ? 'text-danger' : 'text-ink-800'}`}>
               {p.titulo}
-              <span className="ml-1.5 font-normal text-ink-500">({p.ocorrencias})</span>
+              <span className="ml-1.5 font-normal text-ink-water">({p.ocorrencias})</span>
             </p>
             <p className="mt-0.5 text-[11.5px] leading-snug text-ink-600">{p.detalhe}</p>
           </li>

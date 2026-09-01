@@ -57,7 +57,10 @@ export function AppLayout() {
     <div className="min-h-screen flex flex-col">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 z-50 bg-aegea-600 text-white px-4 py-2 rounded"
+        /* `water-700` e não `aegea-600`: o branco sobre o verde-água dava 3,9:1, abaixo
+           do mínimo de 4,5:1 — e este é o PRIMEIRO alvo de quem navega por teclado,
+           o último lugar onde o contraste pode falhar. O azul da marca dá folga. */
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 z-50 bg-water-700 text-white px-4 py-2 rounded"
       >
         Pular para o conteúdo
       </a>

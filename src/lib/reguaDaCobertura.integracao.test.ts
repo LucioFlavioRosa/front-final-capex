@@ -18,6 +18,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { lerCadastro, salvarCadastro } from './cadastroApi'
 import { SELECTS } from '@/data/cadastroUnidade/schema'
+import type { BaseDoCadastro } from './cadastroApi'
 import type { UnidadeState } from '@/data/cadastroUnidade/types'
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
@@ -38,15 +39,35 @@ const concessao = (u: UnidadeState) =>
  * mandaria fichas inteiras em branco. Passar só a tabela driblaria justamente a
  * proteção que este arquivo existe para exercitar.
  */
+/**
+ * A BASE PAREADA COM O ESTADO QUE VEIO COM ELA.
+ *
+ * `salvarCadastro` passou a exigir a linha-base como parâmetro — antes ela vinha
+ * de um `Map` escondido dentro de `cadastroApi`. Guardar num `let` solto daria
+ * certo por sorte (a base do último `abrir` seria a de qualquer salvamento);
+ * o `WeakMap` amarra cada base ao seu estado, e aí a ordem das chamadas não
+ * importa.
+ */
+const bases = new WeakMap<UnidadeState, BaseDoCadastro>()
+
+/** Salva o estado com a base que a leitura dele devolveu. */
+function salvar(estado: UnidadeState) {
+  const base = bases.get(estado)
+  if (!base) throw new Error('estado montado sem `abrir()` — não há base para o diff')
+  return salvarCadastro(estado, base)
+}
+
 async function abrir(): Promise<UnidadeState> {
   const lido = await lerCadastro(UNIDADE)
-  return {
+  const estado = {
     id: lido.unidade_id,
     name: lido.unidade_nome,
     regionalName: lido.regional_nome,
     cidades: [],
     data: lido.dados,
   } as UnidadeState
+  bases.set(estado, lido.base)
+  return estado
 }
 
 beforeAll(async () => {
@@ -68,7 +89,7 @@ afterAll(async () => {
   const u = await abrir()
   const l = concessao(u).find((c) => c.cidade_id === alvo)
   if (l) l.unidade_cobertura = original
-  await salvarCadastro(u)
+  await salvar(u)
 }, 120_000)
 
 describe('a régua da cobertura', () => {
@@ -106,7 +127,7 @@ describe('a régua da cobertura', () => {
     const linha = concessao(antes).find((c) => c.cidade_id === alvo)!
     const fimAntigo = linha.data_fim_concessao
     linha.data_fim_concessao = String(Number(fimAntigo || 2045) - 1)
-    await salvarCadastro(antes)
+    await salvar(antes)
 
     expect(daCidade(await abrir())).toBe(original)
   }, 180_000)
@@ -127,7 +148,7 @@ describe('a régua da cobertura', () => {
 
     const u = await abrir()
     concessao(u).find((c) => c.cidade_id === alvo)!.unidade_cobertura = ''
-    await salvarCadastro(u)
+    await salvar(u)
 
     // Uma cidade a mais pendente — nem zero (gravou `""` e passou por cheia),
     // nem duas (mexeu em outra coisa junto).
@@ -135,7 +156,7 @@ describe('a régua da cobertura', () => {
 
     const volta = await abrir()
     concessao(volta).find((c) => c.cidade_id === alvo)!.unidade_cobertura = original
-    await salvarCadastro(volta)
+    await salvar(volta)
     expect(await contrato()).toBe(antes)
   }, 180_000)
 
@@ -145,7 +166,7 @@ describe('a régua da cobertura', () => {
     const outra = original === 'populacao' ? 'economias' : 'populacao'
     const u = await abrir()
     concessao(u).find((c) => c.cidade_id === alvo)!.unidade_cobertura = outra
-    await salvarCadastro(u)
+    await salvar(u)
 
     const depois = concessao(await abrir()).find((c) => c.cidade_id === alvo)
     expect(depois?.unidade_cobertura).toBe(outra)

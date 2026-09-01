@@ -34,6 +34,14 @@ import type {
   SubBaciaDetalhe,
 } from '@/rodada/domain/resultado'
 import type { CorpoNovaRodada, Prontidao } from '@/rodada/domain/simulacao'
+import type { Faixa, Sensibilidade } from '@/rodada/domain/sensibilidade'
+
+/**
+ * `rapido` é o padrão da análise: solver de 60s, resultado marcado como
+ * estimativa e fora do histórico. `completo` é uma simulação como qualquer
+ * outra, com os 1000s de sempre, e entra no histórico.
+ */
+export type ModoDaVariacao = 'rapido' | 'completo'
 
 const BASE = '/api/runs'
 
@@ -49,6 +57,64 @@ export const resultados = {
 
   /** KPIs + parâmetros + status. Alimenta o cabeçalho em TODOS os níveis. */
   meta: (runId: string) => api.get<RunMeta>(`${BASE}/${runId}/meta`),
+
+  /**
+   * Onde a rodada está AGORA — status, progresso e posição na fila.
+   *
+   * O pacote inteiro tratava resultado como imutável e nunca consultava isto, e
+   * o efeito era uma rodada em execução que não dava sinal de vida. Numa análise
+   * de sensibilidade isso é fatal: são simulações completas, levam minutos, e sem
+   * o sinal a tela parece travada — foi exatamente o que aconteceu na primeira
+   * tentativa, e a reação (certa) foi excluir as rodadas.
+   */
+  status: (runId: string) =>
+    api.get<{
+      runId: string
+      status: string
+      progresso: number
+      fila?: { posicao: number; motivo: string; atencao: boolean; vivos: number }
+    }>(`${BASE}/${runId}/status`),
+
+  /**
+   * A MESMA simulação com o orçamento escalado — um ponto da curva de
+   * sensibilidade. O clone acontece no SERVIDOR: aqui só vai o fator.
+   *
+   * Idempotente pelo backend (`abrir_rodada` devolve a rodada existente quando o
+   * pedido é idêntico), então repetir a varredura não gasta cluster —
+   * `jaExistia` diz qual dos dois aconteceu.
+   *
+   * `modo` escolhe quanto tempo o solver tem: `rapido` põe teto de 60s no lugar
+   * dos 1000s de uma simulação. É a MESMA otimização — mesmos dados, mesmas
+   * restrições —, e o que muda é até onde ela vai na prova de otimalidade. A
+   * inclinação da curva aparece muito antes disso. O preço é dito: o resultado
+   * pode ser subótimo, e por isso a rodada rápida é marcada como estimativa e
+   * NÃO aparece no histórico.
+   */
+  /**
+   * O TETO e os PONTOS da curva de sensibilidade, num payload só.
+   *
+   * Uma rota para as duas metades porque a tela não consegue usar uma sem a
+   * outra: o teto responde na hora e diz se vale disparar alguma coisa; os
+   * pontos são as variações que já rodaram. Os pontos saem da LINHAGEM gravada
+   * no servidor (`run_request.base_run_id`), e nunca do rótulo da rodada: o
+   * rótulo é livre e editável, e renomear desmancharia a curva em silêncio.
+   */
+  sensibilidade: (runId: string, faixa: Faixa) =>
+    api.get<Sensibilidade>(
+      `${BASE}/${runId}/sensibilidade?de=${faixa.de}&ate=${faixa.ate}&pontos=${faixa.pontos}`,
+    ),
+
+  variacao: (runId: string, fator: number, nome: string, modo: ModoDaVariacao) =>
+    api.post<{
+      runId: string
+      status: string
+      jaExistia: boolean
+      /** `false` quando a rodada devolvida já é ponto da curva de OUTRA base. */
+      naCurva: boolean
+    }>(
+      `${BASE}/${runId}/variacao`,
+      { fator, nome, modo },
+    ),
 
   /**
    * Apaga uma rodada. A ÚNICA mutação destrutiva do pacote inteiro.
@@ -93,7 +159,7 @@ export const resultados = {
 
   /**
    * O mesmo resumo, recortado por cidade — "sub-bacias fora do plano" do
-   * nível 2 (item 10 de 26/08). Endpoint próprio, e não um `?cidade=` no de
+   * nível 2. Endpoint próprio, e não um `?cidade=` no de
    * cima: a URL de cidade já tem `/cidades/{id}`, e colar o recorte nela
    * segue o mesmo padrão de `cidade()` logo abaixo.
    */
@@ -105,7 +171,7 @@ export const resultados = {
     api.get<CidadeDetalhe>(`${BASE}/${runId}/cidades/${cidadeId}`),
 
   /**
-   * Lista de obras por ordem de execução, nível 1 (item 3 de 26/08). Paginada:
+   * Lista de obras por ordem de execução, nível 1. Paginada:
    * uma unidade grande publica milhares de linhas em `otim_obra`.
    */
   obras: (
@@ -114,6 +180,7 @@ export const resultados = {
       situacao?: string
       cidadeId?: string
       ano?: number
+      recorte?: string
       pagina?: number
       tamanho?: number
       ordenar?: string
@@ -123,6 +190,9 @@ export const resultados = {
     if (filtro?.situacao) q.set('situacao', filtro.situacao)
     if (filtro?.cidadeId) q.set('cidade', filtro.cidadeId)
     if (filtro?.ano) q.set('ano', String(filtro.ano))
+    // 'todas' nao vira parametro: e a ausencia de recorte, e mandar a palavra
+    // criaria uma segunda chave de cache para a mesma lista.
+    if (filtro?.recorte && filtro.recorte !== 'todas') q.set('recorte', filtro.recorte)
     if (filtro?.pagina) q.set('pagina', String(filtro.pagina))
     if (filtro?.tamanho) q.set('tamanho', String(filtro.tamanho))
     if (filtro?.ordenar) q.set('ordenar', filtro.ordenar)
@@ -131,8 +201,8 @@ export const resultados = {
   },
 
   /**
-   * O cronograma de obras do plano — quantas de cada componente por ano.
-   * Item 3 na leitura corrigida em 27/08: o gráfico do plano de execução.
+   * O cronograma de obras do plano — quantas de cada componente por ano. É o
+   * gráfico do plano de execução.
    */
   cronogramaDeObras: (runId: string) =>
     api.get<CronogramaDeObras>(`${BASE}/${runId}/obras/cronograma`),

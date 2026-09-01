@@ -23,3 +23,9 @@ export-figma/
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
+
+# Skills e configuração local do Claude Code — ferramenta de quem desenvolve,
+# não do produto. Versioná-las espalharia config de máquina para o time.
+.agents/
+.claude/
+skills-lock.json

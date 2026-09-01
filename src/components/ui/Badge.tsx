@@ -8,7 +8,10 @@ const tones: Record<Tone, string> = {
   ink: 'bg-ink-100 border-ink-200 text-ink-600',
   success: 'bg-green-50 border-green-200 text-success',
   warning: 'bg-warning/10 border-warning/25 text-warning',
-  danger: 'bg-red-50 border-danger/20 text-danger',
+  // `#9B1C1C` e nao `text-danger`: sobre `red-50` o token da 4,41:1, a 0,09 do
+  // minimo. A bolinha e a borda seguem no `danger`, que e cor de estado e nao
+  // texto — ali vale a regra de 3:1.
+  danger: 'bg-red-50 border-danger/20 text-[#9B1C1C]',
 }
 
 const dots: Record<Tone, string> = {

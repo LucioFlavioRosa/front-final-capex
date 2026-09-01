@@ -16,11 +16,9 @@
  * navegador tratar o outro como `auto` — um popover em `position: absolute`
  * dentro do `<th>` sairia recortado.
  *
- * PALETA CLARA (07/08/2026): este arquivo nasceu na branch do redesign dark e
- * veio para cá reescrito nos tokens desta base — `bg-white` + `border-ink-200` +
+ * PALETA CLARA, nos tokens desta base — `bg-white` + `border-ink-200` +
  * `shadow-elev` no painel, `text-ink-*` no texto, `hover:bg-water-50` na linha.
- * A lógica é a mesma nas duas versões; só a pintura difere. Ao mexer aqui, vale
- * conferir se o par na outra branch precisa do mesmo ajuste.
+ * Nada de cor de tema escuro aqui.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -159,7 +157,7 @@ export function FiltroColuna({ rotulo, linhas, coluna, selecionados, onChange }:
         aria-label={`Filtrar ${rotulo}${ativo ? ' (filtro ativo)' : ''}`}
         title={`Filtrar ${rotulo}`}
         className={`ml-0.5 inline-flex align-middle transition-colors duration-hover ease-saida ${
-          ativo ? 'text-water-600' : 'text-ink-400 hover:text-water-600'
+          ativo ? 'text-water-600' : 'text-ink-water hover:text-water-600'
         }`}
       >
         <Funnel weight={ativo ? 'fill' : 'regular'} className="text-[12px]" />
@@ -175,13 +173,13 @@ export function FiltroColuna({ rotulo, linhas, coluna, selecionados, onChange }:
             className="z-[75] w-[260px] overflow-hidden rounded-xl border border-ink-200 bg-white shadow-elev"
           >
             <div className="flex items-center gap-2 border-b border-ink-100 px-3 py-2.5">
-              <MagnifyingGlass className="shrink-0 text-[13px] text-ink-400" />
+              <MagnifyingGlass className="shrink-0 text-[13px] text-ink-water" />
               <input
                 autoFocus
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
                 placeholder={`Filtrar ${rotulo}`}
-                className="min-w-0 flex-1 border-0 bg-transparent text-[13px] text-ink-900 outline-none placeholder:text-ink-400"
+                className="min-w-0 flex-1 border-0 bg-transparent text-[13px] text-ink-900 outline-none placeholder:text-ink-water"
               />
             </div>
 
@@ -211,19 +209,19 @@ export function FiltroColuna({ rotulo, linhas, coluna, selecionados, onChange }:
                       onChange={() => alternar(v)}
                       className="shrink-0 accent-water-600"
                     />
-                    <span className={`truncate ${v === '' ? 'italic text-ink-400' : 'text-ink-800'}`}>
+                    <span className={`truncate ${v === '' ? 'italic text-ink-water' : 'text-ink-800'}`}>
                       {rotuloValor(v)}
                     </span>
                   </label>
                 </li>
               ))}
               {!filtrados.length && (
-                <li className="px-3 py-2 text-[12.5px] text-ink-400">Nenhum valor.</li>
+                <li className="px-3 py-2 text-[12.5px] text-ink-water">Nenhum valor.</li>
               )}
             </ul>
 
             <div className="flex items-center justify-between border-t border-ink-100 px-3 py-2">
-              <span className="text-[11.5px] tabular-nums text-ink-400">
+              <span className="text-[11.5px] tabular-nums text-ink-water">
                 {distintos.length} {distintos.length === 1 ? 'valor' : 'valores'}
               </span>
               <button

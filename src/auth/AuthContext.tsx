@@ -24,8 +24,7 @@ import {
 } from './papeis'
 
 /**
- * Perfil de acesso — N2 do plano de perfis (18/08/2026), sobre o item 10 da
- * sessão de 30/07/2026 com a Aegea.
+ * Perfil de acesso — quem vê o quê depois de entrar.
  *
  * DUAS CAMADAS, e este arquivo só cuida da segunda: o SSO (dormente,
  * `app/auth/`) valida se a pessoa entra no site; `papeis`/`unidades`/`tudo`
@@ -159,9 +158,9 @@ const ROTULO_PERFIL_DEV: Record<PerfilDev, string> = {
 }
 
 /**
- * UM MOCK POR PAPEL (18/08/2026) — para a apresentação poder mostrar o que
- * cada um dos 8 perfis do documento vê no dia a dia, sem precisar de 8
- * contas reais nem do SSO (que está dormente). `unidades` usa '56'/'57' —
+ * UM MOCK POR PAPEL — para mostrar o que cada um dos 8 perfis do documento vê
+ * no dia a dia, sem precisar de 8 contas reais nem do SSO (que está dormente).
+ * `unidades` usa '56'/'57' —
  * as duas únicas unidades carregadas em `input.unidade_regional` hoje (ver
  * `lib/organizacaoApi.ts`) — para que os mocks de escopo estreito mostrem
  * dado de verdade, não uma unidade vazia.

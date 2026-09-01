@@ -8,12 +8,11 @@
  * respondem a perguntas diferentes ("o que isto muda?" contra "de onde isto
  * saiu?").
  *
- * POR QUE ELE EXISTE. Dos treze pontos do segundo lote de feedback da Aegea
- * (26/08/2026), seis eram literalmente "o que é isto?" sobre um rótulo de
- * resultado — Faturando, Ocupação da ETE, Componentes, Obras que travam,
- * Receita arrecadada ou faturada, Sub-bacias faturando. Renomear cada um resolve
- * seis perguntas; um verbete por número resolve a classe inteira, inclusive as
- * perguntas que ainda não foram feitas.
+ * POR QUE ELE EXISTE. Meia dúzia de rótulos de resultado geram sempre a mesma
+ * pergunta — "o que é isto?" sobre Faturando, Ocupação da ETE, Componentes,
+ * Obras que travam, Receita arrecadada ou faturada, Sub-bacias faturando.
+ * Renomear cada um resolve meia dúzia de perguntas; um verbete por número
+ * resolve a classe inteira, inclusive as perguntas que ainda não foram feitas.
  *
  * O `tec` AQUI É A COLUNA DO BANCO, e não um parâmetro do motor. Em
  * `dicionario.ts` o nome técnico serve para reconhecer o controle no notebook;
@@ -30,13 +29,13 @@ export const DICIONARIO_RESULTADO: Record<string, Verbete> = {
   // ------------------------------------------------------------- nível 1
   VPL_PLANO: {
     rotulo: 'VPL do plano',
-    tec: 'otim_meta.vpl',
+    tec: 'otim_meta.vpl − vp_efeito_base',
     origem: MOTOR,
     tipo: 'R$, valor presente',
     oque:
-      'A soma do valor presente de todas as sub-bacias do plano: receita menos CAPEX e OPEX, descontados pelo WACC até a data-base.',
+      'A soma do valor presente de todas as sub-bacias do plano: receita menos CAPEX e OPEX, descontados pelo WACC até a data-base. O efeito-base de paridade fica DE FORA — ele é receita que existiria sem o plano.',
     porque:
-      'É a função que o otimizador maximiza quando o objetivo é "Só VPL", e o placar do plano em qualquer objetivo. Comparar duas rodadas da mesma unidade é comparar este número.',
+      'É o placar do plano, e o que comparar entre duas rodadas da mesma unidade. Uma ressalva: o otimizador ainda ESCOLHE o plano maximizando o VPL com o efeito-base incluído, então este número não é exatamente a função que ele maximizou — a diferença é o efeito-base, que aparece à parte no detalhe da sub-bacia.',
     exemplo: 'R$ 451,3 Mi',
   },
   CAPEX_TOTAL: {
@@ -158,28 +157,6 @@ export const DICIONARIO_RESULTADO: Record<string, Verbete> = {
       'É o mesmo conceito do nível 1, no recorte do sistema. Sub-bacia que recebeu obra e não fatura continua contando no CAPEX e não conta aqui, e essa diferença é o que o diagrama de escoamento mostra em vermelho.',
     exemplo: '7',
   },
-  COMPONENTES_NO_PLANO: {
-    rotulo: 'Componentes no plano',
-    tec: 'otim_obra.construida, por nó',
-    origem: MOTOR,
-    tipo: 'contagem',
-    oque:
-      'Quantos componentes de obra desta sub-bacia o plano executa, do total que ela tem cadastrado — até cinco: ligação, rede, coletor tronco, EEE e linha de recalque. Obra de terceiro conta no numerador: ela acontece e a cadeia existe, só não consome CAPEX da Aegea.',
-    porque:
-      'A escolha do otimizador é componente a componente, e não sub-bacia inteira. É por isso que existe sub-bacia com só o coletor tronco construído: o tronco leva a vazão de montante até a ETE, enquanto a rede dela não entrou — e, sem rede, ela não fatura.',
-    exemplo: '2 de 5',
-  },
 
   // -------------------------------------------------- explicabilidade
-  ELO_QUE_TRAVA: {
-    rotulo: 'Obras que liberam mais sub-bacias',
-    tec: 'otim_obra.elo_que_trava',
-    origem: MOTOR,
-    tipo: 'contagem',
-    oque:
-      'Obra não construída que é a última peça faltando na cadeia de outras sub-bacias. O número ao lado é quantas sub-bacias deixam de faturar por causa dela.',
-    porque:
-      'É onde um real a mais rende mais: parte da cadeia já foi construída, e falta um elo para a receita destravar. O motor só nomeia um elo quando parte da cadeia já existe — obra isolada que não foi escolhida não aparece aqui, aparece como motivo na lista ao lado.',
-    exemplo: 'tro_b1b65_1_4 · trava 2',
-  },
 }

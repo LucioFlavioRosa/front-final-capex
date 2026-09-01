@@ -23,8 +23,8 @@ import { Simular } from './rodada/pages/Simular'
  * tela com número inventado rouba a atenção da que está pronta. Hoje ela lê do
  * backend, então voltou.
  *
- * CAMINHO DESCONHECIDO (N5, 18/08/2026): deixou de cair fixo no Cadastro — com
- * 8 papéis isso quebraria para `gerenciador_usuarios`, que não pode acessá-lo.
+ * CAMINHO DESCONHECIDO: não cai fixo no Cadastro — com 8 papéis isso quebra
+ * para `gerenciador_usuarios`, que não pode acessá-lo.
  * `RotaPadrao` (`components/auth/RequirePapel.tsx`) decide em tempo de render,
  * pelo papel de quem está logado: primeiro módulo que a pessoa alcança, ou a
  * tela de "sem módulo nenhum" quando não há um.

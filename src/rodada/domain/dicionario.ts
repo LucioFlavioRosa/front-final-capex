@@ -1,6 +1,6 @@
 /**
  * O DICIONÁRIO DOS PARÂMETROS DA RODADA — o equivalente, aqui, ao dicionário de
- * dados do Cadastro (`domain/dict.ts`).
+ * dados do Cadastro (`domain/dicionario.ts`).
  *
  * A tela de nova simulação dispara algo que vai existir para sempre no
  * histórico, e cada controle muda o plano de investimento de um jeito que não é
@@ -107,14 +107,14 @@ export const DICIONARIO_RODADA: Record<string, Verbete> = {
 
   // ----------------------------------------------------------- 03 objetivo
   FOCO_COBERTURA: {
-    rotulo: 'Foco em cobertura',
+    rotulo: 'Objetivo',
     tec: 'FOCO_COBERTURA',
     origem: VOCE,
-    tipo: '0 · 0,5 · 1',
+    tipo: 'Cobertura · Equilíbrio · Só VPL',
     oque: 'O que o otimizador prioriza quando VPL e cobertura entram em conflito.',
     porque:
       'Só VPL (0) maximiza retorno e ignora a meta. Cobertura primeiro (1) prioriza cumprir o contrato. Equilíbrio (0,5) pondera os dois.',
-    exemplo: 'Cobertura em 1º lugar',
+    exemplo: 'Cobertura',
   },
   PENALIDADE_COBERTURA: {
     rotulo: 'Estratégia de cobertura',

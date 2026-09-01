@@ -20,8 +20,8 @@
  * têm os mesmos nomes das colunas do banco. O que difere é o RECORTE das rotas,
  * que agrupam por ficha em vez de por tabela:
  *
- *   GET /unidades/{u}/hierarquia   unidade-regional, regional-superintendencia,
- *                                  superintendencia-cidade, cidade-sistema,
+ *   GET /unidades/{u}/hierarquia   unidade-regional, empresa,
+ *                                  cidade-empresa, cidade-sistema,
  *                                  sistema-topologia
  *   GET /unidades/{u}/contrato     cidade-operacional, metas-cobertura, fator-esgoto
  *   GET /unidades/{u}/sub-bacias   subbacia-operacional, componentes-subbacias-capex
@@ -30,7 +30,7 @@
  *
  * ## O que este módulo NÃO grava, e por quê
  *
- * O backend não expõe escrita para NOME — de regional, superintendência, cidade
+ * O backend não expõe escrita para NOME — de regional, empresa, cidade
  * ou sistema —, nem para `regional-operacional` (ano-base). Eles vêm do
  * Databricks. As abas correspondentes continuam sendo LIDAS e exibidas; o que
  * elas não fazem é voltar para o banco. `ABAS_SEM_ESCRITA` lista todas, e
@@ -62,6 +62,12 @@ export interface CadastroLido {
   dados: UnidadeState['data']
   criado_em: string
   atualizado_em: string
+  /**
+   * O que o SERVIDOR devolveu, intocado — a linha-base do diff de
+   * `salvarCadastro`. Guarde-a e entregue-a na hora de salvar; ver
+   * `BaseDoCadastro`.
+   */
+  base: BaseDoCadastro
 }
 
 // ---------------------------------------------------------------- payloads
@@ -71,8 +77,8 @@ export interface CadastroLido {
 
 interface Hierarquia {
   unidReg: { rid: string; rnome: string; uid: string; unome: string; waccMedio: string }
-  superintendencias: { id: string; nome: string }[]
-  cidades: { id: string; nome: string; supId: string }[]
+  empresas: { id: string; nome: string; fimConcessao: string }[]
+  cidades: { id: string; nome: string; empId: string }[]
   sistemas: { id: string; nome: string; cidId: string; usaCts?: string }[]
   topo: { sis: string; id: string; nome: string; jus: string; tipo?: string }[]
   /** Componentes fora de qualquer sistema — hoje, as CTS ainda não colocadas. */
@@ -80,7 +86,7 @@ interface Hierarquia {
 }
 
 interface Contrato {
-  cidades: { id: string; nome: string; fim: string; cob: string }[]
+  cidades: { id: string; nome: string; empId: string; empNome: string; fim: string; cob: string }[]
   metas: { cid: string; ano: string; pct: string }[]
   fator: { cid: string; cob: string; par: string }[]
 }
@@ -129,7 +135,7 @@ const DB: Record<string, string> = {
   ecoN: 'economias_novas_obras',
   // O RECORTE RESIDENCIAL. Estava fora deste de/para e, por tabela, fora da
   // tela: a ficha chegava com os quatro, a grade não os mostrava, e a gravação
-  // os preservava por baixo (ver `ultimaLeitura`). Dado que existe, decide meta,
+  // os preservava por baixo (ver `BaseDoCadastro`). Dado que existe, decide meta,
   // e ninguém conseguia conferir.
   ligURes: 'universo_ligacoes_residencial',
   ligARes: 'ligacoes_atuais_residencial',
@@ -192,11 +198,13 @@ const ETE: Record<string, string> = {
 const inverso = (m: Record<string, string>): Record<string, string> =>
   Object.fromEntries(Object.entries(m).map(([k, v]) => [v, k]))
 
+// `empresa` NAO ENTRA AQUI: a aba grava, por `PUT /empresas/{emp_codigo}` — e o
+// unico campo dela, o fim da concessao, e justamente o que a tela existe para
+// informar. Ver `salvarCadastro`.
 export const ABAS_SEM_ESCRITA = [
   'unidade-regional',
   'regional-operacional',
-  'regional-superintendencia',
-  'superintendencia-cidade',
+  'cidade-empresa',
   'subbacia-cts',
 ] as const
 
@@ -212,13 +220,35 @@ export const ABAS_SEM_ESCRITA = [
  * ninguém pediu para mudar.
  *
  * Então o corpo sai do que veio do servidor, com as colunas do wizard aplicadas
- * por cima. Some quando a página recarrega, e é por isso que `salvarCadastro`
- * exige uma leitura antes: sem ela, recusa em vez de adivinhar.
+ * por cima. `salvarCadastro` EXIGE esta base: sem ela, recusa em vez de adivinhar.
+ *
+ * ERA UM `Map` DE MÓDULO, preenchido por `lerCadastro` e lido por
+ * `salvarCadastro` pelas costas. A assinatura dizia que bastava a unidade, e não
+ * bastava: era preciso ter lido antes, no mesmo processo. Restrição de ordem faz
+ * parte da interface tanto quanto o tipo — e escondê-la custou caro em dois
+ * lugares. Gravar só tinha teste de integração, contra backend no ar, porque não
+ * havia como montar uma base falsa; e o estado de módulo compartilhado ajudou a
+ * criar a corrida que obrigou a serializar a suíte de integração.
+ *
+ * Agora a base é um VALOR: `lerCadastro` devolve, quem salva entrega. O tipo
+ * cobra, o teste fabrica, e não há estado escondido entre as duas chamadas.
  */
-const ultimaLeitura = new Map<
-  string,
-  { subs: SubBacias; cts: Cts; etes: Etes; dados: UnidadeState['data'] }
->()
+export interface BaseDoCadastro {
+  /**
+   * De QUEM é esta base.
+   *
+   * O `Map` era chaveado por unidade, e isso não era detalhe: trocar de unidade
+   * e salvar antes de a leitura nova chegar buscava a chave nova, não achava, e
+   * recusava. Com a base solta esse acidente vira gravar a unidade A com a
+   * régua da B, que apagaria coluna de verdade. Por isso o id viaja junto e
+   * `salvarCadastro` confere.
+   */
+  unidadeId: string
+  subs: SubBacias
+  cts: Cts
+  etes: Etes
+  dados: UnidadeState['data']
+}
 
 /**
  * Mudou em relação ao que o servidor devolveu?
@@ -278,14 +308,35 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
     api.get<Cts>(`/api/unidades/${u}/cts`),
   ])
 
-  // `dados` entra no cache junto: ele e a LINHA-BASE contra a qual a gravacao
-  // decide o que mudou. Sem ele, salvar mandaria a unidade inteira.
-  const guardar = (dados: UnidadeState['data']) =>
-    ultimaLeitura.set(unidadeId, { subs, cts, etes, dados: JSON.parse(JSON.stringify(dados)) })
+  // `dados` entra na base junto: ele e a LINHA-BASE contra a qual a gravacao
+  // decide o que mudou. Sem ele, salvar mandaria a unidade inteira. A CÓPIA
+  // PROFUNDA é o que mantém a base imune à edição da tela — o wizard muta as
+  // linhas que recebe, e sem a cópia a base viraria o próprio estado editado e
+  // o diff nunca acusaria mudança nenhuma.
+  const montarBase = (dados: UnidadeState['data']): BaseDoCadastro => ({
+    unidadeId,
+    subs,
+    cts,
+    etes,
+    dados: JSON.parse(JSON.stringify(dados)),
+  })
 
   const nomeSistema = new Map(hier.sistemas.map((s) => [s.id, s.nome]))
   const nomeComponente = new Map(hier.topo.map((t) => [t.id, t.nome]))
   const nomeCidade = new Map(contrato.cidades.map((c) => [c.id, c.nome]))
+  /**
+   * A EMPRESA DE CADA MUNICÍPIO — para as abas que são por cidade mas mostram o
+   * nível acima dela.
+   *
+   * As três abas do bloco Município (régua, metas, paridade) declaram
+   * `emp_codigo` e `empresa`, e as três montavam a linha com string vazia fixa:
+   * a coluna existia na tela e nunca teve dado. O servidor sempre soube — a
+   * cidade tem uma empresa por definição (`cidade_empresa`) —, faltava trazer e
+   * ligar aqui.
+   */
+  const empresaDaCidade = new Map(
+    contrato.cidades.map((c) => [c.id, { cod: c.empId ?? '', nome: c.empNome ?? '' }]),
+  )
 
   const dados: UnidadeState['data'] = {
     'unidade-regional': [
@@ -302,16 +353,20 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
     // expõe. A linha existe para a aba não sumir; o campo fica em branco.
     'regional-operacional': [{ regional_id: hier.unidReg.rid, ano_base: '' }],
 
-    'regional-superintendencia': hier.superintendencias.map((s) => ({
+    'empresa': hier.empresas.map((s) => ({
       unidade_id: hier.unidReg.uid,
-      superintendencia_id: s.id,
-      superintendencia_name: s.nome,
+      emp_codigo: s.id,
+      empresa: s.nome,
+      data_fim_concessao: s.fimConcessao,
     })),
 
-    'superintendencia-cidade': hier.cidades.map((c) => ({
-      emp_codigo: '',
-      empresa: '',
-      superintendencia_id: c.supId,
+    // O NOME DA EMPRESA VEM POR BUSCA, e não vazio como antes: a hierarquia
+    // manda as empresas numa lista e as cidades noutra, ligadas pelo código.
+    // Deixar a coluna em branco obrigava quem lê a aba a cruzar as duas de
+    // cabeça — e era o que acontecia enquanto o nível era só um reservado.
+    'cidade-empresa': hier.cidades.map((c) => ({
+      emp_codigo: c.empId,
+      empresa: hier.empresas.find((e) => e.id === c.empId)?.nome ?? '',
       cidade_id: c.id,
       cidade_name: c.nome,
     })),
@@ -352,18 +407,23 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
       })),
     ],
 
+    // `emp_codigo`/`empresa` vinham vazios FIXOS aqui — a coluna existia na aba e
+    // nunca teve dado. Agora vêm do servidor, que sempre soube (a cidade tem uma
+    // empresa por definição, é o elo `cidade_empresa`).
+    //
+    // `data_fim_concessao` saiu: a coluna não está mais nesta aba, e mandá-la
+    // faria a linha carregar um campo que a tela não mostra.
     'cidade-operacional': contrato.cidades.map((c) => ({
-      emp_codigo: '',
-      empresa: '',
+      emp_codigo: c.empId ?? '',
+      empresa: c.empNome ?? '',
       cidade_id: c.id,
       cidade_name: c.nome,
-      data_fim_concessao: c.fim,
       unidade_cobertura: c.cob ?? '',
     })),
 
     'metas-cobertura': contrato.metas.map((m) => ({
-      emp_codigo: '',
-      empresa: '',
+      emp_codigo: empresaDaCidade.get(m.cid)?.cod ?? '',
+      empresa: empresaDaCidade.get(m.cid)?.nome ?? '',
       cidade_id: m.cid,
       cidade_name: nomeCidade.get(m.cid) ?? '',
       ano: m.ano,
@@ -371,8 +431,8 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
     })),
 
     'fator-esgoto': contrato.fator.map((f) => ({
-      emp_codigo: '',
-      empresa: '',
+      emp_codigo: empresaDaCidade.get(f.cid)?.cod ?? '',
+      empresa: empresaDaCidade.get(f.cid)?.nome ?? '',
       cidade_id: f.cid,
       cidade_name: nomeCidade.get(f.cid) ?? '',
       cobertura_pct: f.cob,
@@ -414,8 +474,6 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
     ),
   }
 
-  guardar(dados)
-
   return {
     unidade_id: hier.unidReg.uid,
     unidade_nome: hier.unidReg.unome,
@@ -423,6 +481,9 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
     dados,
     criado_em: '',
     atualizado_em: '',
+    // A base sai JUNTO com a leitura, e não por um canal lateral: quem lê é
+    // quem pode salvar, e o tipo passa a dizer isso.
+    base: montarBase(dados),
   }
 }
 
@@ -475,20 +536,102 @@ export class CadastroSemLeitura extends Error {
  * primeiro. Uma unidade grande manda centenas de requisições — é o custo de
  * gravar com trilha por ficha, e é o que o wizard trocava por um POST só.
  *
- * A ORDEM importa: a topologia vai por último, e dentro dela quem SOLTA (perde
- * jusante ou sai do sistema) vai antes de quem LIGA. O servidor valida contra o
- * que está gravado, não contra o que a tela tem: inverter um trecho manda duas
- * mudanças, e a ligação nova primeiro seria recusada por ciclo, com razão.
+ * A ORDEM importa, e é por isso que a topologia vai por último — ela é a única
+ * parte que NÃO é gravada ficha a ficha: o sistema inteiro vai num `PUT` só, e o
+ * servidor confere o desenho final em vez de cada passo até ele. Dentro do
+ * cadastro sobrou uma dependência de ordem, a do `usaCts`: desmarcar precisa
+ * valer antes de a segunda CTS entrar, e marcar só depois de as excedentes
+ * saírem — por isso a marcação é a última coisa que sai daqui.
  */
-export async function salvarCadastro(unidade: UnidadeState): Promise<CadastroSalvo> {
+/**
+ * A topologia agrupada por sistema: `sistema → (componente → jusante)`.
+ *
+ * Quem está FORA de sistema fica de fora do mapa, e é isso que faz a ausência
+ * significar remoção do lado do servidor: ele recebe a lista completa de cada
+ * sistema e tira dele quem não veio. Um componente sem sistema não pertence a
+ * lista nenhuma, e por isso não precisa ser mencionado para sair.
+ */
+function porSistema(linhas: Row[] | undefined): Map<string, Map<string, string>> {
+  const mapa = new Map<string, Map<string, string>>()
+  for (const t of linhas ?? []) {
+    const componente = String(t.componente_sistema_id ?? '').trim()
+    const sistema = String(t.sistema_id ?? '').trim()
+    if (!componente || !sistema) continue
+    if (!mapa.has(sistema)) mapa.set(sistema, new Map())
+    mapa.get(sistema)!.set(componente, String(t.componente_sistema_id_jusante ?? '').trim())
+  }
+  return mapa
+}
+
+/** O desenho do sistema é o mesmo? Ausente e vazio são a mesma coisa aqui. */
+function mesmoDesenho(a?: Map<string, string>, b?: Map<string, string>): boolean {
+  const antes = a ?? new Map<string, string>()
+  const depois = b ?? new Map<string, string>()
+  if (antes.size !== depois.size) return false
+  for (const [componente, jusante] of antes) {
+    if (depois.get(componente) !== jusante) return false
+  }
+  return true
+}
+
+export type EnvioDeTopologia = {
+  sistemas: { id: string; componentes: { id: string; jusante: string }[] }[]
+}
+
+/**
+ * O corpo do `PUT` de topologia, ou `null` quando nenhum sistema mudou.
+ *
+ * Exportada porque é AQUI que mora a decisão que já esteve errada uma vez: o
+ * envio anterior era um `PUT` por componente, ordenado por uma heurística que
+ * mandava a saída da CTS antes do reapontamento de quem escoava para ela. O
+ * servidor recusava, e o teste que faltava era exatamente este — qual sistema
+ * vai, e com quais componentes dentro.
+ *
+ * Vão os sistemas cujo DESENHO mudou, dos dois lados: um sistema que só perdeu
+ * componentes também mudou, e é a ausência dele na lista que o remove.
+ */
+export function envioDaTopologia(
+  antes: Row[] | undefined,
+  depois: Row[] | undefined,
+): EnvioDeTopologia | null {
+  const mapaAntes = porSistema(antes)
+  const mapaDepois = porSistema(depois)
+  const tocados = [...new Set([...mapaAntes.keys(), ...mapaDepois.keys()])]
+    .filter((sistema) => !mesmoDesenho(mapaAntes.get(sistema), mapaDepois.get(sistema)))
+    .sort()
+  if (!tocados.length) return null
+  return {
+    sistemas: tocados.map((sistema) => ({
+      id: sistema,
+      componentes: [...(mapaDepois.get(sistema) ?? new Map<string, string>())].map(
+        ([componente, jusante]) => ({ id: componente, jusante }),
+      ),
+    })),
+  }
+}
+
+export async function salvarCadastro(
+  unidade: UnidadeState,
+  base: BaseDoCadastro,
+): Promise<CadastroSalvo> {
   const u = encodeURIComponent(unidade.id)
-  const base = ultimaLeitura.get(unidade.id)
-  if (!base) throw new CadastroSemLeitura(unidade.id)
+  // A base é de OUTRA unidade: recusa, e não grava. Ver `BaseDoCadastro.unidadeId`.
+  if (base?.unidadeId !== unidade.id) throw new CadastroSemLeitura(unidade.id)
 
   const d = unidade.data
   const dbInv = inverso(DB)
   const paramsInv = inverso(PARAMS)
   const obraInv = inverso(OBRA)
+
+  // ---- empresa: o fim da concessao, que desce para as cidades dela ----
+  const empresaBase = porChave(base.dados['empresa'], 'emp_codigo')
+  for (const e of d['empresa'] ?? []) {
+    if (!e.emp_codigo) continue
+    if (igual(e, empresaBase.get(e.emp_codigo))) continue
+    await api.put(`/api/unidades/${u}/empresas/${encodeURIComponent(e.emp_codigo)}`, {
+      empresa: { fim: e.data_fim_concessao ?? '' },
+    })
+  }
 
   // ---- contrato: a cidade e as metas/faixas dela formam UMA ficha ----
   const metasPorCidade = agrupar(d['metas-cobertura'] ?? [], (r) => r.cidade_id)
@@ -507,14 +650,15 @@ export async function salvarCadastro(unidade: UnidadeState): Promise<CadastroSal
     if (mesmaCidade && mesmasMetas && mesmasFaixas) continue
     await api.put(`/api/unidades/${u}/contrato/${encodeURIComponent(c.cidade_id)}`, {
       // `cob` VAI SEMPRE, mesmo vazio. O PUT substitui a ficha inteira e lê
-      // `cidade.get("cob")` sem default: a chave ausente vira NULL no banco. Foi
-      // exatamente isso que apagou a régua de 21 cidades em 20/08 — a tela não
-      // tinha a coluna, então não mandava o campo, e cada gravação de concessão
-      // zerava um dado que ninguém tinha tocado.
+      // `cidade.get("cob")` sem default: a chave ausente vira NULL no banco.
+      // Omitir o campo aqui APAGA a régua de todas as cidades gravadas — sem
+      // erro, e sem ninguém ter tocado nela.
+      // `fim` NAO VAI: a concessao e da empresa, e tem PUT proprio. O backend
+      // ignora a chave se ela vier, e o upsert preserva o valor que a cidade ja
+      // tem.
       cidade: {
         id: c.cidade_id,
         nome: c.cidade_name,
-        fim: c.data_fim_concessao ?? '',
         cob: vazioEhAusencia(c.unidade_cobertura),
       },
       metas: (metasPorCidade.get(c.cidade_id) ?? []).map((m) => ({
@@ -570,18 +714,24 @@ export async function salvarCadastro(unidade: UnidadeState): Promise<CadastroSal
     await gravarSistema(r)
   }
 
-  // ---- topologia: solta antes de ligar ----
-  const topoBase = porChave(base.dados['sistema-topologia'], 'componente_sistema_id')
-  const topo = (d['sistema-topologia'] ?? []).filter(
-    (t) => t.componente_sistema_id && !igual(t, topoBase.get(t.componente_sistema_id)),
-  )
-  const solta = (t: Row) => !t.sistema_id || !t.componente_sistema_id_jusante
-  for (const t of [...topo.filter(solta), ...topo.filter((x) => !solta(x))]) {
-    await api.put(`/api/unidades/${u}/topologia/${encodeURIComponent(t.componente_sistema_id)}`, {
-      sisId: t.sistema_id ?? '',
-      jusante: t.componente_sistema_id_jusante ?? '',
-    })
-  }
+  // ---- topologia: o SISTEMA INTEIRO, numa transação só ----
+  //
+  // Aqui havia um PUT por componente, ordenado por uma heurística de "quem solta
+  // vai antes de quem liga" — e ela estava errada, de um jeito que só aparecia na
+  // reorganização: `solta` olhava o estado final da PRÓPRIA linha, então tirar a
+  // CTS do sistema (sem sistema ⇒ solta) ia na frente de reapontar quem escoava
+  // para ela (com jusante ⇒ liga). O servidor recebia a saída da CTS enquanto o
+  // banco ainda tinha alguém apontando para ela, e recusava com razão.
+  //
+  // Não havia heurística que consertasse: um reapontamento É um "solta" do ponto
+  // de vista de quem ele larga, e mover uma cadeia inteira de sistema não tem
+  // ordem que funcione — o estado intermediário é que é impossível, não o final.
+  //
+  // `componentes` é a lista COMPLETA de cada sistema: quem está lá hoje e não vem
+  // na lista sai dele. É assim que remover se expressa, e é o que torna o envio
+  // idempotente. Só vão os sistemas cujo desenho mudou.
+  const envio = envioDaTopologia(base.dados['sistema-topologia'], d['sistema-topologia'])
+  if (envio) await api.put(`/api/unidades/${u}/topologia`, envio)
 
   for (const r of sistemasMudados.filter((x) => x.usa_sistema_cts === 'Sim')) {
     await gravarSistema(r)
@@ -596,7 +746,7 @@ export async function salvarCadastro(unidade: UnidadeState): Promise<CadastroSal
  *
  * O corpo parte do que o SERVIDOR devolveu (`base`) e recebe por cima o que a
  * tela tem. É o que impede a gravação de zerar coluna que o wizard não exibe —
- * ver `ultimaLeitura`.
+ * ver `BaseDoCadastro`.
  */
 async function gravarColeta(
   u: string,

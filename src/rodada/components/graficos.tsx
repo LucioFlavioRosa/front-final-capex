@@ -20,10 +20,9 @@ import {
   COR_FLUXO,
   COR_META,
 } from '@/rodada/components/cores'
-import { VAZIO, brMi, brlMi, inteiro, pct, sinalMi } from '@/rodada/lib/formato'
+import { VAZIO, brlMi, pct, sinalMi } from '@/rodada/lib/formato'
 import type {
   AnoFinanceiro,
-  CapexPorComponente,
   EbitdaAno,
   MetaCobertura,
   ParcelaFluxoEscoamento,
@@ -34,12 +33,11 @@ import type {
 /**
  * Os gráficos do painel global, em recharts.
  *
- * Substituem 1.077 LOC de SVG à mão do repo de origem. O requisito da decisão
- * de 17/08 é "mesma INFORMAÇÃO, nossa identidade" — e "mesma informação" só é
- * verificável contra uma lista, que é a tabela de gráficos do
- * `INVENTARIO-TELAS-SIMULACAO-RESULTADOS.md`. A contagem deixou de ser fixa em
- * "oito" na reunião de validação de 18/08: elementos por ano e preço unitário
- * médio agora abrem um quadro por unidade física (ver `agruparPorUnidade`).
+ * O requisito é "mesma INFORMAÇÃO, nossa identidade" em relação aos gráficos de
+ * origem — e "mesma informação" só é verificável contra uma lista, que é a
+ * tabela de gráficos do `INVENTARIO-TELAS-SIMULACAO-RESULTADOS.md`. A contagem
+ * de quadros não é fixa: elementos por ano e preço unitário médio abrem um
+ * quadro por unidade física (ver `agruparPorUnidade`).
  *
  * As quatro armadilhas daquela lista, e onde cada uma é tratada aqui:
  *
@@ -47,13 +45,14 @@ import type {
  *      dado e NÃO usar `connectNulls`. O erro a evitar é `?? 0` na montagem da
  *      série — ele só é legítimo no cálculo do domínio do eixo, onde não altera
  *      o traçado.
- *   2. O tooltip pode ter MAIS informação que a série (ver `GraficoDesembolso`,
- *      cujo tooltip mostra o acumulado que a barra do ano não desenha).
+ *   2. O tooltip pode ter MAIS informação que a série — o do Desembolso mostra
+ *      o teto, que é desenhado como tampa e não como barra do grupo.
  *   3. Unidade física ausente vira `'—'`, nunca 0.
  *   4. `indireta` só existe no ano da conexão — segmento ausente, não zerado.
  *
- * E a decisão de desenho da fase 8: o EBITDA virou DOIS painéis empilhados com
- * o eixo X compartilhado, porque no original ele tinha dois eixos Y.
+ * O EBITDA são DOIS painéis empilhados com o eixo X compartilhado, e não um
+ * quadro com dois eixos Y: escala dupla faz o cruzamento entre as séries
+ * parecer um evento, quando ele só reflete onde cada eixo foi ancorado.
  */
 
 const ALTURA = 200
@@ -81,7 +80,7 @@ const eixoBase = {
  * Tooltip único de todos os gráficos.
  *
  * `linhas` é montado por quem chama, e não derivado da série, porque o do
- * Desembolso mostra o acumulado — que tem eixo próprio e não é uma barra do
+ * Desembolso mostra o teto — que é desenhado como tampa e não como barra do
  * grupo. Derivar do payload padrão do recharts perderia essa leitura.
  */
 function Dica({
@@ -107,7 +106,7 @@ function Dica({
                 style={{ background: l.cor }}
               />
             )}
-            <span className="text-ink-500">{l.rotulo}</span>
+            <span className="text-ink-water">{l.rotulo}</span>
             <span className="ml-auto font-mono font-semibold tabular-nums text-ink-800">
               {l.valor}
             </span>
@@ -123,7 +122,7 @@ function Legenda({ itens }: { itens: { rotulo: string; cor: string; traco?: bool
   return (
     <ul className="m-0 mt-2 flex list-none flex-wrap gap-x-3.5 gap-y-1 p-0">
       {itens.map((i) => (
-        <li key={i.rotulo} className="flex items-center gap-1.5 text-[10px] text-ink-500">
+        <li key={i.rotulo} className="flex items-center gap-1.5 text-[10px] text-ink-water">
           <span
             aria-hidden="true"
             className={i.traco ? 'h-0 w-3 border-t-[1.5px] border-dashed' : 'h-2 w-2 rounded-sm'}
@@ -159,8 +158,8 @@ export function GraficoFluxoEscoamento({
   /**
    * "arrecadada" | "faturada" — a régua da parcela de receita deste quadro.
    *
-   * Vem junto com o rótulo do KPI de Receita (item 16 do feedback de 26/08):
-   * arrecadada já desconta inadimplência, faturada não, e um quadro que
+   * Vem junto com o rótulo do KPI de Receita: arrecadada já desconta
+   * inadimplência, faturada não, e um quadro que
    * decompõe o VPL sem dizer qual das duas entrou deixa a maior barra sem
    * unidade. Ausente em servidor antigo — aí a nota simplesmente não menciona
    * a base, em vez de afirmar uma das duas.
@@ -343,45 +342,38 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
    * do gráfico. Passando `null` e sem `connectNulls`, a linha simplesmente
    * PARA onde a janela acaba — que é a verdade.
    *
-   * `acumulado` é a antiga Curva S, incorporada aqui por decisão da reunião de
-   * validação de 18/08 ("essa curva do capex acumulado, ela nem faz sentido
-   * ter ela separada assim"). Como a série anual já é a soma do que a Curva S
-   * media mês a mês, o acumulado sai de uma soma corrida sobre `capex` — sem
-   * pedir nada novo ao backend, e sem que as duas leituras possam discordar
-   * sobre quanto já foi gasto.
+   * O CAPEX ACUMULADO NÃO ENTRA NESTE QUADRO. Ele precisaria de um segundo eixo
+   * Y à direita, e duas escalas no mesmo desenho fazem o cruzamento entre a
+   * linha e as barras parecer um evento, quando ele só reflete onde cada eixo
+   * foi ancorado. Com um eixo só, as três barras são comparáveis entre si sem
+   * ressalva.
    */
-  let corrido = 0
-  const dados = anos.map((a) => {
-    corrido += a.capex
-    return {
-      ano: a.ano,
-      capex: a.capex,
-      opex: a.opex,
-      receita: a.receita,
-      teto: a.tetoCapex,
-      acumulado: corrido,
-    }
-  })
+  const dados = anos.map((a) => ({
+    ano: a.ano,
+    capex: a.capex,
+    opex: a.opex,
+    receita: a.receita,
+    teto: a.tetoCapex,
+  }))
 
   return (
     <QuadroGrafico
       titulo="Desembolso por ano"
-      subtitulo="CAPEX, OPEX e receita, nominal · CAPEX acumulado no eixo direito"
+      subtitulo="CAPEX, OPEX e receita, nominal"
       nota={
         <>
           A linha do <strong>teto</strong> some nos anos fora da janela de orçamento — ausente,
-          não zero. O <strong>acumulado</strong> (eixo à direita) é a soma corrida do CAPEX anual.
+          não zero.
         </>
       }
       tabela={{
-        colunas: ['Ano', 'CAPEX', 'OPEX', 'Receita', 'Teto', 'CAPEX acumulado'],
-        linhas: anos.map((a, i) => [
+        colunas: ['Ano', 'CAPEX', 'OPEX', 'Receita', 'Teto'],
+        linhas: anos.map((a) => [
           a.ano,
           brlMi(a.capex),
           brlMi(a.opex),
           brlMi(a.receita),
           brlMi(a.tetoCapex),
-          brlMi(dados[i].acumulado),
         ]),
       }}
     >
@@ -390,17 +382,6 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
           <CartesianGrid stroke={COR.grid} vertical={false} />
           <XAxis dataKey="ano" {...eixoBase} />
           <YAxis yAxisId="reais" {...eixoBase} tickFormatter={tickBrl} width={52} />
-          {/* Eixo próprio para o acumulado, pintado na cor da série — mesma
-              mitigação do EBITDA para o eixo duplo: cada escala fica
-              visivelmente amarrada à sua série, e não à barra do lado. */}
-          <YAxis
-            yAxisId="acumulado"
-            orientation="right"
-            {...eixoBase}
-            tickFormatter={tickBrl}
-            width={52}
-            tick={{ ...eixoBase.tick, fill: COR_FLUXO.acumulado }}
-          />
           <Tooltip
             cursor={{ fill: COR.cursor }}
             content={({ active, payload, label }) => {
@@ -416,7 +397,6 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
                     // `brl` devolve '—' para nulo: o tooltip diz "não há teto",
                     // e não "teto R$ 0".
                     { rotulo: 'teto', valor: brlMi(d?.teto), cor: COR_FLUXO.teto },
-                    { rotulo: 'acumulado', valor: brlMi(d?.acumulado), cor: COR_FLUXO.acumulado },
                   ]}
                 />
               )
@@ -478,17 +458,6 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
               )
             }}
           />
-          {/* O acumulado no eixo PRÓPRIO — sem ele, a soma corrida (que só
-              cresce) puxaria a escala das barras anuais e as achataria. */}
-          <Line
-            yAxisId="acumulado"
-            type="monotone"
-            dataKey="acumulado"
-            stroke={COR_FLUXO.acumulado}
-            strokeWidth={2.5}
-            dot={{ r: 3.5, fill: 'var(--viz-surface)', stroke: COR_FLUXO.acumulado, strokeWidth: 2.5 }}
-            isAnimationActive={false}
-          />
         </ComposedChart>
       </ResponsiveContainer>
       <Legenda
@@ -497,7 +466,6 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
           { rotulo: 'OPEX', cor: COR_FLUXO.opex },
           { rotulo: 'Receita', cor: COR_FLUXO.receita },
           { rotulo: 'Teto de CAPEX', cor: COR_FLUXO.teto, traco: true },
-          { rotulo: 'CAPEX acumulado (eixo dir.)', cor: COR_FLUXO.acumulado, traco: true },
         ]}
       />
     </QuadroGrafico>
@@ -508,110 +476,6 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
 //  3 · CAPEX por componente (Global)
 // ===========================================================================
 
-export function GraficoCapexComponente({ itens }: { itens: CapexPorComponente[] }) {
-  /**
-   * A quantidade física, e o motivo de ela não poder virar 0.
-   *
-   * Sem `unidadesConstruidas`, mostra '—'. E na ETE o número é a CAPACIDADE
-   * ACRESCENTADA pelos módulos, não a contagem de unidades — por isso o texto
-   * vem do par (quantidade, unidade) que o backend manda, e não de uma regra
-   * inventada aqui.
-   */
-  const fisica = (i: CapexPorComponente) => {
-    if (i.unidadesConstruidas === null || i.unidade === null) return VAZIO
-    const capacidade = `${inteiro(i.unidadesConstruidas)} ${i.unidade}`
-    return i.modulosConstruidos === null
-      ? capacidade
-      : `${inteiro(i.modulosConstruidos)} módulo(s) · ${capacidade}`
-  }
-
-  // Maior CAPEX primeiro — é a ordem do design, e faz a barra mais longa
-  // ancorar a leitura no topo, onde o olho começa.
-  const ordenados = [...itens].sort((a, b) => b.capex - a.capex)
-  const maior = Math.max(1, ...ordenados.map((i) => i.capex))
-
-  return (
-    <QuadroGrafico
-      titulo="CAPEX por componente"
-      subtitulo={`CAPEX total ${brMi(ordenados.reduce((s, i) => s + i.capex, 0))}`}
-      nota={
-        <>
-          Cor única de propósito: o nome já identifica cada linha. Na ETE, a quantidade é a{' '}
-          <strong>capacidade acrescentada pelos módulos</strong>.
-        </>
-      }
-      tabela={{
-        colunas: ['Componente', 'CAPEX', '% do total', 'Quantidade construída'],
-        linhas: ordenados.map((i) => [i.componente, brlMi(i.capex), pct(i.pctDoTotal), fisica(i)]),
-      }}
-    >
-      {/* Lista ranqueada, e não um gráfico de colunas: é o desenho do design
-          de 19/08 — nome, barra, valor e quantidade na mesma linha, sem eixo
-          nenhum para ler. */}
-      <div className="flex flex-col gap-3.5 px-1.5 py-2">
-        {ordenados.map((i) => (
-          <div
-            key={i.componente}
-            /* `minmax(0,…)` em toda coluna elástica e `min-w-0` nas células de
-               texto: sem isso o conteúdo define o mínimo, a soma passa da
-               largura da carta e a última coluna é cortada — foi o que
-               aconteceu na primeira versão. */
-            className="grid grid-cols-[minmax(0,1fr)_minmax(60px,1.1fr)_minmax(0,auto)] items-center gap-x-3 gap-y-1 sm:grid-cols-[minmax(0,132px)_minmax(60px,1fr)_minmax(0,auto)_minmax(0,auto)]"
-          >
-            <div className="min-w-0 truncate text-[13px] text-ink-700">{i.componente}</div>
-            <div className="h-3.5 min-w-0 overflow-hidden rounded-[3px] bg-ink-100">
-              <div
-                className="h-full rounded-[3px]"
-                style={{
-                  width: `${Math.max(2, (i.capex / maior) * 100)}%`,
-                  background: 'var(--viz-fluxo-primaria)',
-                }}
-              />
-            </div>
-            {/* Régua única (`brMi`): a lista existe para comparar linhas
-                vizinhas, e alternar "R$ 2,0 mi" com "R$ 900.000" obriga a
-                converter de cabeça justamente na comparação. */}
-            <div className="whitespace-nowrap text-right font-mono text-[13px] font-semibold tabular-nums text-ink-800">
-              {brMi(i.capex)}
-            </div>
-            <div className="hidden whitespace-nowrap text-right font-mono text-[12px] tabular-nums text-ink-500 sm:block">
-              {fisica(i)}
-            </div>
-          </div>
-        ))}
-      </div>
-    </QuadroGrafico>
-  )
-}
-
-// ===========================================================================
-//  4 · Elementos e preço unitário — MUDOU DE ARQUIVO
-// ===========================================================================
-//
-//  `GraficoElementosPorAno` e `GraficoPrecoUnitarioPorAno` saíram daqui: o par
-//  virou uma seção com duas vistas (panorama de componentes → detalhe de um) em
-//  `SecaoElementos.tsx`, que explica por quê. O que morreu junto foi o estado
-//  "Todos", que abria N quadros por unidade física e desmontava o par dentro do
-//  grid de duas colunas das quatro páginas.
-
-// ===========================================================================
-//  5 · EBITDA — DOIS painéis, X compartilhado (Global, Cidade)
-// ===========================================================================
-
-/**
- * EBITDA e margem — UM gráfico, DOIS eixos.
- *
- * Vinha desenhado como dois painéis empilhados, para não usar eixo duplo (a
- * proibição mais dura do método de dataviz: o alinhamento entre as duas escalas
- * é arbitrário, então o gráfico pode sugerir uma correlação que não está no
- * dado). O design de 19/08 pede o eixo duplo, e a decisão de 20/08 foi seguir o
- * design — as duas séries são do MESMO recorte e o eixo da direita é rotulado em
- * %, com a cor da linha, o que é a mitigação que o método admite: cada escala
- * fica visivelmente amarrada à sua série.
- *
- * O que NÃO muda: a margem nula não é plotada, e a tabela continua trazendo as
- * duas séries — é ela que sustenta a leitura precisa que um eixo duplo não dá.
- */
 export function GraficoEbitda({
   anos,
   total,
@@ -987,8 +851,8 @@ export function GraficoReceitaSubBacia({ anos }: { anos: ReceitaAno[] }) {
 }
 
 /**
- * A CURVA DE COBERTURA DA UNIDADE — item 4 do feedback de 26/08, no nível 1
- * ("a curva de cobertura que aquela simulação atinge").
+ * A CURVA DE COBERTURA DA UNIDADE — a cobertura que a simulação atinge, no
+ * nível 1.
  *
  * É uma LINHA, e não barras como `GraficoCobertura` (nível 2): lá o eixo X são
  * os ANOS DE META, um punhado de pontos onde faz sentido comparar alvo ×

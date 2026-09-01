@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/Badge'
 import { BotaoAjuda } from '@/rodada/components/Dicionario'
 import { ocupacaoEte } from '@/rodada/lib/formato'
 import type { SituacaoObra, StatusRodada } from '@/rodada/domain/resultado'
+import { useHrefComAba } from '@/rodada/layout/abaResultado'
 
 /**
  * Peças que os seis níveis de resultado repetem.
@@ -17,12 +18,11 @@ import type { SituacaoObra, StatusRodada } from '@/rodada/domain/resultado'
 /**
  * O bloco de identidade + KPIs de um nível de resultado.
  *
- * Era uma faixa navy (`Band`) e virou carta clara no redesign de 19/08, por um
- * motivo de leitura e não de gosto: ela fica logo acima da grade de gráficos,
- * que é obrigatoriamente clara (ver a regra de superfície em index.css). Duas
- * superfícies fortes empilhadas competem, e nenhuma das duas lê como a
- * principal — o número que a tela existe para mostrar perdia justamente para o
- * fundo que devia destacá-lo.
+ * É CARTA CLARA, e não faixa navy (`Band`), por um motivo de leitura: ela fica
+ * logo acima da grade de gráficos, que é obrigatoriamente clara (ver a regra de
+ * superfície em index.css). Duas superfícies fortes empilhadas competem, e
+ * nenhuma das duas lê como a principal — o número que a tela existe para mostrar
+ * perde justamente para o fundo que deveria destacá-lo.
  *
  * Identidade e KPIs vivem na MESMA carta, e não em duas: o "Nível 3 · Sistema"
  * é o que diz a que recorte os números pertencem, e separá-los em dois cartões
@@ -43,7 +43,7 @@ export function FaixaKpi({
   acoes?: ReactNode
   /** `ajuda` é a chave do verbete no dicionário de resultado — ver `Tile`. */
   destaque?: { rotulo: string; valor: ReactNode; ajuda?: string }
-  itens: { rotulo: string; valor: ReactNode; ajuda?: string }[]
+  itens: { rotulo: string; valor: ReactNode; ajuda?: string; para?: string; aoLado?: string }[]
   rodape?: ReactNode
 }) {
   const corpo = (
@@ -56,15 +56,45 @@ export function FaixaKpi({
         // no mesmo quadro — é a faixa do topo de cada nível de resultado, não
         // uma grade de trabalho repetitivo, então a entrada tem sentido aqui.
         <div
-          className={`tiles escada grid-cols-2 md:grid-cols-4 ${destaque ? 'mt-5' : ''}`}
+          className={`tiles escada grid-cols-2 ${
+            // A GRADE SE AJUSTA À CONTAGEM, para nenhuma linha ficar pela
+            // metade. O fundo cinza do contêiner aparece onde não há tile, e um
+            // painel de 9 KPIs em 4 colunas terminava com um card sozinho ao
+            // lado de três células cinzas.
+            // 4 primeiro porque é a densidade padrão da faixa; 3 quando ela
+            // fecha e 4 não (9 vira 3x3). O que não fecha em nenhuma das duas
+            // (5, 7) cai em 4 e é completado pelas células vazias abaixo.
+            itens.length % 4 === 0 ? 'md:grid-cols-4' : itens.length % 3 === 0 ? 'md:grid-cols-3' : 'md:grid-cols-4'
+          } ${destaque ? 'mt-5' : ''}`}
         >
           {itens.map((i) => (
-            <Tile key={i.rotulo} rotulo={i.rotulo} valor={i.valor} ajuda={i.ajuda} />
+            <Tile
+              key={i.rotulo}
+              rotulo={i.rotulo}
+              valor={i.valor}
+              ajuda={i.ajuda}
+              para={i.para}
+              aoLado={i.aoLado}
+            />
           ))}
+          {/* CÉLULAS VAZIAS PARA FECHAR A ÚLTIMA LINHA.
+              A grade pinta os vãos deixando o fundo cinza do contêiner aparecer
+              entre os tiles brancos — o que significa que, onde NÃO há tile, o
+              cinza aparece inteiro. Com 9 KPIs em 4 colunas sobravam três
+              células cinzas ao lado da nona, que se liam como um painel
+              quebrado.
+              Completar até o múltiplo de 4 resolve nos dois pontos de quebra:
+              múltiplo de 4 também é múltiplo de 2, que é a grade do celular.
+              `aria-hidden` porque não são dado nenhum — são o fundo. */}
+          {(itens.length % 3 === 0 ? [] : Array.from({ length: (4 - (itens.length % 4)) % 4 })).map(
+            (_, i) => (
+              <div key={`vazio-${i}`} aria-hidden="true" />
+            ),
+          )}
         </div>
       )}
       {rodape && (
-        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1.5 border-t border-ink-100 pt-3.5 text-[11.5px] text-ink-500">
+        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1.5 border-t border-ink-100 pt-3.5 text-[11.5px] text-ink-water">
           {rodape}
         </div>
       )}
@@ -95,8 +125,8 @@ export function FaixaKpi({
  * célula em branco não afirma nada.
  */
 /**
- * O NÚMERO DE OCUPAÇÃO DE UMA ETE, MARCADO QUANDO PASSA DE 100% (defeito X-02,
- * achado revisando os prints de 26/08 — um mostrava 2.734,2%).
+ * O NÚMERO DE OCUPAÇÃO DE UMA ETE, MARCADO QUANDO PASSA DE 100% — a base já
+ * produziu 2.734,2%.
  *
  * `ocupacaoEte` (em `lib/formato.ts`) já decide SE é inconsistente; este
  * componente só decide COMO mostrar isso — vermelho com um aviso, sem
@@ -133,7 +163,7 @@ export function TituloSecao({ children, nota }: { children: ReactNode; nota?: Re
   return (
     <div className="mb-2.5 mt-5 flex items-baseline justify-between gap-4">
       <h2 className="text-[15px] font-bold text-ink-800">{children}</h2>
-      {nota && <span className="text-[11px] text-ink-400">{nota}</span>}
+      {nota && <span className="text-[11px] text-ink-water">{nota}</span>}
     </div>
   )
 }
@@ -177,7 +207,7 @@ export function Cartao({
             <span>{titulo}</span>
             {ajuda && <BotaoAjuda chave={ajuda} texto={titulo} />}
           </div>
-          {nota && <span className="text-[11px] text-ink-500">{nota}</span>}
+          {nota && <span className="text-[11px] text-ink-water">{nota}</span>}
         </div>
       )}
       {children}
@@ -193,10 +223,19 @@ export function Cartao({
  * segunda coisa que se faz nesta tela — e precisa ser alcançável por teclado.
  */
 export function CelulaLink({ to, children }: { to: string; children: ReactNode }) {
+  /* A ABA VIAJA JUNTO na descida. Sem isto, o primeiro clique numa cidade
+     jogaria de volta no Plano quem estava em "Por quê" — e a continuidade é
+     justamente o motivo de a aba morar na URL. Fica aqui, e não em cada
+     chamador, porque todo drill-down passa por este componente. */
+  const comAba = useHrefComAba()
   return (
     <Link
-      to={to}
-      className="font-semibold text-water-600 transition-colors duration-hover ease-saida hover:text-water-700 hover:underline"
+      to={comAba(to)}
+      /* `inline-flex` + `min-h-6`: o alvo de ponteiro da WCAG 2.2 e 24 CSS px, e
+         a linha da tabela deixava o link com 22. Como `min-height` nao vale em
+         elemento `inline`, e o `inline-flex` que faz a altura valer — sem
+         alterar a altura visual da linha, que ja tem folga de padding. */
+      className="inline-flex min-h-6 items-center font-semibold text-water-600 transition-colors duration-hover ease-saida hover:text-water-700 hover:underline"
     >
       {children}
     </Link>
@@ -218,6 +257,19 @@ const SITUACAO: Record<SituacaoObra, { texto: string; tom: 'success' | 'ink' | '
  * tonalidades do mesmo cinza faria o usuário perguntar duas vezes por que
  * aquela linha não tem custo, por dois motivos diferentes.
  */
+/**
+ * O rótulo da situação como TEXTO, sem o chip em volta.
+ *
+ * Existe porque a exportação para Excel precisa da mesma palavra que a tela
+ * mostra: uma planilha com "nao-construida" na coluna Situação entrega ao
+ * usuário o identificador interno, e não o que ele leu na tabela de onde
+ * exportou. O mapa é um só — se um dia entrar uma quinta situação, ela aparece
+ * nos dois lugares junto.
+ */
+export function rotuloSituacao(situacao: SituacaoObra): string {
+  return SITUACAO[situacao]?.texto ?? situacao
+}
+
 export function ChipSituacao({ situacao }: { situacao: SituacaoObra }) {
   const s = SITUACAO[situacao] ?? { texto: situacao, tom: 'ink' as const }
   return (
@@ -229,7 +281,7 @@ export function ChipSituacao({ situacao }: { situacao: SituacaoObra }) {
 
 
 // ===========================================================================
-//  Gramática do design de 19/08 — as peças que histórico e resultados repetem
+//  Gramática visual — as peças que histórico e resultados repetem
 // ===========================================================================
 
 export type Tom = 'teal' | 'azul' | 'ambar' | 'vermelho' | 'neutro'
@@ -247,7 +299,10 @@ const TONS_TAG: Record<Tom, string> = {
   teal: 'bg-aegea-50 text-aegea-700',
   azul: 'bg-water-50 text-water-700',
   ambar: 'bg-warning/10 text-[#8A4B0A]',
-  vermelho: 'bg-red-50 text-danger',
+  // `#9B1C1C` e nao `text-danger` (#dc2626): sobre `red-50` o vermelho do token
+  // dava 4,41:1, a 0,09 do minimo. Mesmo tratamento que o ambar ao lado, que ja
+  // usava um tom proprio pelo mesmo motivo.
+  vermelho: 'bg-red-50 text-[#9B1C1C]',
   neutro: 'bg-ink-100 text-ink-600',
 }
 
@@ -324,21 +379,55 @@ export function Tile({
   rotulo,
   valor,
   ajuda,
+  para,
+  aoLado,
 }: {
   rotulo: string
   valor: ReactNode
   ajuda?: string
+  /**
+   * PARA ONDE ESTE NÚMERO LEVA.
+   *
+   * Só os números de EXCLUSÃO recebem destino, e sempre o mesmo: a aba que
+   * explica a exclusão. Separar Plano de Por quê custou a vizinhança que a tela
+   * tinha — "18 de 930 faturando" ficava logo acima do "por que as outras 912
+   * não" —, e este link é o conserto: a aba deixa de ser um lugar que a pessoa
+   * precisa lembrar de visitar e passa a ser o destino do gesto que ela já faz,
+   * que é apontar para o número que a incomodou.
+   *
+   * Continua sendo `<Link>` de verdade, e não `onClick`: abrir em nova aba para
+   * comparar os dois lados é exatamente o que alguém faz aqui.
+   */
+  para?: string
+  /** O que aparece ao lado do rótulo quando há destino — "ver por quê →". */
+  aoLado?: string
 }) {
-  return (
-    <div>
-      <div className="flex items-center gap-1.5 text-[12px] text-ink-500">
+  const corpo = (
+    <>
+      <div className="flex items-center gap-1.5 text-[12px] text-ink-water">
         <span>{rotulo}</span>
         {ajuda && <BotaoAjuda chave={ajuda} texto={rotulo} />}
+        {para && (
+          <span className="text-[11px] font-semibold text-water-600 opacity-0 transition-opacity duration-hover ease-saida group-hover/tile:opacity-100 group-focus-visible/tile:opacity-100">
+            {aoLado ?? 'ver por quê →'}
+          </span>
+        )}
       </div>
       <div className="mt-1 font-mono text-[16px] font-semibold tabular-nums text-ink-800">
         {valor}
       </div>
-    </div>
+    </>
+  )
+
+  if (!para) return <div>{corpo}</div>
+
+  return (
+    <Link
+      to={para}
+      className="group/tile -m-1.5 block rounded-lg p-1.5 transition-colors duration-hover ease-saida hover:bg-water-50 focus-visible:bg-water-50"
+    >
+      {corpo}
+    </Link>
   )
 }
 
@@ -386,7 +475,10 @@ export function Aviso({ tom = 'neutro', children }: { tom?: Tom; children: React
     teal: 'bg-aegea-50 text-aegea-800',
     azul: 'bg-water-50 text-water-800',
     ambar: 'bg-warning/10 text-[#8A4B0A]',
-    vermelho: 'bg-red-50 text-danger',
+    // `#9B1C1C` e nao `text-danger` (#dc2626): sobre `red-50` o vermelho do token
+  // dava 4,41:1, a 0,09 do minimo. Mesmo tratamento que o ambar ao lado, que ja
+  // usava um tom proprio pelo mesmo motivo.
+  vermelho: 'bg-red-50 text-[#9B1C1C]',
     neutro: 'bg-ink-100 text-ink-600',
   }
   return (
@@ -430,7 +522,7 @@ export function CabecalhoNivel({
               {titulo}
             </h1>
           </div>
-          {subtitulo && <p className="mt-2 text-[13px] text-ink-500">{subtitulo}</p>}
+          {subtitulo && <p className="mt-2 text-[13px] text-ink-water">{subtitulo}</p>}
         </div>
         {acoes && <div className="flex flex-wrap items-center gap-2">{acoes}</div>}
       </div>
@@ -455,7 +547,7 @@ export function Trilha({ itens }: { itens: { rotulo: string; to?: string }[] }) 
           {c.to ? (
             <Link
               to={c.to}
-              className="rounded-md text-[12.5px] font-semibold text-ink-500 transition-colors duration-hover ease-saida hover:text-water-600"
+              className="rounded-md text-[12.5px] font-semibold text-ink-water transition-colors duration-hover ease-saida hover:text-water-600"
             >
               {c.rotulo}
             </Link>

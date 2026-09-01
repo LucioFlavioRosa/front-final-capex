@@ -120,7 +120,8 @@ describe('Histórico — favoritar é seu, comentar é de todos', () => {
         within(linha).getByRole('button', { name: /marcar/i }),
       ).toHaveAttribute('aria-pressed', 'false')
     })
-    // A prova de que foi otimista: a UI virou com a resposta ainda presa.
+    // A prova de que a atualizacao foi otimista: a UI mudou com a resposta
+    // ainda presa.
     expect(respondeu).toBe(false)
     liberar()
   })

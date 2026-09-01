@@ -1,9 +1,8 @@
 /**
  * O ESCOPO DAS ABAS — cidade + sistema, o par de filtros que recorta toda a grade.
  *
- * O controle nasceu dentro da aba de representação (item 34): dois `Combobox` que
- * escolhiam qual sistema desenhar. Em 20/08/2026 ele virou a barra de TODAS as
- * abas, e este arquivo é a parte que não é tela — dado a resolver, sem React.
+ * A barra recorta TODAS as abas do cadastro, e este arquivo é a parte que não é
+ * tela — dado a resolver, sem React.
  *
  * O PROBLEMA QUE ELE RESOLVE, e é um só: **nenhuma aba tem as duas colunas.**
  * A de metas tem `cidade_id` e nenhum sistema; a de CAPEX da CTS não tem nem um
@@ -25,7 +24,7 @@
  */
 
 import type { AbaDef, Cidade, EscopoAba, FonteCidade, FonteSistema, Row } from '../data/cadastroUnidade/types'
-import { type Dados, type Sistema, sistemaDoNo, sistemasDoFluxo } from './cadastroFluxo'
+import { type Dados, type Sistema, sistemaDoNo, sistemasDoFluxo } from './fluxo'
 
 const txt = (v: unknown): string => String(v ?? '').trim()
 

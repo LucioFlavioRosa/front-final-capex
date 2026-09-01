@@ -71,14 +71,10 @@ export const COR_FLUXO = {
   receita: 'var(--viz-fluxo-entra)',
   /** Único vermelho do quadro, e com legenda própria — nunca identidade de série. */
   teto: 'var(--viz-critical)',
-  /** CAPEX acumulado — a linha que era a Curva S, incorporada ao desembolso
-   *  por ano (decisão da reunião de validação de 18/08). Eixo próprio, cor
-   *  própria: a mesma da antiga Curva S, para quem já conhecia o quadro. */
-  acumulado: 'var(--viz-fluxo-primaria)',
 } as const
 
 /**
- * O fluxo de escoamento do VPL (Global/Cidade/Sub-bacia) — porte do design de 19/08.
+ * O fluxo de escoamento do VPL (Global/Cidade/Sub-bacia).
  *
  * Três cores, e nenhuma delas é o par divergente `COR.entra`/`COR.sai`: aquele
  * é vermelho/azul porque em muitos gráficos "sai" é alerta. Num fluxo de escoamento de

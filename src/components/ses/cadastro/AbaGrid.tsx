@@ -2,10 +2,10 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Question, Trash } from '@phosphor-icons/react'
 import type { AbaDef, Cidade, ColDef, Origem, Row } from '../../../data/cadastroUnidade/types'
 import { CIDADE_EDITAVEL_EM, COLUNA_AJUDA, LARGURA_ACOES, colunaLabel, colunaLargura, ehAditiva, larguraDaGrade } from '../../../data/cadastroUnidade/schema'
-import { DICT } from '../../../domain/dict'
-import { computeCalc } from '../../../lib/cadastroCalc'
-import { colunasDoEscopo } from '../../../lib/cadastroEscopo'
-import type { Dados } from '../../../lib/cadastroFluxo'
+import { DICT } from '../../../domain/dicionario'
+import { computeCalc } from '../../../domain/calc'
+import { colunasDoEscopo } from '../../../domain/escopo'
+import type { Dados } from '../../../domain/fluxo'
 import { Tooltip } from '../../ui/Tooltip'
 import { useAuth } from '../../../auth/AuthContext'
 import { podeEditarCampoCadastro } from '../../../auth/permissoesCadastro'
@@ -16,14 +16,18 @@ import { FiltroColuna } from './FiltroColuna'
 
 /**
  * Filtro só entra em aba grande. Nas de 1 a 11 linhas (Ano-base tem 1,
- * Superintendências 1, Concessão poucas) o funil seria ruído puro: rola menos
+ * Empresas 1, Concessão poucas) o funil seria ruído puro: rola menos
  * do que a altura da tela e se lê inteira de uma vez.
  */
 const MIN_LINHAS_PARA_FILTRO = 15
 
 const badgeTone: Record<Origem, string> = {
   db: 'text-water-600 bg-water-50 border border-water-200',
-  un: 'text-amber-600 bg-amber-50 border border-amber-300',
+  // `#8A4B0A` e nao `amber-600`: aos 9px o token dava 3,07:1 sobre `amber-50`,
+  // bem abaixo dos 4,5:1. E o mesmo tom que a etiqueta ambar de `pecas.tsx` ja
+  // usava, pelo mesmo motivo — a paleta de ambar do Tailwind e clara demais
+  // para texto pequeno.
+  un: 'text-[#8A4B0A] bg-amber-50 border border-amber-300',
   calc: 'text-ink-600 bg-ink-100 border border-ink-200',
 }
 const badgeLabel: Record<Origem, string> = { db: 'DB', un: 'un', calc: 'fx' }
@@ -46,23 +50,17 @@ function OrigemBadge({ origem }: { origem: Origem }) {
 }
 
 /**
- * O SELO DE PROCEDÊNCIA SAIU DA GRADE (07/08/2026), e a decisão foi do cliente.
+ * O CABEÇALHO MOSTRA A ORIGEM (DB / un / fx), NÃO A PROCEDÊNCIA.
  *
- * Ele nasceu em 30/07 do pedido "precisamos de um tracking melhor do que é
- * informação mockada e o que é dado real", e virou um ícone por cabeçalho de coluna
- * mais uma legenda de cinco linhas. Quatro dias depois, o mesmo interlocutor pediu o
- * contrário — Wagner, 04/08: *"essa legenda de dado real, isso aqui sai depois, né?
- * Só fica essa parte da legendinha do Databricks, você preenche, calculado."*
+ * As duas são coisas diferentes, e só uma interessa a quem preenche: ORIGEM diz
+ * QUEM EDITA aquela coluna, e é acionável; PROCEDÊNCIA diz se o valor exibido é
+ * dado real ou exemplo, e com a base real carregada ela marca quase toda coluna
+ * — um selo que aparece em tudo não distingue nada.
  *
- * Não é contradição: o que ele pediu em 30/07 era saber DURANTE A CONSTRUÇÃO no que
- * podia confiar; agora que a base real está carregada, o selo de "dado real" ficou em
- * quase toda coluna e passou a ser ruído. O que restou de útil — a origem
- * (DB / un / fx), que diz quem edita o quê — é justamente o que ele pediu para ficar.
- *
- * O `procedencia` NÃO saiu do SCHEMA: continua obrigatório em cada `ColDef`, e é ele
- * que obriga quem acrescenta coluna a declarar se aquilo é dado ou invenção. A
- * informação continua rastreada no código e nos documentos de análise — deixou de
- * ocupar pixel de cabeçalho.
+ * O `procedencia` NÃO sai do SCHEMA: continua obrigatório em cada `ColDef`, e é
+ * ele que obriga quem acrescenta coluna a declarar se aquilo é dado ou invenção.
+ * A rastreabilidade fica no código; o que ela não faz é ocupar pixel de
+ * cabeçalho.
  *
  * Se um dia o alerta de exemplo fictício fizer falta na tela, o caminho mais barato
  * é ressuscitar só o ⚗ de `mock` (era o único selo que avisava de risco), e não os
@@ -131,10 +129,20 @@ function AjudaColuna({ col, coldef }: { col: string; coldef: ColDef }) {
       <Question
         weight="bold"
         aria-label={`Ajuda: ${colunaLabel(col)}`}
-        className="inline cursor-help align-middle text-[12px] text-ink-400 transition-colors duration-hover ease-saida hover:text-water-600"
+        className="inline cursor-help align-middle text-[12px] text-ink-water transition-colors duration-hover ease-saida hover:text-water-600"
       />
     </Tooltip>
   )
+}
+
+/** A ação de linha de uma aba. Monte com `useMemo` — ver `AbaGridProps.acaoDeLinha`. */
+export interface AcaoDeLinha {
+  /** O texto do botão. */
+  rotulo: string
+  /** Em que linhas ele aparece. */
+  visivelEm: (row: Row) => boolean
+  /** O que ele faz, pelo índice da linha. */
+  ao: (ri: number) => void
 }
 
 interface AbaGridProps {
@@ -169,13 +177,20 @@ interface AbaGridProps {
    * POSIÇÃO do componente, não sobre a linha — a linha continua existindo, e o
    * componente volta para a lista dos sem sistema.
    *
-   * Vem em três pedaços, e não num objeto, porque objeto literal nasceria novo a
-   * cada render e derrubaria o `memo` de `AbaGridRow` — o mesmo defeito que já
-   * custou 300ms por tecla aqui.
+   * VINHA EM TRÊS PROPS, e o comentário de então dizia por quê: objeto literal
+   * nasceria novo a cada render e derrubaria o `memo` de `AbaGridRow` — defeito
+   * que já custou 300ms por tecla aqui. O medo era legítimo e a conclusão não:
+   * o problema não é o objeto, é o objeto NASCER no JSX. Vindo de um `useMemo`
+   * sobre referências estáveis, ele é tão estável quanto as três props eram —
+   * elas dependiam exatamente das mesmas referências.
+   *
+   * Três props para um conceito só também mentiam sobre o domínio: no único
+   * chamador as três eram ternários sobre a MESMA condição, ou seja, a mesma
+   * decisão escrita três vezes, com três chances de escrevê-la diferente.
+   *
+   * `undefined` é "esta aba não tem ação de linha".
    */
-  acaoRotulo?: string
-  acaoVisivelEm?: (row: Row) => boolean
-  onAcaoLinha?: (ri: number) => void
+  acaoDeLinha?: AcaoDeLinha
   /** Escrita em lote — o colar de uma seleção de várias células. */
   onCells: (edicoes: { ri: number; col: string; value: string }[]) => void
   /** Avisa a tela quando o filtro é limpo por efeito colateral (ex.: nova linha). */
@@ -329,10 +344,9 @@ const ehNumero = (valor: string) => paraNumero(valor) !== null
 /**
  * ERRO LOCAL NA CÉLULA — e a fronteira com o Painel de problemas.
  *
- * A decisão de 30/07/2026 com a Aegea é que erro NÃO vai para o lado do campo:
- * a duplicata de ID mora na Revisão porque a linha conflitante está em OUTRA
- * aba, e um alerta ali interromperia sem ser acionável. Essa decisão continua
- * valendo, e o `PainelProblemas` não perdeu nada.
+ * A REGRA é que erro NÃO vai para o lado do campo: a duplicata de ID mora na
+ * Revisão porque a linha conflitante está em OUTRA aba, e um alerta ali
+ * interromperia sem ser acionável.
  *
  * O que entra aqui é só o erro que se conserta ONDE ESTÁ, e hoje existe
  * exatamente um tipo assim: valor não-numérico em coluna numérica. Repare que
@@ -462,14 +476,14 @@ const SEM_CADASTRO = {} as Dados
 export function AbaGrid({
   aba, rows, cidades, dados, onCell, onAddRow, onDelRow, onCells, onAviso,
   filtroEscopo, onLimparEscopo, onFocoLinha, focarLinha,
-  edicaoLiberada = true, acaoRotulo, acaoVisivelEm, onAcaoLinha,
+  edicaoLiberada = true, acaoDeLinha,
 }: AbaGridProps) {
   // Papel de quem está olhando — decide, campo a campo, o que `podeEditarCelula`
   // libera. `[]` (deslogado/carregando) não edita nada, que é o default seguro.
   // A coluna de ações existe se a aba cria linhas OU se a tela deu uma ação de
   // linha. Antes ela dependia só de `addRow`, e uma ação sem `addRow` ficava
   // sem lugar para aparecer.
-  const temAcoes = !!aba.addRow || !!onAcaoLinha
+  const temAcoes = !!aba.addRow || !!acaoDeLinha
   const { user } = useAuth()
   const papeis = user?.papeis ?? []
 
@@ -609,10 +623,10 @@ export function AbaGrid({
    * que está na fatia, e as linhas repintam. É a aba onde se escolhe em lista e
    * se digita pouco, então é o lado certo para pagar.
    */
-  // SEM `useMemo`: um `useMemo` com `dados` na lista de dependências devolveria
-  // um `{}` NOVO a cada tecla — o objeto vazio precisa ser o MESMO sempre, e por
-  // isso é constante de módulo (`SEM_CADASTRO`). Foi o que fez a primeira versão
-  // desta correção não mudar nada: 314ms, idênticos aos de antes.
+  // SEM `useMemo`: um `useMemo` com `dados` nas dependências devolveria um `{}`
+  // NOVO a cada tecla, e o ganho desaparece (medido: 314ms por tecla, o mesmo de
+  // não ter otimização nenhuma). O objeto vazio precisa ser o MESMO sempre — daí
+  // a constante de módulo `SEM_CADASTRO`.
   const dadosDaCelula = PRECISAM_DO_CADASTRO.has(aba.key) ? dados : SEM_CADASTRO
   const rolagem = useRolagemEspelhada(larguraTabela)
 
@@ -650,8 +664,7 @@ export function AbaGrid({
   })
 
   /**
-   * "REPETIR NAS LINHAS DA MESMA EMPRESA" — o preenchimento em lote do item 12
-   * do feedback de 26/08.
+   * "REPETIR NAS LINHAS DA MESMA EMPRESA" — preenchimento em lote.
    *
    * Copiar-selecionar-colar já preenchia várias células de uma vez (ver
    * `onPaste` em `useSelecaoGrade`), e continua sendo o caminho geral. O que
@@ -777,12 +790,11 @@ export function AbaGrid({
       onMouseUp={sel.aoSoltarMouse}
       onMouseLeave={sel.aoSoltarMouse}
     >
-      {/* A BARRA DE CIMA FICOU SÓ COM O FILTRO (11/08/2026).
-          O botão "Adicionar linha" desceu para o fim da grade, como linha
-          fantasma: quando se termina de preencher a última linha, o cursor está
-          lá embaixo, não 40 linhas acima. E a dica de atalhos foi para o rodapé
-          — como parágrafo fixo no topo ela era ruído permanente ocupando a
-          largura inteira, todo dia, para uma informação que se lê uma vez. */}
+      {/* A BARRA DE CIMA TEM SÓ O FILTRO. "Adicionar linha" fica no FIM da
+          grade, como linha fantasma: quando se termina de preencher a última
+          linha, o cursor está lá embaixo, não 40 linhas acima. A dica de
+          atalhos fica no rodapé — no topo seria ruído permanente, na largura
+          inteira, todo dia, para uma informação que se lê uma vez. */}
       {(qtdFiltros > 0 || replicavel) && (
         <div className="mb-3 flex flex-wrap items-center gap-3">
           {qtdFiltros > 0 && (
@@ -825,15 +837,13 @@ export function AbaGrid({
         </div>
       )}
       {/*
-        A GRADE PASSOU A ROLAR POR DENTRO (11/08/2026), e é isso que destrava
-        o cabeçalho fixo.
+        A GRADE ROLA POR DENTRO, e é isso que destrava o cabeçalho fixo.
 
-        `position: sticky` se ancora no ancestral que rola. Enquanto quem rolava
-        era a PÁGINA e este container só tinha `overflow-x`, o `sticky` do
-        `thead` não tinha onde grudar — pior: `overflow-x: auto` já faz o
-        navegador calcular `overflow-y: auto`, então o container era um
-        contêiner de rolagem de altura infinita, e o cabeçalho grudava num topo
-        que nunca saía da tela.
+        `position: sticky` se ancora no ancestral que rola. Se quem rola é a
+        PÁGINA e este container só tem `overflow-x`, o `sticky` do `thead` não
+        tem onde grudar — pior: `overflow-x: auto` já faz o navegador calcular
+        `overflow-y: auto`, então o container vira um contêiner de rolagem de
+        altura infinita, e o cabeçalho gruda num topo que nunca sai da tela.
 
         Com altura máxima, a rolagem vertical acontece aqui dentro: o cabeçalho
         gruda de verdade, e a coluna de identidade pode grudar à esquerda pelo
@@ -889,12 +899,12 @@ export function AbaGrid({
                   //
                   // `break-words` é rede de segurança: só age quando uma palavra
                   // é mais larga que a coluna inteira. Sem ele o texto TRANSBORDA
-                  // para a coluna vizinha (foi o que causou o selo do
-                  // "Quantidade" por cima do "Unidade de medida").
+                  // para a coluna vizinha (ex.: "Quantidade" por cima de
+                  // "Unidade de medida").
                   //
-                  // `bg-ink-50` deixou de ser enfeite e virou requisito: um
-                  // cabeçalho grudado sem fundo opaco deixa as linhas passarem
-                  // por baixo dele enquanto a grade rola.
+                  // `bg-ink-50` é REQUISITO, não enfeite: um cabeçalho grudado
+                  // sem fundo opaco deixa as linhas passarem por baixo dele
+                  // enquanto a grade rola.
                   className={`whitespace-normal normal-case tracking-normal text-left align-bottom font-semibold text-ink-600 px-2 py-2 border-b border-ink-200 bg-ink-50 text-[12px] leading-tight break-words ${
                     congelada ? 'sticky z-30 shadow-congelada' : ''
                   }`}
@@ -953,9 +963,9 @@ export function AbaGrid({
                   onDelRow={onDelRow}
                   // PRIMITIVO, calculado aqui: a linha recebe `sim/nao`, e não
                   // a função que decide — assim o `memo` dela compara booleano.
-                  acaoRotulo={acaoRotulo}
-                  mostrarAcao={!!acaoVisivelEm?.(row)}
-                  onAcao={onAcaoLinha}
+                  acaoRotulo={acaoDeLinha?.rotulo}
+                  mostrarAcao={!!acaoDeLinha?.visivelEm(row)}
+                  onAcao={acaoDeLinha?.ao}
                   edicaoLiberada={edicaoLiberada}
                   faixaClara={zebra?.[ri].clara ?? false}
                   novoBloco={zebra?.[ri].novoBloco ?? false}
@@ -975,7 +985,7 @@ export function AbaGrid({
             })}
             {!visiveis.length && (
               <tr>
-                <td colSpan={aba.cols.length + (temAcoes ? 1 : 0)} className="py-8 text-center text-ink-400 text-sm">
+                <td colSpan={aba.cols.length + (temAcoes ? 1 : 0)} className="py-8 text-center text-ink-water text-sm">
                   {rows.length ? 'Nenhuma linha passa nos filtros.' : 'Nenhuma linha.'}
                 </td>
               </tr>
@@ -991,7 +1001,7 @@ export function AbaGrid({
                   <button
                     type="button"
                     onClick={adicionarLinha}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] font-medium text-ink-400 transition-colors duration-hover ease-saida hover:bg-aegea-50 hover:text-aegea-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-water-600"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] font-medium text-ink-water transition-colors duration-hover ease-saida hover:bg-aegea-50 hover:text-aegea-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-water-600"
                   >
                     <Plus weight="bold" className="text-[13px]" />
                     Nova linha
@@ -1020,7 +1030,7 @@ export function AbaGrid({
         usando a mesma `celulaEditavel` que decide o que a grade deixa digitar —
         se um dia a regra de bloqueio mudar, a contagem acompanha sozinha.
       */}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-ink-200 pt-3 text-[12px] text-ink-500">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-ink-200 pt-3 text-[12px] text-ink-water">
         <span className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono tabular-nums">
           <span>
             {/* A condição é `visiveis !== rows`, e não `qtdFiltros > 0`: o
@@ -1060,7 +1070,7 @@ export function AbaGrid({
                   aria-pressed={densidade === d}
                   title={`Linhas ${DENSIDADE_PAD[d].label.toLowerCase()}s`}
                   className={`rounded-md px-2 py-1 text-[11px] font-semibold transition-colors duration-hover ease-saida ${
-                    densidade === d ? 'bg-white text-water-700 shadow-sm' : 'text-ink-500 hover:text-ink-700'
+                    densidade === d ? 'bg-white text-water-700 shadow-sm' : 'text-ink-water hover:text-ink-700'
                   }`}
                 >
                   {DENSIDADE_PAD[d].label}
@@ -1070,7 +1080,7 @@ export function AbaGrid({
           )}
           {/* A dica de atalhos desceu do topo para cá: quem descobre a grade
               olha o rodapé, e aqui ela não rouba a largura da tela toda. */}
-          <span className="text-[11.5px] leading-snug text-ink-400">
+          <span className="text-[11.5px] leading-snug text-ink-water">
             Setas navegam · <Tecla>Shift</Tecla>+setas seleciona · <Tecla>Ctrl</Tecla>+<Tecla>C</Tecla>/
             <Tecla>V</Tecla> copia e cola · <Tecla>Enter</Tecla> edita
             {colunasFiltraveis && qtdFiltros === 0 && ' · funil no cabeçalho filtra'}
@@ -1167,12 +1177,10 @@ const AbaGridRow = memo(function AbaGridRow({
                   : ''
             } ${congelada ? `sticky z-10 ${fundoCongelada} shadow-congelada group-hover:bg-ink-50` : ''}`}
           >
-            {/* AbaCell direto, sem o "?" por célula que existia aqui
-                (`AbaCellWithDict`, aposentado em 07/08/2026 — item 26 do pedido
-                da Aegea): o ícone de 16px comia ~20px de dentro de colunas de
-                84px, em abas de até 22 colunas. A explicação de campo passou a
-                viver só no cabeçalho, via `title` do <th> — que é onde ela custa
-                zero pixel de tabela. */}
+            {/* AbaCell direto, sem um "?" por célula: um ícone de 16px come
+                ~20px de dentro de colunas estreitas, em abas de até 22 colunas.
+                A explicação de campo vive só no cabeçalho, via `title` do <th>,
+                onde custa zero pixel de tabela. */}
             <AbaCell
               abaKey={aba.key}
               col={col}
@@ -1219,7 +1227,7 @@ const AbaGridRow = memo(function AbaGridRow({
             <button
               type="button"
               onClick={() => onAcao(idxOriginal)}
-              className="rounded-[6px] border border-ink-200 px-2 py-0.5 text-[11px] font-semibold text-ink-500 hover:border-danger hover:text-danger"
+              className="rounded-[6px] border border-ink-200 px-2 py-0.5 text-[11px] font-semibold text-ink-water hover:border-danger hover:text-danger"
             >
               {acaoRotulo}
             </button>

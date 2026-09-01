@@ -1,10 +1,9 @@
 /**
  * Progresso do preenchimento — chip no topo que expande.
  *
- * Este arquivo é metade do antigo `PainelProntidao`, que juntava progresso e
- * problemas de consistência na mesma coluna. A separação é da sessão de
- * 30/07/2026 com a Aegea: dentro do cadastro a pergunta é "quanto falta e onde",
- * e um alerta de duplicata ao lado do campo que a pessoa está digitando
+ * PROGRESSO E PROBLEMAS DE CONSISTÊNCIA SÃO SEPARADOS, e não um painel só:
+ * dentro do cadastro a pergunta é "quanto falta e onde", e um alerta de
+ * duplicata ao lado do campo que a pessoa está digitando
  * interrompe sem ser acionável — a duplicata está em OUTRA aba, e resolvê-la
  * agora significa abandonar o que se estava fazendo.
  *
@@ -13,13 +12,11 @@
  * problema crítico bloqueia a rodada.
  *
  * ---
- * DE SIDEBAR PARA CHIP (07/08/2026). Era uma coluna fixa de 336px à direita da
- * grade; virou um chip no bloco de topo que abre um popover com a mesma
- * informação, agora agrupada pelos blocos do wizard (`ListaAbasProgresso`).
- *
- * A troca vale porque 336px de cromo permanente eram caros numa tela cuja aba
- * mais larga tem 22 colunas — a grade os usa melhor. O custo é um clique, e o
- * chip colapsado já responde a "quanto falta" sem precisar dele.
+ * CHIP, E NÃO SIDEBAR: uma coluna fixa de 336px à direita da grade é cromo
+ * permanente caro numa tela cuja aba mais larga tem 22 colunas. O chip abre um
+ * popover com a mesma informação, agrupada pelos blocos do wizard
+ * (`ListaAbasProgresso`); o custo é um clique, e o chip colapsado já responde a
+ * "quanto falta" sem precisar dele.
  *
  * POPOVER, e não painel que empurra conteúdo: a tela é one-page e densa, e
  * deslocar a grade que a pessoa está editando para abrir um resumo é pior que
@@ -32,7 +29,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CaretDown, X } from '@phosphor-icons/react'
 import type { Row } from '../../../data/cadastroUnidade/types'
-import { totalGeral } from '../../../lib/cadastroCalc'
+import { totalGeral } from '../../../domain/calc'
 import { progressoPorBloco } from '../../../data/cadastroUnidade/blocos'
 import { ListaAbasProgresso } from './ListaAbasProgresso'
 
@@ -111,13 +108,13 @@ export function ChipProgresso({ dados, onIrParaAba, onIrParaRevisao }: ChipProgr
           <span className="flex items-center gap-1.5 text-[13px] font-semibold text-ink-600">
             Cadastro preenchido
             <CaretDown
-              className={`text-[11px] text-ink-400 transition-transform duration-hover ease-saida group-hover:text-water-600 ${
+              className={`text-[11px] text-ink-water transition-transform duration-hover ease-saida group-hover:text-water-600 ${
                 aberto ? 'rotate-180' : ''
               }`}
             />
           </span>
           <Barra pct={geral.pct} />
-          <span className="font-mono text-[11px] tabular-nums text-ink-500">
+          <span className="font-mono text-[11px] tabular-nums text-ink-water">
             {geral.feitos} de {geral.total} campos obrigatórios
             {incompletas > 0 && ` · ${incompletas} aba${incompletas === 1 ? '' : 's'} incompleta${incompletas === 1 ? '' : 's'}`}
           </span>
@@ -147,7 +144,7 @@ export function ChipProgresso({ dados, onIrParaAba, onIrParaRevisao }: ChipProgr
                 type="button"
                 onClick={() => setAberto(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-ink-400 transition-colors duration-hover ease-saida hover:bg-ink-100 hover:text-ink-700"
+                className="rounded-lg p-1 text-ink-water transition-colors duration-hover ease-saida hover:bg-ink-100 hover:text-ink-700"
               >
                 <X weight="bold" />
               </button>
@@ -158,7 +155,7 @@ export function ChipProgresso({ dados, onIrParaAba, onIrParaRevisao }: ChipProgr
             </div>
 
             <div className="flex items-center justify-between gap-4 border-t border-ink-200 px-5 py-3">
-              <p className="text-[11.5px] leading-snug text-ink-400">
+              <p className="text-[11.5px] leading-snug text-ink-water">
                 Duplicatas e elos quebrados são conferidos na revisão.
               </p>
               {onIrParaRevisao && (

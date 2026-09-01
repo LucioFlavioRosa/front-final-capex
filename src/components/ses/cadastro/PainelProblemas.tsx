@@ -1,8 +1,7 @@
 /**
  * Consistência do cadastro — a outra metade do antigo `PainelProntidao`.
  *
- * Mora na Revisão desde 30/07/2026, e não mais ao lado de cada aba do cadastro.
- * Duas razões:
+ * Mora na REVISÃO, e não ao lado de cada aba do cadastro. Duas razões:
  *
  *   1. Um problema aqui nunca é local. "Referência de sub-bacia inexistente"
  *      nasce da relação entre DUAS abas — mostrá-lo enquanto a pessoa digita
@@ -17,7 +16,7 @@
  */
 
 import { CheckCircle, WarningCircle, XCircle } from '@phosphor-icons/react'
-import type { Problema } from '../../../lib/cadastroValidacao'
+import type { Problema } from '../../../domain/validacao'
 
 interface PainelProblemasProps {
   problemas: Problema[]
@@ -61,7 +60,7 @@ function Cabecalho({ criticos, avisos }: { criticos: number; avisos: number }) {
           <h3 className="text-[14px] font-bold tracking-tight text-ink-900">
             {criticos} problema{criticos === 1 ? '' : 's'} que corrompe{criticos === 1 ? '' : 'm'} o plano
           </h3>
-          <p className="mt-0.5 text-[12.5px] text-ink-500">
+          <p className="mt-0.5 text-[12.5px] text-ink-water">
             A rodada até executaria, mas o resultado sairia errado sem acusar erro. Por isso a
             simulação fica bloqueada até que estes pontos sejam resolvidos.
           </p>
@@ -77,7 +76,7 @@ function Cabecalho({ criticos, avisos }: { criticos: number; avisos: number }) {
           <h3 className="text-[14px] font-bold tracking-tight text-ink-900">
             Consistente, com {avisos} ponto{avisos === 1 ? '' : 's'} de atenção
           </h3>
-          <p className="mt-0.5 text-[12.5px] text-ink-500">
+          <p className="mt-0.5 text-[12.5px] text-ink-water">
             Nada corrompe o plano e nada bloqueia a rodada. Confira os pontos abaixo para saber o
             que a simulação vai assumir.
           </p>
@@ -90,7 +89,7 @@ function Cabecalho({ criticos, avisos }: { criticos: number; avisos: number }) {
       <CheckCircle weight="fill" className="mt-0.5 shrink-0 text-xl text-success" />
       <div>
         <h3 className="text-[14px] font-bold tracking-tight text-ink-900">Cadastro consistente</h3>
-        <p className="mt-0.5 text-[12.5px] text-ink-500">
+        <p className="mt-0.5 text-[12.5px] text-ink-water">
           Sem duplicatas e sem elo quebrado na hierarquia.
         </p>
       </div>

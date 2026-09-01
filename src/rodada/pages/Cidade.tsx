@@ -14,6 +14,7 @@ import {
 } from '@/rodada/components/pecas'
 import { SecaoElementos } from '@/rodada/components/SecaoElementos'
 import { SecaoPorQue } from '@/rodada/components/SecaoPorQue'
+import { useAbaResultado } from '@/rodada/layout/abaResultado'
 import {
   GraficoFluxoEscoamento,
   GraficoCobertura,
@@ -29,7 +30,7 @@ import {
 } from '@/rodada/api/queries'
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
-import { brlMi, inteiro, pct } from '@/rodada/lib/formato'
+import { brlMi, inteiro, pct, deTotal, vazao} from '@/rodada/lib/formato'
 
 /**
  * Nível 2 — uma cidade da rodada.
@@ -45,13 +46,14 @@ import { brlMi, inteiro, pct } from '@/rodada/lib/formato'
  */
 export function Cidade() {
   const { runId, cidadeId } = useParams<{ runId: string; cidadeId: string }>()
+  const aba = useAbaResultado()
   const meta = useRunMeta(runId)
   const cidade = useCidade(runId, cidadeId)
   const ebitda = useEbitda(runId, cidadeId)
   const explicabilidade = useExplicabilidadeDaCidade(runId, cidadeId)
 
   /**
-   * A POSIÇÃO DESTA CIDADE NO RANKING DE VPL (item 8 do feedback de 26/08).
+   * A POSIÇÃO DESTA CIDADE NO RANKING DE VPL.
    *
    * Sai da lista do nível 1, que já traz TODAS as cidades com o VPL de cada
    * uma — não há consulta nova: `useCidades` compartilha a `queryKey` com a
@@ -114,9 +116,59 @@ export function Cidade() {
                   <BotaoExportar />
                 </>
               }
-              destaque={{ rotulo: 'VPL da cidade', valor: brlMi(c.vpl), ajuda: 'VPL_PLANO' }}
-              itens={[
-                { rotulo: 'CAPEX', valor: brlMi(c.capexTotal), ajuda: 'CAPEX_TOTAL' },
+              /* A faixa segue a aba, como no nível 1: em Por quê o VPL da
+                 cidade não responde nada, e o número que responde é quantas
+                 sub-bacias dela ficaram fora. */
+              destaque={
+                aba === 'porque' && explicabilidade.data
+                  ? {
+                      rotulo: 'Sub-bacias desta cidade fora do plano',
+                      valor: deTotal(
+                        explicabilidade.data.naoFaturando,
+                        explicabilidade.data.totalSubbacias,
+                      ),
+                    }
+                  : { rotulo: 'VPL da cidade', valor: brlMi(c.vpl), ajuda: 'VPL_PLANO' }
+              }
+              /**
+               * SAIU O TILE DE CAPEX, e no lugar entrou a PARTICIPAÇÃO.
+               *
+               * Repetir o CAPEX aqui faz o nível 2 parecer o nível 1 com
+               * números menores, que é a sensação que a reorganização veio
+               * tirar. A participação responde outra pergunta — "quanto desta
+               * rodada é esta cidade" —, que só existe neste nível.
+               *
+               * A participação é o número que só existe NESTE nível: quanto do
+               * plano inteiro passa por esta cidade. Ela não cabe no nível 1
+               * (lá são 27 linhas) nem no 3 (lá não há o total).
+               */
+              itens={aba === 'porque' && explicabilidade.data ? [
+                {
+                  rotulo: 'Vazão presa',
+                  valor: vazao(
+                    explicabilidade.data.categorias.reduce((s, c2) => s + c2.vazaoPresa, 0),
+                  ),
+                },
+                {
+                  rotulo: 'Motivos distintos',
+                  valor: inteiro(explicabilidade.data.categorias.length),
+                },
+                {
+                  rotulo: 'Obras que destravariam mais',
+                  valor: inteiro(explicabilidade.data.elos.length),
+                },
+                {
+                  rotulo: 'Cobertura que faltou',
+                  valor: pct(100 - c.coberturaFinalPct),
+                },
+              ] : [
+                {
+                  rotulo: 'Participação no plano',
+                  valor:
+                    meta.data && meta.data.kpis.vpl
+                      ? pct((c.vpl / meta.data.kpis.vpl) * 100)
+                      : '—',
+                },
                 { rotulo: 'Cobertura base', valor: pct(c.coberturaBasePct) },
                 {
                   rotulo: 'Cobertura final',
@@ -145,6 +197,8 @@ export function Cidade() {
               }
             />
 
+            {aba === 'plano' && (
+              <>
             <TituloSecao>Quadros da cidade</TituloSecao>
             <div className="grid gap-4 lg:grid-cols-2">
               <GraficoFluxoEscoamento
@@ -177,14 +231,16 @@ export function Cidade() {
             </div>
 
             <SecaoElementos anos={c.elementosPorAno} />
+              </>
+            )}
 
             {/* "QUAIS SISTEMAS E SUB-BACIAS ESTÃO SENDO PRIORIZADOS E QUAIS
-                FICARAM DE FORA" — item 10 do feedback de 26/08. Mesmo bloco do
-                nível 1, recortado por cidade: sem `Estado` de erro/carregando
+                FICARAM DE FORA" — mesmo bloco do nível 1, recortado por cidade.
+                Sem `Estado` de erro/carregando
                 próprio de propósito — se a explicabilidade falhar aqui, a
                 tela inteira já falhou antes (o mesmo `runId`/`cidadeId`), e
                 duplicar o tratamento seria alarme sem informação nova. */}
-            {explicabilidade.data && (
+            {aba === 'porque' && explicabilidade.data && (
               <SecaoPorQue
                 dados={explicabilidade.data}
                 runId={runId}
@@ -192,11 +248,13 @@ export function Cidade() {
               />
             )}
 
+            {aba === 'plano' && (
+              <>
             <TituloSecao nota="clique para descer um nível">Sistemas da cidade</TituloSecao>
             {c.sistemas.length === 0 ? (
               <div className="rounded-2xl border-[1.5px] border-dashed border-ink-300 bg-white p-8 text-center">
                 <p className="text-sm font-semibold text-ink-800">Nenhum sistema nesta cidade</p>
-                <p className="mt-1 text-[12.5px] text-ink-500">
+                <p className="mt-1 text-[12.5px] text-ink-water">
                   A cidade existe na rodada, mas não tem sistema com resultado.
                 </p>
               </div>
@@ -247,6 +305,8 @@ export function Cidade() {
                   </table>
                 </div>
               </Cartao>
+            )}
+              </>
             )}
           </>
         )}

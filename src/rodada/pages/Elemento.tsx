@@ -17,6 +17,7 @@ import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
 import { VAZIO, brl, brlMi, dataCurta, inteiro, pct, vazao } from '@/rodada/lib/formato'
 import type { ReactNode } from 'react'
+import { useAbaResultado } from '@/rodada/layout/abaResultado'
 
 /**
  * Nível 5 — a folha da árvore. Sem gráfico.
@@ -28,6 +29,7 @@ import type { ReactNode } from 'react'
  */
 export function Elemento() {
   const { runId, obraId } = useParams<{ runId: string; obraId: string }>()
+  const aba = useAbaResultado()
   const meta = useRunMeta(runId)
   const obra = useObra(runId, obraId)
 
@@ -106,6 +108,8 @@ export function Elemento() {
                 }
               />
 
+              {aba === 'plano' && (
+              <>
               {/* O QUE A OBRA DESTRAVA — promovido de três linhas no meio da
                   ficha para bloco próprio.
                   O domínio já diz por quê: R$ 223 mil é caro ou barato depende
@@ -127,7 +131,20 @@ export function Elemento() {
                 </Cartao>
               </div>
 
-              <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+              </>
+              )}
+
+              {/* A FICHA e QUEM DEPENDE dividiam a linha. Agora cada uma
+                  responde numa aba: a ficha é o que a obra É (Plano), a lista de
+                  dependentes é quem ficou esperando por ela (Por quê).
+
+                  Esta parte eu propus como "precisa de backend" e estava
+                  errado: `o.dependencias` já traz as estruturas que dependem da
+                  obra, com vazão e rateio. O nível 5 tem aba Por quê hoje. */}
+              <div className={aba === 'plano'
+                ? 'mt-4 grid gap-4'
+                : 'mt-4 grid gap-4'}>
+                {aba === 'plano' && (
                 <Cartao titulo="Ficha">
                   <dl className="m-0 grid grid-cols-1 gap-0">
                     <Campo rotulo="Componente" valor={o.componente} />
@@ -163,14 +180,16 @@ export function Elemento() {
                     </p>
                   )}
                 </Cartao>
+                )}
 
+                {aba === 'porque' && (
                 <Cartao
                   tabela
                   titulo="Quem depende desta obra"
                   nota="rateio do CAPEX por vazão contribuída"
                 >
                   {o.dependencias.length === 0 ? (
-                    <p className="m-2.5 rounded-xl border-[1.5px] border-dashed border-ink-300 p-4 text-center text-[12px] text-ink-500">
+                    <p className="m-2.5 rounded-xl border-[1.5px] border-dashed border-ink-300 p-4 text-center text-[12px] text-ink-water">
                       Nenhuma outra estrutura depende desta obra — o custo é todo da sub-bacia
                       dela.
                     </p>
@@ -200,7 +219,7 @@ export function Elemento() {
                                   {d.subbaciaId}
                                 </CelulaLink>
                                 {!d.fatura && (
-                                  <span className="ml-1.5 text-[10px] text-ink-400">não fatura</span>
+                                  <span className="ml-1.5 text-[10px] text-ink-water">não fatura</span>
                                 )}
                               </td>
                               <td data-m>{vazao(d.vazao)}</td>
@@ -225,6 +244,7 @@ export function Elemento() {
                     </div>
                   )}
                 </Cartao>
+                )}
               </div>
             </>
           )
@@ -237,7 +257,7 @@ export function Elemento() {
 function Campo({ rotulo, valor }: { rotulo: string; valor: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-ink-100 py-2 last:border-b-0">
-      <dt className="text-[12px] text-ink-500">{rotulo}</dt>
+      <dt className="text-[12px] text-ink-water">{rotulo}</dt>
       <dd className="m-0 text-right font-mono text-[12.5px] font-medium tabular-nums text-ink-800">
         {valor}
       </dd>

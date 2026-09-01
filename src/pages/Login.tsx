@@ -115,13 +115,13 @@ export function Login() {
       {/* Painel de acesso */}
       <div className="flex items-center justify-center bg-[#66EDDD] px-6 py-12 lg:w-[42%]">
         <div className="w-full max-w-sm animate-fade-in-up rounded-2xl bg-white p-8 shadow-elev">
-          <div className="text-[11px] font-semibold uppercase tracking-[.1em] text-ink-400">
+          <div className="text-[11px] font-semibold uppercase tracking-[.1em] text-ink-water">
             Acesso restrito
           </div>
           <h2 className="mt-2.5 text-[26px] font-extrabold leading-tight tracking-tight text-body-text">
             Acessar a plataforma
           </h2>
-          <p className="mt-2 text-[13.5px] text-ink-500">
+          <p className="mt-2 text-[13.5px] text-ink-water">
             Autenticação corporativa via Microsoft Entra ID. Seu perfil define a experiência.
           </p>
 
@@ -147,12 +147,12 @@ export function Login() {
 
           {erro && <p className="mt-3 text-sm text-danger">{erro}</p>}
 
-          <div className="mt-[18px] flex items-center gap-2 text-xs text-ink-500">
+          <div className="mt-[18px] flex items-center gap-2 text-xs text-ink-water">
             <ShieldCheck weight="fill" className="flex-shrink-0 text-base text-aegea-600" />
             <span>Sessão auditada · Azure AD SSO</span>
           </div>
 
-          <p className="mt-8 border-t border-ink-200 pt-5 text-[11.5px] text-ink-400">
+          <p className="mt-8 border-t border-ink-200 pt-5 text-[11.5px] text-ink-water">
             Protótipo — não é ambiente de produção. © 2026 Aegea Saneamento
           </p>
         </div>

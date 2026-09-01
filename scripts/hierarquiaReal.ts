@@ -22,8 +22,8 @@
  *   - sistema e sub-bacia — nada; as 1.047 sub-bacias seguem sem recorte
  *     por unidade (ver ANALISE-CSV-DADOS-COMERCIAIS.md).
  *
- * MOVIDO de `src/data/cadastroUnidade/` para `scripts/` em 17/08/2026. O front
- * não compila mais este arquivo: a lista de regionais/unidades que a tela usa
+ * VIVE EM `scripts/`, e não em `src/`: o front não compila este arquivo — a
+ * lista de regionais/unidades que a tela usa
  * vem de `/api/regionais` e `/api/regionais/{id}/unidades`, lidas de
  * `input.unidade_regional` no banco. Este arquivo continua existindo como
  * INSUMO de carga — é dele que `seed.ts`/`semear-banco.ts` tiram o de-para

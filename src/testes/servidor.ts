@@ -235,6 +235,13 @@ export const handlers = [
       },
     }),
   ),
+  // Curva de sensibilidade VAZIA por padrao: a maioria das rodadas nao tem
+  // variacao nenhuma, e devolver pontos aqui faria toda tela do nivel 1 desenhar
+  // graficos que o teste dela nao esta olhando. Quem testa a curva usa
+  // `servidor.use(...)` com o payload que interessa.
+  http.get('/api/runs/:runId/sensibilidade', () =>
+    HttpResponse.json({ teto: null, pontos: [] }),
+  ),
   http.get('/api/runs/:runId/painel', () => HttpResponse.json(PAINEL)),
   http.get('/api/runs/:runId/ebitda', () =>
     HttpResponse.json({
@@ -252,13 +259,20 @@ export const handlers = [
       anos: [
         {
           ano: 2028,
-          obras: 2,
-          capex: 500_366,
-          obrasTerceiro: 0,
-          porComponente: [
-            { componente: 'Ligação de esgoto', obras: 1, capex: 310_024 },
-            { componente: 'Rede coletora', obras: 1, capex: 190_342 },
-          ],
+          escolhida: {
+            obras: 2,
+            capex: 500_366,
+            porComponente: [
+              { componente: 'Ligação de esgoto', obras: 1, capex: 310_024 },
+              { componente: 'Rede coletora', obras: 1, capex: 190_342 },
+            ],
+          },
+          obrigatoria: { obras: 0, capex: 0, porComponente: [] },
+          terceiro: {
+            obras: 3,
+            capex: 0,
+            porComponente: [{ componente: 'EEE', obras: 3, capex: 0 }],
+          },
         },
       ],
     }),
@@ -271,6 +285,7 @@ export const handlers = [
           obraId: 'rede_b2b27_1_2',
           componente: 'Rede coletora',
           situacao: 'construida',
+          recorte: 'escolhida',
           cidadeId: 'Belford Roxo',
           sistemaId: 'Sistema 27',
           subBaciaId: 'b2b27_1_2',
@@ -278,6 +293,7 @@ export const handlers = [
           quantidade: 383,
           unidade: 'm',
           anoInicio: 2028,
+          dataPronta: '2028-09',
           prazoMeses: 9,
         },
       ],

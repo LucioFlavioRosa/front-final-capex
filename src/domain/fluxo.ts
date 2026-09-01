@@ -1,14 +1,14 @@
 /**
- * O FLUXO DE ESCOAMENTO COMO GRAFO — a leitura que os itens 21, 22 e 23 pedem.
+ * O FLUXO DE ESCOAMENTO COMO GRAFO.
  *
- * Até 07/08/2026 a aba `sistema-topologia` era um par de colunas de texto livre:
- * quem preenchia digitava o código do destino de cabeça, e a única checagem
- * existente ("destino que não existe") só rodava na Revisão. Os três pedidos de
- * 05/08 mudam isso de lugar — o destino vira lista suspensa filtrada (22), o
- * sistema da CTS passa a ser DERIVADO do destino (21) e a topologia é conferida
- * na própria aba (23) — e os três precisam da mesma coisa: enxergar as linhas do
- * fluxo como arestas de um grafo, com os nós resolvidos contra as abas onde eles
- * de fato existem.
+ * Três coisas da aba `sistema-topologia` dependem desta leitura, e as três
+ * precisam do mesmo: enxergar as linhas do fluxo como ARESTAS DE UM GRAFO, com
+ * os nós resolvidos contra as abas onde eles de fato existem.
+ *
+ *   · o destino é lista suspensa FILTRADA, e não texto livre — digitado de
+ *     cabeça, um destino errado só apareceria na Revisão;
+ *   · o sistema da CTS é DERIVADO do destino dela;
+ *   · a topologia é conferida na própria aba, enquanto se preenche.
  *
  * É aqui que essa leitura mora, e ela é PURA: recebe o estado do cadastro e
  * devolve resposta, sem tocar em React nem em nada mutável. `cadastroCalc`,
@@ -27,6 +27,7 @@
  */
 
 import type { Row } from '../data/cadastroUnidade/types'
+import { toNum } from './numero'
 
 export type Dados = Record<string, Row[]>
 export type TipoNo = 'subbacia' | 'cts' | 'ete' | 'desconhecido'
@@ -235,11 +236,11 @@ const origensDoFluxo = (dados: Dados): string[] =>
  * CATÁLOGO DAS LISTAS SUSPENSAS — cache, e ele não é otimização prematura.
  *
  * As opções dependem só do cadastro, mas a célula que as pede é uma POR LINHA, e
- * a aba do Fluxo passou a ter uma linha por sub-bacia da amostra mais uma por CTS
- * da unidade — 221 na maior. A primeira versão montava a lista de origens dentro
- * de `opcoesOrigem`, varrendo as 1.047 sub-bacias da base e derivando o sistema de
- * cada uma: 221 × 1.047 travessias a cada render da grade, ou seja, a cada tecla
- * digitada em qualquer célula da aba. A grade não terminava de desenhar.
+ * a aba do Fluxo tem uma linha por sub-bacia da amostra mais uma por CTS da
+ * unidade — 221 na maior. Montar a lista dentro de `opcoesOrigem`, varrendo as
+ * 1.047 sub-bacias da base e derivando o sistema de cada uma, dá 221 × 1.047
+ * travessias A CADA RENDER da grade, ou seja, a cada tecla digitada em qualquer
+ * célula da aba: a grade não termina de desenhar.
  *
  * Aqui a varredura acontece UMA VEZ por versão do cadastro, e o que sobra por
  * linha é filtrar uma lista de algumas centenas de códigos já prontos. Mesma
@@ -294,7 +295,40 @@ function catalogo(dados: Dados): Catalogo {
   const subbaciasTodas = (dados['subbacia-operacional'] ?? [])
     .map((r) => txt(r.sub_bacia_id))
     .filter(Boolean)
-  const ctss = (dados['cts-operacional'] ?? []).map((r) => txt(r.cts_id)).filter(Boolean)
+  /**
+   * AS CTS QUE A TELA CONHECE — as com ficha na unidade E as que só existem na
+   * topologia. A união é o ponto, e não uma soma por precaução.
+   *
+   * `cts-operacional` só traz a CTS que JÁ PERTENCE à unidade, e uma CTS só
+   * pertence a uma unidade através do sistema em que alguém a colocou. Enquanto
+   * ela está livre, `GET /unidades/{u}/cts` não a devolve — hoje, nas três
+   * unidades da base, ele devolve ZERO — e a ficha dela só aparece depois de
+   * salvar. A topologia, essa, chega inteira: as 149 CTS livres estão lá, é
+   * delas que sai a lista do "Adicionar CTS", e é nela que a tela escreve o
+   * `sistema_id` ao colocar uma.
+   *
+   * Ler só as fichas fazia a CTS recém-colocada não aparecer como destino: a
+   * linha existia, o sistema estava escrito nela, e mesmo assim o `<select>` de
+   * jusante não a oferecia — até salvar e recarregar. O contrário também: tirar
+   * a CTS do sistema deixava a opção lá.
+   */
+  const ctss: string[] = []
+  const vistas = new Set<string>()
+  for (const id of (dados['cts-operacional'] ?? []).map((r) => txt(r.cts_id))) {
+    if (!id || vistas.has(id)) continue
+    vistas.add(id)
+    ctss.push(id)
+  }
+  /** Nome da CTS sem ficha — só a linha da topologia o tem. */
+  const nomeNaTopologia = new Map<string, string>()
+  for (const r of dados['sistema-topologia'] ?? []) {
+    const id = txt(r.componente_sistema_id)
+    if (!id || vistas.has(id) || !ehCts(dados, r)) continue
+    vistas.add(id)
+    ctss.push(id)
+    const nome = txt(r.componente_sistema_nome)
+    if (nome) nomeNaTopologia.set(id, nome)
+  }
   const etes = (dados['ete-capex'] ?? []).map((r) => txt(r.ete_id)).filter(Boolean)
 
   /**
@@ -327,7 +361,13 @@ function catalogo(dados: Dados): Catalogo {
 
   const rotulos = new Map<string, string>()
   for (const id of [...subbaciasDoFluxo, ...subbaciasTodas, ...ctss, ...etes, ...origensLivres]) {
-    if (!rotulos.has(id)) rotulos.set(id, rotuloNo(dados, id))
+    if (rotulos.has(id)) continue
+    // `rotuloNo` procura o nome na ficha, e devolve o código puro quando não
+    // acha. Para a CTS ainda sem ficha na unidade, o nome está na linha da
+    // topologia — sem isto ela entraria na lista como 'cts_003' pelado, ao lado
+    // de vizinhos que dizem 'b004 · Canal do Cunha'.
+    const nome = nomeNaTopologia.get(id)
+    rotulos.set(id, nome ? `${id} · ${nome}` : rotuloNo(dados, id))
   }
 
   const novo: Catalogo = {
@@ -434,16 +474,12 @@ export function opcoesOrigem(dados: Dados): [string, string][] {
 }
 
 /**
- * AS CÉLULAS QUE SÃO LISTA SUSPENSA DE ENTIDADE — e por que isto deixou de ser
- * um `Set` de nomes de coluna.
+ * AS CÉLULAS QUE SÃO LISTA SUSPENSA DE ENTIDADE — uma FUNÇÃO (aba, coluna), e
+ * não um `Set` de nomes de coluna.
  *
- * Era `COLUNAS_DINAMICAS`, um conjunto de duas colunas usado com um
- * `abaKey === 'sistema-topologia'` cravado ao lado, no `AbaCell`. Serviu enquanto
- * a única aba com escolha de entidade era a do Fluxo.
- *
- * DEIXOU DE SERVIR em 20/08/2026, quando a auditoria de "o que o cadastro NÃO
- * deixa preencher" achou duas lacunas reais — e as duas eram células que
- * precisavam justamente desta lista:
+ * Um conjunto de colunas com um `abaKey === 'sistema-topologia'` cravado ao lado
+ * só serve enquanto a única aba com escolha de entidade é a do Fluxo. Não é o
+ * caso — estas duas também precisam da lista:
  *
  *   `subbacia-cts` — a aba do pareamento não tinha UMA célula editável. Os quatro
  *     campos eram 'db', e a aba não tinha "Adicionar linha": ela era uma tela de
@@ -507,10 +543,10 @@ export function espelharColunas(
   valor: string,
 ): Record<string, string> {
   /**
-   * O PAREAMENTO SUB-BACIA · CTS entrou aqui em 20/08/2026, junto de os dois
-   * códigos dele deixarem de ser travados (ver `opcoesDaCelula`). Os nomes
-   * continuam 'db' na tela e é isto que os preenche — sem o espelho, escolher a
-   * CTS deixaria o nome da anterior ao lado do código novo.
+   * O PAREAMENTO SUB-BACIA · CTS: os dois CÓDIGOS são escolha (ver
+   * `opcoesDaCelula`) e os dois NOMES são 'db' na tela — é isto que os preenche.
+   * Sem o espelho, escolher a CTS deixa o nome da anterior ao lado do código
+   * novo.
    */
   if (abaKey === 'subbacia-cts') {
     if (col === 'sub_bacia_id') return { sub_bacia_name: nomeDoNo(dados, valor) }
@@ -555,29 +591,20 @@ export type FimDoCaminho = 'ete' | 'sem-destino' | 'destino-inexistente' | 'cicl
 
 /**
  * ============================================================================
- * A REPRESENTAÇÃO (UNIFILAR) — item 34, pedido na reunião de 04/08/2026.
+ * A REPRESENTAÇÃO (UNIFILAR) — o mesmo grafo, devolvido como desenho.
  * ============================================================================
  *
- * O pedido é de Wagner (15:01), depois de perguntar onde o unifilar tinha ido
- * parar (13:27): *"podem ficar numa aba só, mas mostrando o unifilar. E aí, se
- * vocês quiserem, dá até para botar uns filtros que são respectivos a esses
- * dados. Eu quero filtrar os unifilares que estão na cidade tal."* Lúcio fechou o
- * formato (16:50): *"talvez criar uma aba só para mostrar a representação, porque
- * daí a pessoa cadastra tudo e tal, até para não ficar misturando assunto — e daí
- * vai lá na outra, você digita qual cidade, qual sistema você quer mostrar."*
+ * São a mesma leitura das funções acima, entregando nós com nível e arestas.
+ * Elas não sabem nada de pixel; posição é assunto de `Unifilar.tsx`.
  *
- * Wagner também fixou a ordem (15:17): *"a topologia tem que vir primeiro"* — o
- * Fluxo de escoamento é onde se preenche, a representação é onde se confere.
- *
- * O QUE ESTAS FUNÇÕES SÃO: a mesma leitura de grafo que os itens 21–23 já fazem,
- * agora devolvida como desenho — nós com nível e arestas. Elas não sabem nada de
- * pixel; posição é assunto de `Unifilar.tsx`.
+ * O desenho é recortado por SISTEMA, escolhido na barra da aba: um unifilar de
+ * unidade inteira não é legível nem útil — quem confere confere um sistema.
  *
  * A FONTE É A ABA DO FLUXO, e essa escolha é deliberada. `tipoDoNo` e `nomeDoNo`
  * resolvem o nó contra a aba onde ele vive, o que é o certo e é o que dá o TIPO —
- * mas hoje há cadastro no banco cujas colunas de entidade vêm com o nome da
- * planilha do otimizador (`sub_bacia` em vez de `sub_bacia_id`), e nele a busca
- * não acha nada. Como o id, o nome e a aresta estão na PRÓPRIA linha do fluxo
+ * mas há cadastro no banco cujas colunas de entidade vêm com o nome da planilha
+ * do otimizador (`sub_bacia` em vez de `sub_bacia_id`), e nele a busca não acha
+ * nada. Como o id, o nome e a aresta estão na PRÓPRIA linha do fluxo
  * (`componente_sistema_nome`, `_id_jusante`), o desenho continua correto nos dois
  * casos: o que se perde é o tipo, e nó de tipo desconhecido é desenhado neutro em
  * vez de sumir. Um desenho que só funciona com uma das duas cargas seria pior.
@@ -593,11 +620,26 @@ export interface NoUnifilar {
   pontaSolta: boolean
   /** O caminho a partir daqui volta sobre si mesmo (a regra 3 da validação). */
   emCiclo: boolean
+  /**
+   * A vazão de contribuição DESTE nó (L/s), do cadastro. `null` quando ainda não
+   * foi preenchida — e null não é zero: zero afirma "não contribui".
+   */
+  vazao: number | null
 }
 
 export interface ArestaUnifilar {
   de: string
   para: string
+  /**
+   * A vazão que PASSA por esta ligação: a do nó de origem mais tudo o que chega
+   * nele. `null` quando nada no que vem acima tem vazão preenchida.
+   *
+   * ACUMULADA, e não a contribuição local, porque é isso que uma linha de fluxo
+   * significa: o trecho que sai de um tronco carrega o esgoto de todas as
+   * sub-bacias acima dele. Na cabeceira as duas contas coincidem — lá a
+   * acumulada É a contribuição da própria sub-bacia ou CTS.
+   */
+  vazao: number | null
 }
 
 export interface UnifilarSistema {
@@ -703,6 +745,58 @@ export function sistemasDoFluxo(dados: Dados): SistemasDoFluxo {
  * sobra sem entrar na ordenação é exatamente o que está preso em ciclo — que
  * então vai para um nível próprio, no fim, marcado.
  */
+/**
+ * A vazão de contribuição de um componente, em L/s. `null` se não preenchida.
+ *
+ * Mora na ficha de coleta — `vazao_contribuicao`, do bloco que a Regional
+ * preenche —, e a ETE não tem: ela recebe, não contribui.
+ */
+function vazaoDoNo(dados: Dados, id: string): number | null {
+  const ix = indice(dados)
+  const linha = ix.subbacia.get(id) ?? ix.cts.get(id)
+  return linha ? toNum(txt(linha.vazao_contribuicao)) : null
+}
+
+/**
+ * A vazão que chega em cada nó, somando tudo o que vem acima dele.
+ *
+ * `null` só quando NADA acima tem vazão — um trecho com metade do cadastro
+ * preenchido soma o que sabe, porque uma soma parcial ainda ordena as linhas
+ * corretamente entre si, e esconder tudo por causa de um vazio deixaria o
+ * desenho mudo justamente enquanto ele está sendo preenchido.
+ *
+ * O passeio tem trava de visitados: ciclo é estado possível durante o cadastro
+ * (a validação o denuncia, o desenho o mostra em vermelho), e sem a trava esta
+ * função entraria em recursão infinita numa tela que só queria desenhar.
+ */
+function acumularVazao(
+  nos: Map<string, NoUnifilar>,
+  arestas: ArestaUnifilar[],
+): Map<string, number | null> {
+  const acima = new Map<string, string[]>()
+  for (const a of arestas) acima.set(a.para, [...(acima.get(a.para) ?? []), a.de])
+
+  const memo = new Map<string, number | null>()
+  const andando = new Set<string>()
+
+  const total = (id: string): number | null => {
+    if (memo.has(id)) return memo.get(id)!
+    if (andando.has(id)) return null // ciclo: para aqui, sem somar duas vezes
+    andando.add(id)
+    let soma: number | null = nos.get(id)?.vazao ?? null
+    for (const pai of acima.get(id) ?? []) {
+      const daquele = total(pai)
+      if (daquele != null) soma = (soma ?? 0) + daquele
+    }
+    andando.delete(id)
+    memo.set(id, soma)
+    return soma
+  }
+
+  for (const id of nos.keys()) total(id)
+  return memo
+}
+
 export function unifilarDoSistema(dados: Dados, sistemaId: string): UnifilarSistema {
   const alvo = txt(sistemaId)
   const nos = new Map<string, NoUnifilar>()
@@ -725,6 +819,7 @@ export function unifilarDoSistema(dados: Dados, sistemaId: string): UnifilarSist
       nivel: 1,
       pontaSolta: false,
       emCiclo: false,
+      vazao: vazaoDoNo(dados, id),
     }
     nos.set(id, novo)
     return novo
@@ -746,7 +841,7 @@ export function unifilarDoSistema(dados: Dados, sistemaId: string): UnifilarSist
      * mostrar isso.
      */
     anotar(destino, txt(r.componente_sistema_nome_jusante))
-    arestas.push({ de: origem, para: destino })
+    arestas.push({ de: origem, para: destino, vazao: null })
     temSaida.add(origem)
     temEntrada.add(destino)
   }
@@ -812,9 +907,13 @@ export function unifilarDoSistema(dados: Dados, sistemaId: string): UnifilarSist
   const novoNivel = new Map(usados.map((n, i) => [n, i + 1]))
   for (const no of noFluxo) no.nivel = novoNivel.get(no.nivel) ?? 1
 
+  const acumulada = acumularVazao(nos, arestas)
+
   return {
     nos: noFluxo.sort((a, b) => a.nivel - b.nivel || a.id.localeCompare(b.id)),
-    arestas: arestas.filter((a) => nos.has(a.de) && nos.has(a.para)),
+    arestas: arestas
+      .filter((a) => nos.has(a.de) && nos.has(a.para))
+      .map((a) => ({ ...a, vazao: acumulada.get(a.de) ?? null })),
     soltos: soltos.sort((a, b) => a.id.localeCompare(b.id)),
     niveis: usados.length,
   }

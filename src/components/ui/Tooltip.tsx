@@ -13,8 +13,8 @@ const ATRASO_MS = 180;
  * Posição calculada em `position: fixed` e renderizada via portal em
  * `document.body`.
  *
- * A versão anterior usava `position: absolute` dentro do próprio `<td>` da
- * grade — e a grade rola dentro de um contêiner com `overflow-x-auto`
+ * NÃO PODE ser `position: absolute` dentro do próprio `<td>` da grade — e a
+ * grade rola dentro de um contêiner com `overflow-x-auto`
  * (`AbaGrid.tsx`). Um eixo com overflow diferente de `visible` faz o
  * navegador tratar o outro eixo como `auto` também (regra do CSS, não bug do
  * navegador), então a caixa da dica ficava CORTADA verticalmente nas linhas

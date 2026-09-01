@@ -44,7 +44,7 @@
     width: 100%;
   }
   thead th {
-    @apply text-[10.5px] font-semibold tracking-[.085em] uppercase text-ink-400 text-left border-b border-ink-200 whitespace-nowrap;
+    @apply text-[10.5px] font-semibold tracking-[.085em] uppercase text-ink-water text-left border-b border-ink-200 whitespace-nowrap;
     padding: 0 14px 9px;
   }
   thead th[data-r] {
@@ -135,6 +135,7 @@
   .tiles > * {
     @apply bg-white px-3.5 py-3;
   }
+
 
   /* Superfície navy-gradiente — usada nos painéis de KPI/dados ("direção gráfica" do redesign) */
   .band-surface {

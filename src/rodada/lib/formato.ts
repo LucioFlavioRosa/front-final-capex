@@ -88,8 +88,8 @@ export function pct(v: number | null | undefined): string {
 }
 
 /**
- * A OCUPAÇÃO DE UMA ETE, MARCADA QUANDO PASSA DE 100% (defeito X-02, achado
- * revisando os prints de 26/08 — um print mostrava 2.734,2%).
+ * A OCUPAÇÃO DE UMA ETE, MARCADA QUANDO PASSA DE 100% — a base já produziu
+ * 2.734,2%.
  *
  * `ocupacaoPct` é `vazaoConectada ÷ capacidadeInstalada`, e as duas vêm de
  * `otim_sistema` sem restrição alguma ligando uma à outra — nada no banco
@@ -174,7 +174,7 @@ export function dataHora(iso: string | null | undefined): string {
 /**
  * 05/08 14:32 — data curta, para desempatar rodadas na mesma linha.
  *
- * Existe por causa da regra da §2.1 do CONTRATO: reexecutar gera rodada NOVA, entao
+ * Existe por causa da regra do CONTRATO: reexecutar gera rodada NOVA, entao
  * o historico passa a ter entradas com o mesmo nome e parametros quase iguais. Num
  * seletor que mostra so o nome, elas ficam indistinguiveis — e trocar de rodada as
  * cegas num app de decisao de investimento e pior que nao poder trocar.

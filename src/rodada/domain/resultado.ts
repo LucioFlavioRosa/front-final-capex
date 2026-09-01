@@ -146,9 +146,26 @@ export interface MetricasCapa {
 }
 
 /** KPIs do nivel global (de `run_meta`). */
+/** De qual rodada esta aqui é uma variação de orçamento. */
+export interface VariacaoDe {
+  runId: string
+  /** O rótulo da BASE — o desta rodada diz "+10%" e não diz de quê. */
+  nome: string | null
+  degrau: number
+  estimativa: boolean
+}
+
 export interface RunMeta {
   runId: string
   nome: string
+  /**
+   * AUSENTE na maioria das rodadas. Presente, esta rodada é um PONTO da curva de
+   * sensibilidade de outra — e isso muda o que a tela pode oferecer: não faz
+   * sentido analisar a sensibilidade de um ponto de sensibilidade, e aceitar a
+   * oferta gravaria variações de variação, com linhagem apontando para o meio da
+   * curva de alguém.
+   */
+  variacaoDe?: VariacaoDe | null
   unidadeId: string
   unidadeNome: string
   dataHora: string
@@ -159,8 +176,8 @@ export interface RunMeta {
   parametros: ParametrosRodada
   kpis: KpisGlobais
   /**
-   * O pedido completo — mais de vinte chaves, contra os seis de `parametros`
-   * (item 14 do feedback de 26/08: "quais são os parâmetros?"). Mesmo campo de
+   * O pedido completo — mais de vinte chaves, contra os seis de `parametros`.
+   * Mesmo campo de
    * `RunResumo.pedido`, disponível aqui para o painel de parâmetros aparecer em
    * qualquer nível do resultado, e não só no modal do histórico.
    *
@@ -244,9 +261,8 @@ export type TipoEstrutura = 'subbacia' | 'cts'
  * sendo positivo, porque ele nao "entra valor" — ele E o valor.
  */
 /*
- * O CAMPO CONTINUA `cascata` NOS TRES PAYLOADS, e nao e esquecimento do renome
- * de 20/08/2026 (quando "cascata" saiu do frontend em favor de "fluxo de
- * escoamento").
+ * O CAMPO SE CHAMA `cascata` NOS TRES PAYLOADS, e nao "fluxo de escoamento"
+ * como no resto do frontend. Nao e esquecimento de renome.
  *
  * `api.get<PainelGlobal>` faz cast direto da resposta — nao existe camada de
  * traducao entre o JSON e o tipo. Entao o nome da propriedade E a chave que o
@@ -307,8 +323,7 @@ export interface CapexPorComponente {
 /**
  * Quantidade FISICA construida num ano, quebrada por componente (barra
  * empilhada) — substitui a contagem de obras: "obra" não é métrica
- * padronizada (uma obra pode ser 1 metro ou 1.000), decisão da reunião de
- * validação de 18/08.
+ * padronizada (uma obra pode ser 1 metro ou 1.000).
  *
  * `precoUnitario` vem da mesma linha que `quantidade` de propósito — CAPEX do
  * componente naquele ano ÷ quantidade daquele ano. Se viesse de uma consulta
@@ -382,9 +397,8 @@ export interface EloExplicabilidade {
   bloqueia: number
   /**
    * A soma da vazão de TODAS as sub-bacias que este elo prende — o critério de
-   * ordenação da lista (item 15 do feedback de 26/08), no lugar de `bloqueia`
-   * (contagem). "Quanto destrava" é a pergunta de quem decide onde investir;
-   * "quantas linhas cita" não era.
+   * ordenação da lista, no lugar de `bloqueia` (contagem). "Quanto destrava" é
+   * a pergunta de quem decide onde investir; "quantas linhas cita" não é.
    */
   vazaoLiberada: number
 }
@@ -412,6 +426,18 @@ export interface PainelEbitda {
 }
 
 /** Linha da tabela de cidades do nivel global. */
+/**
+ * Uma linha da lista de cidades da rodada.
+ *
+ * SEM a série de cobertura e sem as metas, que vinham aqui para o cartão-gráfico
+ * do nível 1 desenhar o par de cada cidade sem abrir N requisições. Aquela grade
+ * de cartões saiu da tela, e os dois campos eram 89% do payload — 39 KB de 44 KB
+ * numa unidade de 27 cidades, carregados em toda abertura de qualquer nível,
+ * porque a árvore de escopo também chama esta lista.
+ *
+ * Quem precisa da série de uma cidade é o nível 2, e ele a recebe no próprio
+ * payload de detalhe.
+ */
 export interface CidadeLinha {
   id: string
   nome: string
@@ -421,14 +447,6 @@ export interface CidadeLinha {
   metasAtingidas: number
   metasTotal: number
   sistemas: number
-  /**
-   * A série de cobertura × meta desta cidade (item 17 do feedback de 26/08) —
-   * o mesmo par que `Cidade.tsx` já usa em `GraficoCobertura`, agora também no
-   * cartão-gráfico do nível 1. Vem junto da lista para não abrir N requisições
-   * ao montar a grade de cartões.
-   */
-  cobertura: PontoCobertura[]
-  metas: MetaCobertura[]
 }
 
 // ===========================================================================
@@ -518,7 +536,7 @@ export interface CidadeDetalhe {
   cobertura: PontoCobertura[]
   metas: MetaCobertura[]
   cascata: ParcelaFluxoEscoamento[]
-  /** Mesmo recorte do painel global, só que desta cidade (validação de 18/08). */
+  /** Mesmo recorte do painel global, só que desta cidade. */
   elementosPorAno: ElementoDoAno[]
   paridade: Paridade
   sistemas: SistemaLinha[]
@@ -581,7 +599,7 @@ export interface Fluxo {
   capexConstruido: number
   nos: NoFluxo[]
   ete: EteFluxo
-  /** Mesmo recorte do painel global, só que deste sistema (validação de 18/08). */
+  /** Mesmo recorte do painel global, só que deste sistema. */
   elementosPorAno: ElementoDoAno[]
 }
 
@@ -637,8 +655,8 @@ export interface ElementoLinha {
 }
 
 /**
- * Uma linha da lista de obras do NÍVEL 1 — item 3 do feedback de 26/08:
- * "lista de obras, por ordem de execução sugerida".
+ * Uma linha da lista de obras do NÍVEL 1 — as obras do plano, na ordem de
+ * execução sugerida.
  *
  * "Ordem de execução" É o mês que o otimizador publicou (`anoInicio`), lido em
  * ordem crescente — não um ranking de prioridade por retorno, que o motor não
@@ -656,7 +674,15 @@ export interface ObraLinha {
   capex: number
   quantidade: number | null
   unidade: string | null
+  /**
+   * POR QUE a obra está no plano: a mesma partição do cronograma, decidida no
+   * servidor. Vem por linha para que a lista e a planilha possam dizer a
+   * classificação sem refazer a regra aqui.
+   */
+  recorte: 'terceiro' | 'obrigatoria' | 'escolhida'
   anoInicio: number | null
+  /** Conclusão, 'AAAA-MM'. Para obra de terceiro é a única data que existe. */
+  dataPronta: string | null
   prazoMeses: number | null
 }
 
@@ -669,20 +695,36 @@ export interface ObrasPagina {
 /**
  * O CRONOGRAMA DE OBRAS — quantas de cada componente entram em cada ano.
  *
- * É o item 3 na leitura corrigida em 27/08: o pedido é ver o plano de execução
- * como gráfico ("quais obras serão executadas ano a ano"), e não navegar uma
- * lista ordenada por data. A lista (`ObrasPagina`) virou o detalhe de UM ano,
- * aberto ao clicar numa barra.
+ * A leitura do plano de execução é por GRÁFICO — "quais obras serão executadas
+ * ano a ano" —, e não navegando uma lista ordenada por data. A lista
+ * (`ObrasPagina`) é o detalhe de UM ano, aberto ao clicar numa barra.
  *
  * Só obras que ENTRAM no plano: as não construídas não têm ano de execução.
  */
-export interface AnoDeObras {
-  ano: number
+/** Um dos três recortes de um ano — as parcelas que somadas dão "todas". */
+export interface RecorteDoAno {
   obras: number
   capex: number
-  /** Quantas daquelas obras são de terceiro — acontecem sem CAPEX da Aegea. */
-  obrasTerceiro: number
   porComponente: { componente: string; obras: number; capex: number }[]
+}
+
+/**
+ * Um ano do cronograma, particionado por POR QUE a obra está no plano.
+ *
+ * Os três recortes são disjuntos e exaustivos por construção (o servidor os
+ * decide num `CASE` de um ramo só por obra), então "todas as obras" é a soma
+ * deles — e é o cliente que soma, em vez de receber um total que poderia
+ * divergir das parcelas sem nada acusar.
+ *
+ * O ANO NÃO SIGNIFICA O MESMO PARA TODO RECORTE: obra da Aegea entra pelo ano
+ * em que COMEÇA; obra de terceiro, pelo ano em que fica PRONTA — o motor não a
+ * sequencia, e essa é a única data que ele calcula para ela.
+ */
+export interface AnoDeObras {
+  ano: number
+  terceiro: RecorteDoAno
+  obrigatoria: RecorteDoAno
+  escolhida: RecorteDoAno
 }
 
 export interface CronogramaDeObras {
@@ -701,7 +743,7 @@ export interface SubBaciaDetalhe {
   vazao: number
   vpl: number
   cascata: ParcelaFluxoEscoamento[]
-  /** Mesmo recorte do painel global, só que desta única sub-bacia (validação de 18/08). */
+  /** Mesmo recorte do painel global, só que desta única sub-bacia. */
   elementosPorAno: ElementoDoAno[]
   receita: ReceitaAno[]
   explicacao: Explicacao
