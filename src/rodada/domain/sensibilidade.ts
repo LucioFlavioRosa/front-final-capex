@@ -37,17 +37,28 @@
  */
 
 /**
- * A FAIXA PADRÃO da varredura, em % a mais de CAPEX por ano.
+ * O ACRÉSCIMO PADRÃO, em % a mais de CAPEX por ano.
  *
  * Padrão, e não regra: "quanto a mais é plausível" é decisão de negócio e muda
- * por unidade — uma concessão em fim de ciclo discute +5% a +15%, e uma curva de
- * +10% a +50% ali gasta cinco execuções para responder fora do intervalo que
- * importa.
+ * por unidade — uma concessão em fim de ciclo discute +5%, outra discute +50%.
  */
-export const FAIXA_PADRAO = { de: 10, ate: 50, pontos: 5 } as const
+export const DEGRAU_PADRAO = 10
 
-/** Quantos pontos uma varredura pode ter. */
-export const MINIMO_DE_PONTOS = 2
+/**
+ * A FAIXA de um pedido. Um ponto é `{ de: x, ate: x, pontos: 1 }`.
+ *
+ * A tela pede UM ponto de cada vez: a pessoa escolhe o acréscimo, roda, lê o
+ * gráfico e decide se quer outro. A curva se forma ponto a ponto, e cada um custa
+ * uma execução de solver — pedir vários de uma vez é a exceção.
+ *
+ * A forma continua sendo faixa porque é o que o servidor recebe
+ * (`?de=&ate=&pontos=`), e porque os pontos que JÁ rodaram continuam vindo todos,
+ * independentemente do que se pede agora. É assim que a curva acumula.
+ */
+export const FAIXA_PADRAO = { de: DEGRAU_PADRAO, ate: DEGRAU_PADRAO, pontos: 1 } as const
+
+/** Quantos pontos um pedido pode ter. Um é o comum; cinco é onde o custo pesa. */
+export const MINIMO_DE_PONTOS = 1
 export const MAXIMO_DE_PONTOS = 5
 
 /** O maior acréscimo aceito — acima disso a pergunta vira "outro plano". */
@@ -81,16 +92,27 @@ export interface Faixa {
  */
 export function pontosDaFaixa({ de, ate, pontos }: Faixa): number[] {
   if (pontos < MINIMO_DE_PONTOS || pontos > MAXIMO_DE_PONTOS) return []
-  if (de < 1 || ate <= de || ate > MAIOR_DEGRAU) return []
+  if (de < 1 || ate < 1 || de > MAIOR_DEGRAU) return []
+  // UM PONTO NÃO TEM FIM: `de` é a resposta inteira, e exigir `ate > de`
+  // recusaria justamente o pedido mais comum. Mesma regra do servidor.
+  if (pontos === 1) return [de]
+  if (ate <= de || ate > MAIOR_DEGRAU) return []
   const passo = (ate - de) / (pontos - 1)
   const brutos = Array.from({ length: pontos }, (_, i) => Math.round(de + passo * i))
   return [...new Set(brutos)]
 }
 
-/** A faixa faz sentido? A tela usa para recusar antes de pedir ao servidor. */
+/** O pedido faz sentido? A tela usa para recusar antes de chamar o servidor. */
 export function faixaValida(f: Faixa): boolean {
   return pontosDaFaixa(f).length >= MINIMO_DE_PONTOS
 }
+
+/** O pedido de UM acréscimo — a forma que a tela usa. */
+export const faixaDeUmPonto = (degrau: number): Faixa => ({
+  de: degrau,
+  ate: degrau,
+  pontos: 1,
+})
 
 /** Quantas obras de um componente a rodada construiu. */
 export interface ObrasDoComponente {
@@ -474,52 +496,3 @@ export function faltouTempoDeSolver(p: PontoDaCurva | null): boolean {
 
 
 
-
-/**
- * A FAIXA QUE A ANÁLISE EXISTENTE DESCREVE — o que a tela deve abrir mostrando.
- *
- * A faixa vive na tela, e some ao sair: quem roda "de 5 a 20 em 4 pontos", sai e
- * volta, reencontra o padrão de +10% a +50% — e como a lista é exatamente a faixa
- * pedida, os pontos rodados em +5% e +15% ficam fora dela. A tela abriria como se
- * nenhuma análise tivesse sido feita, com o trabalho intacto no banco e invisível.
- *
- * A saída não é guardar a escolha em algum lugar: é a tela abrir sobre O QUE
- * EXISTE. A faixa não precisa ser lembrada porque ela pode ser LIDA — os degraus
- * que rodaram foram gerados por `pontosDaFaixa`, então eles descrevem o
- * intervalo e a quantidade que os produziu.
- *
- * `null` quando não há o que descrever:
- *
- *   - nenhuma variação: não há análise, e o padrão é a proposta certa;
- *   - uma variação só: um ponto não define intervalo (`de` seria igual a `ate`,
- *     que `pontosDaFaixa` recusa), e ele aparece de qualquer forma se estiver
- *     dentro do padrão.
- *
- * E `null` também quando os degraus vieram de DUAS faixas diferentes — alguém
- * rodou 10..50 e depois 5..20 —, porque aí nenhuma faixa os regenera. A primeira
- * versão devolvia a que os COBRE (de 5 a 50 em 5 pontos), e o resultado era pior
- * que o padrão: a tela abria em +5% +16% +28% +39% +50%, mostrando três degraus
- * que nunca rodaram e escondendo quatro que rodaram. Uma faixa inventada é pior
- * que a faixa padrão, porque parece a análise de alguém.
- *
- * Devolvendo `null`, a tela fica no padrão e a frase de `pontosForaDaFaixa` diz
- * o que está fora dele — que é informação verdadeira, e não um palpite.
- */
-export function faixaDosPontos(pontos: PontoDaCurva[]): Faixa | null {
-  const degraus = [...new Set(pontos.filter((p) => p.degrau > 0).map((p) => p.degrau))].sort(
-    (a, b) => a - b,
-  )
-  if (degraus.length < MINIMO_DE_PONTOS) return null
-
-  const de = degraus[0]
-  const ate = degraus[degraus.length - 1]
-  // A quantidade que REGENERA exatamente estes degraus, quando existe. Ela
-  // existe sempre que eles saíram de uma faixa só — que é o caso comum.
-  for (let pontos = MINIMO_DE_PONTOS; pontos <= MAXIMO_DE_PONTOS; pontos++) {
-    const tentativa = pontosDaFaixa({ de, ate, pontos })
-    if (tentativa.length === degraus.length && tentativa.every((d, i) => d === degraus[i])) {
-      return { de, ate, pontos }
-    }
-  }
-  return null
-}
