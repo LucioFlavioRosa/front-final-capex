@@ -39,7 +39,7 @@ import { AbaGrid } from './AbaGrid'
 import { ChipProgresso } from './PainelProgresso'
 import { FiltroEscopo } from './FiltroEscopo'
 import { PainelTopologia } from './PainelTopologia'
-import { UsaSistemaCts } from './UsaSistemaCts'
+import { UsaMacrorregiaoCts } from './UsaMacrorregiaoCts'
 import { AdicionarCts } from './AdicionarCts'
 import { larguraMinimaDoDesenho, Unifilar, type DestaqueUnifilar } from './Unifilar'
 import { validarTopologia } from '../../../domain/validacao'
@@ -269,15 +269,17 @@ export function CadastroWizard() {
 
   const ehFluxo = aba.key === ABA_DO_FLUXO
 
-  /**
-   * A CTS APARECE NO FLUXO — é o que expõe a regra de uma CTS por sistema.
+   /**
+   * ADICIONAR CTS APARECE NO FLUXO — é onde a regra da unidade se sente.
    *
-   * Marcada, a caixa "usa sistema de CTS" limita o sistema a UMA CTS;
-   * desmarcada, ele aceita quantas forem colocadas. Sem esses dois controles não
-   * há onde marcar nem onde adicionar, e a regra passa a existir só no servidor.
+   * QUEM DECIDE é a unidade, na aba dela: marcada, ela usa macrorregião de CTS e
+   * cada sistema aceita UMA.
+   * Aqui só se COLOCA a CTS no sistema, e o botão fica limitado quando a unidade
+   * está marcada e o sistema já tem a sua. Sem este controle não há onde
+   * adicionar, e a regra passa a existir só no servidor.
    *
-   * A flag fica como constante para poder esconder os controles sem tirar a
-   * lógica do caminho — desligá-la não muda o dado, só a UI.
+   * A flag fica como constante para poder esconder o controle sem tirar a lógica
+   * do caminho — desligá-la não muda o dado, só a UI.
    */
   const mostrarCtsNoFluxo: boolean = true
 
@@ -348,11 +350,12 @@ export function CadastroWizard() {
     [aba.key],
   )
 
-  // ------------------------------------------------- "usa sistema de CTS"
+  // --------------------------------------------- "usa macrorregião de CTS"
   /**
-   * O dado mora em `cidade-sistema` (aba oculta) e a caixa aparece no Fluxo.
-   * Aqui os dois se encontram: a linha do sistema escolhido, quantas CTS ele já
-   * tem hoje, e as ações que escrevem de volta na aba certa.
+   * A DECISÃO mora em `unidade-regional` e a caixa fica na aba da unidade; aqui
+   * no Fluxo mora o que ela GOVERNA — o sistema escolhido e quantas CTS ele já
+   * tem. Os dois se encontram nesta seção, com as ações que escrevem de volta em
+   * cada aba.
    */
   const sistemasDoCadastro = unidade?.data['cidade-sistema']
   const sistemaEscolhido = useMemo(
@@ -369,6 +372,34 @@ export function CadastroWizard() {
       (t) => t.sistema_id === escopo.sistemaId && ehCts(dadosDoCadastro, t),
     ).length
   }, [topoDoCadastro, dadosDoCadastro, escopo.sistemaId])
+
+  /** A linha de `unidade-regional` — onde moram o WACC e a macrorregião de CTS. */
+  const linhaDaUnidade = unidade?.data['unidade-regional']?.[0]
+  const unidadeUsaCts = linhaDaUnidade?.usa_macrorregiao_cts === 'Sim'
+
+  /**
+   * OS SISTEMAS QUE HOJE TÊM MAIS DE UMA CTS — os que impedem marcar a unidade.
+   *
+   * O servidor recusa a marcação enquanto algum existir (422), e a caixa precisa
+   * dizer QUAIS antes de a pessoa tentar. Nomes, e não ids: é o que aparece no
+   * seletor do Fluxo, que é onde a excedente sai.
+   */
+  const sistemasCheios = useMemo(() => {
+    if (!dadosDoCadastro) return []
+    const porSistema = new Map<string, number>()
+    for (const t of topoDoCadastro ?? []) {
+      if (t.sistema_id && ehCts(dadosDoCadastro, t)) {
+        porSistema.set(t.sistema_id, (porSistema.get(t.sistema_id) ?? 0) + 1)
+      }
+    }
+    const nome = new Map(
+      (dadosDoCadastro['cidade-sistema'] ?? []).map((r) => [r.sistema_id, r.sistema_name]),
+    )
+    return [...porSistema]
+      .filter(([, n]) => n > 1)
+      .map(([sis]) => nome.get(sis) || sis)
+      .sort()
+  }, [topoDoCadastro, dadosDoCadastro])
 
   /**
    * COLOCA a CTS no sistema escolhido — escrevendo `sistema_id` na LINHA DELA na
@@ -439,13 +470,16 @@ export function CadastroWizard() {
   )
 
 
+  /**
+   * A CAIXA ESCREVE NA MESMA CÉLULA que a grade escreveria
+   * (`unidade-regional[0].usa_macrorregiao_cts`) — mesma razão do cartão do WACC: se
+   * guardasse estado próprio, tela, contagem de completude e payload passariam a
+   * discordar.
+   */
   const aoMudarUsaCts = useCallback(
-    (marcado: boolean) => {
-      const ri = (sistemasDoCadastro ?? []).findIndex((r) => r.sistema_id === escopo.sistemaId)
-      if (ri < 0) return
-      setCell('cidade-sistema', ri, 'usa_sistema_cts', marcado ? 'Sim' : 'Nao')
-    },
-    [sistemasDoCadastro, escopo.sistemaId, setCell],
+    (marcado: boolean) =>
+      setCell('unidade-regional', 0, 'usa_macrorregiao_cts', marcado ? 'Sim' : 'Nao'),
+    [setCell],
   )
 
   const opcoes = useMemo(
@@ -526,7 +560,7 @@ export function CadastroWizard() {
   }, [aba.key, garantirFaixaZeroParidade])
 
   /**
-   * O WACC MÉDIO NÃO FICA NA GRADE, e sim num cartão acima dela.
+   * O WACC MÉDIO E A CAIXA DE CTS NÃO FICAM NA GRADE, e sim em cartões acima dela.
    *
    * Ele é a ÚNICA célula editável de uma aba com quatro colunas travadas de
    * hierarquia: dentro da tabela, o olho vai para as colunas travadas, e o único
@@ -540,7 +574,12 @@ export function CadastroWizard() {
    */
   const abaGrade = useMemo(
     () => (aba.key === 'unidade-regional'
-      ? { ...aba, cols: aba.cols.filter((c) => c.coluna !== 'wacc_medio') }
+      ? {
+          ...aba,
+          cols: aba.cols.filter(
+            (c) => c.coluna !== 'wacc_medio' && c.coluna !== 'usa_macrorregiao_cts',
+          ),
+        }
       : aba),
     [aba],
   )
@@ -914,7 +953,18 @@ export function CadastroWizard() {
         <div className="min-w-0 space-y-5">
           {aba.key === 'cts-operacional' && rows.length === 0 && <AvisoSemCts />}
 
-          {aba.key === 'unidade-regional' && <CartaoWacc />}
+          {aba.key === 'unidade-regional' && (
+            <>
+              <CartaoWacc />
+              {/* LOGO ABAIXO DO WACC: as duas são o que a unidade declara sobre
+                  si inteira, e ficam juntas por isso. */}
+              <UsaMacrorregiaoCts
+                linha={linhaDaUnidade}
+                sistemasCheios={sistemasCheios}
+                onMudar={aoMudarUsaCts}
+              />
+            </>
+          )}
 
           {/* Acima da tabela, e não abaixo: os problemas de topologia dizem o que
               procurar NELA. Depois da grade, numa aba de 200+ linhas, ficariam
@@ -944,23 +994,14 @@ export function CadastroWizard() {
                     "quantas CTS este sistema comporta" não tem resposta para
                     "todos os sistemas". Ver `mostrarCtsNoFluxo` acima. */}
                 {mostrarCtsNoFluxo && ehFluxo && unidade && (
-                  <>
-                    <UsaSistemaCts
-                      sistemaId={escopo.sistemaId}
-                      sistemaNome={sistemaEscolhido?.sistema_name ?? ''}
-                      linha={sistemaEscolhido}
-                      quantasCts={ctsDoSistema}
-                      onMudar={aoMudarUsaCts}
-                    />
-                    <AdicionarCts
-                      sistemaId={escopo.sistemaId}
-                      sistemaNome={sistemaEscolhido?.sistema_name ?? ''}
-                      topo={topoDoCadastro ?? []}
-                      dados={unidade.data}
-                      limitada={sistemaEscolhido?.usa_sistema_cts === 'Sim' && ctsDoSistema > 0}
-                      onAdicionar={aoAdicionarCts}
-                    />
-                  </>
+                  <AdicionarCts
+                    sistemaId={escopo.sistemaId}
+                    sistemaNome={sistemaEscolhido?.sistema_name ?? ''}
+                    topo={topoDoCadastro ?? []}
+                    dados={unidade.data}
+                    limitada={unidadeUsaCts && ctsDoSistema > 0}
+                    onAdicionar={aoAdicionarCts}
+                  />
                 )}
               </div>
             )}

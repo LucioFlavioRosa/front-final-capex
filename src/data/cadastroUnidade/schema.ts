@@ -578,6 +578,19 @@ export const SCHEMA: AbaDef[] = [
       { coluna: 'regional_name', origem: 'db', procedencia: 'depara', oque: 'Nome da regional. Hoje repete o próprio código (R1…R5) porque a fonte de dados não traz um nome descritivo — pendência a confirmar com a Aegea.', exemplo: 'R4' },
       { coluna: 'unidade_id', origem: 'db', procedencia: 'depara', oque: 'Código da empresa operadora (EMP_CODIGO) que identifica esta unidade no de-para da Aegea.', exemplo: '57' }, { coluna: 'unidade_name', origem: 'db', procedencia: 'depara', oque: 'Nome da empresa operadora responsável por esta unidade.', exemplo: 'Águas do Rio 04' },
       { coluna: 'wacc_medio', origem: 'un', procedencia: 'mock', oque: 'Custo médio de capital (WACC) da unidade como um todo — preenchido por Operações Financeiras.', porque: 'Toda obra de CAPEX que não tiver um WACC próprio preenchido herda este valor no cálculo do retorno — nenhuma obra fica sem taxa de desconto.', exemplo: '0,0945' },
+      // As DUAS colunas que a Regional preenche nesta aba, e as duas que voltam
+      // para o banco pela mesma rota (`PUT /unidades/{id}`). O resto da aba é de
+      // leitura: nomes de regional e unidade vêm do Databricks.
+      //
+      // Cada uma tem cartão próprio acima da grade, e por isso as duas são
+      // TIRADAS dela (ver `abaGrade` no wizard): o cartão e a célula escrevem na
+      // mesma posição, e os dois visíveis seriam dois controles para o mesmo dado.
+      {
+        coluna: 'usa_macrorregiao_cts', origem: 'un', procedencia: 'vazio',
+        oque: 'Marcado: a unidade usa macrorregião de CTS, e cada sistema dela aceita UMA CTS. Desmarcado: aceitam várias.',
+        porque: 'Define quantos coletores de tempo seco os sistemas desta unidade comportam. O servidor recusa adicionar a segunda CTS a um sistema quando a unidade está marcada, e recusa marcar a unidade se algum sistema já tiver duas.',
+        exemplo: 'Nao',
+      },
     ],
   },
   {
@@ -696,19 +709,10 @@ export const SCHEMA: AbaDef[] = [
       { coluna: 'sistema_id', origem: 'db', procedencia: 'mock', oque: 'Identifica um sistema de esgotamento sanitário — o conjunto de sub-bacias que escoam até a mesma ETE.', exemplo: 's01' }, { coluna: 'sistema_name', origem: 'db', procedencia: 'misto', oque: 'Nome do sistema de esgotamento sanitário.', exemplo: 'Alegria' },
       // vazia na linha real, cidade do de-para nas de exemplo
       { coluna: 'cidade_id', origem: 'db', procedencia: 'mock', oque: 'Identifica a cidade atendida por este sistema, dentro do de-para oficial da Aegea.', exemplo: '57-BELFORD_ROXO' },
-      // A ÚNICA coluna que a Regional preenche nesta aba, e a razão de ela ainda
-      // importar mesmo oculta. Não vem do Databricks: é decisão de quem monta o
-      // sistema, e o servidor a faz valer — marcado, ele recusa a segunda CTS.
-      //
-      // A caixa aparece na aba do FLUXO, ao lado do seletor de sistema, e não
-      // aqui: é lá que se escolhe um sistema por vez e se coloca CTS nele.
-      // Editá-la numa aba oculta seria escondê-la de quem precisa dela.
-      {
-        coluna: 'usa_sistema_cts', origem: 'un', procedencia: 'vazio',
-        oque: 'Marcado: o sistema aceita UMA CTS. Desmarcado: aceita várias.',
-        porque: 'Define quantos coletores de tempo seco o sistema comporta. O servidor recusa adicionar a segunda CTS num sistema marcado, e recusa marcar um que já tenha duas.',
-        exemplo: 'Nao',
-      },
+      // `usa_sistema_cts` SAIU DAQUI. A decisão de usar MACRORREGIÃO DE CTS é da
+      // UNIDADE, não de cada sistema: quem opera decide uma vez e vale para
+      // todos. A coluna mora em `unidade-regional` (`usa_macrorregiao_cts`), e a
+      // caixa fica logo abaixo do cartão do WACC — ver lá.
     ],
   },
   {

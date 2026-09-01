@@ -37,8 +37,12 @@
  * `salvarCadastro` as ignora explicitamente em vez de tentar e falhar — falha
  * silenciosa aqui seria pior que ausência.
  *
- * `cidade-sistema` é meio-termo, e por isso NÃO está naquela lista: o nome não
- * grava, mas `usa_sistema_cts` sim, por `PUT /sistemas/{id}`.
+ * `unidade-regional` é meio-termo, e por isso NÃO está naquela lista: os nomes
+ * de regional e unidade não gravam, mas `wacc_medio` e `usa_macrorregiao_cts`
+ * sim, pelo mesmo `PUT /unidades/{id}`. São os dois campos da unidade que ninguém
+ * importa do Databricks — quem os informa é gente. A decisão de usar
+ * macrorregião de CTS é da unidade e vale para todos os sistemas dentro dela —
+ * era por sistema até a migração 016.
  *
  * `subbacia-cts` não é lida nem gravada, e some da tela. O pareamento
  * CTS↔sub-bacia é SOBREPOSIÇÃO DE ÁREA, e nunca significou pertencimento — quem
@@ -76,7 +80,15 @@ export interface CadastroLido {
 // junto com a de lá.
 
 interface Hierarquia {
-  unidReg: { rid: string; rnome: string; uid: string; unome: string; waccMedio: string }
+  unidReg: {
+    rid: string
+    rnome: string
+    uid: string
+    unome: string
+    waccMedio: string
+    /** `'true'`/`'false'`. Marcada, cada sistema da unidade aceita uma CTS só. */
+    usaCts: string
+  }
   empresas: { id: string; nome: string; fimConcessao: string }[]
   cidades: { id: string; nome: string; empId: string }[]
   sistemas: { id: string; nome: string; cidId: string; usaCts?: string }[]
@@ -202,7 +214,6 @@ const inverso = (m: Record<string, string>): Record<string, string> =>
 // unico campo dela, o fim da concessao, e justamente o que a tela existe para
 // informar. Ver `salvarCadastro`.
 export const ABAS_SEM_ESCRITA = [
-  'unidade-regional',
   'regional-operacional',
   'cidade-empresa',
   'subbacia-cts',
@@ -346,6 +357,9 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
         unidade_id: hier.unidReg.uid,
         unidade_name: hier.unidReg.unome,
         wacc_medio: hier.unidReg.waccMedio,
+        // `usaCts` chega como `'true'`/`'false'` e vira `Sim`/`Nao` — o
+        // vocabulário que o wizard usa nas outras colunas de sim/não.
+        usa_macrorregiao_cts: hier.unidReg.usaCts === 'true' ? 'Sim' : 'Nao',
       },
     ],
 
@@ -371,15 +385,12 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
       cidade_name: c.nome,
     })),
 
-    // `usaCts` chega como `'true'`/`'false'` e vira `Sim`/`Nao` — o vocabulário
-    // que o wizard usa nas outras colunas de sim/não (`nova`, na ETE).
     'cidade-sistema': hier.sistemas.map((s) => ({
       emp_codigo: '',
       empresa: '',
       sistema_id: s.id,
       sistema_name: s.nome,
       cidade_id: s.cidId,
-      usa_sistema_cts: s.usaCts === 'true' ? 'Sim' : 'Nao',
     })),
 
     // A topologia traz TAMBÉM o que está fora de sistema (`semSistema`), com
@@ -539,9 +550,10 @@ export class CadastroSemLeitura extends Error {
  * A ORDEM importa, e é por isso que a topologia vai por último — ela é a única
  * parte que NÃO é gravada ficha a ficha: o sistema inteiro vai num `PUT` só, e o
  * servidor confere o desenho final em vez de cada passo até ele. Dentro do
- * cadastro sobrou uma dependência de ordem, a do `usaCts`: desmarcar precisa
- * valer antes de a segunda CTS entrar, e marcar só depois de as excedentes
- * saírem — por isso a marcação é a última coisa que sai daqui.
+ * cadastro sobrou uma dependência de ordem, a do `usaCts` da UNIDADE:
+ * desmarcar precisa valer antes de a segunda CTS entrar, e marcar só depois de
+ * as excedentes saírem — por isso a marcação é a última coisa que sai daqui. O
+ * WACC não tem ordem, e viaja junto da primeira ida à rota da unidade.
  */
 /**
  * A topologia agrupada por sistema: `sistema → (componente → jusante)`.
@@ -701,18 +713,33 @@ export async function salvarCadastro(
   // de a segunda CTS entrar, senão o servidor recusa a CTS por causa de uma
   // marca que a tela já tirou. Marcar, ao contrário, só pode valer depois de as
   // CTS excedentes saírem — por isso a marcação vai no fim, depois da topologia.
-  const sisBase = porChave(base.dados['cidade-sistema'], 'sistema_id')
-  const sistemasMudados = (d['cidade-sistema'] ?? []).filter(
-    (r) => r.sistema_id && !igual(r, sisBase.get(r.sistema_id)),
-  )
-  const gravarSistema = (r: Row) =>
-    api.put(`/api/unidades/${u}/sistemas/${encodeURIComponent(r.sistema_id)}`, {
-      usaCts: r.usa_sistema_cts === 'Sim',
-    })
+  // ---- a unidade: WACC médio e a macrorregião de CTS ----
+  //
+  // Os dois campos que a unidade informa, na mesma rota. SÓ VAI O QUE MUDOU, e
+  // é o que impede o pedido de apagar o outro: o servidor deixa como está a
+  // coluna cuja chave não veio.
+  const unidAntes = base.dados['unidade-regional']?.[0]
+  const unidAgora = d['unidade-regional']?.[0]
+  const ctsAgora = unidAgora?.usa_macrorregiao_cts
+  const ctsMudou = ctsAgora !== undefined && ctsAgora !== unidAntes?.usa_macrorregiao_cts
+  const waccMudou =
+    unidAgora?.wacc_medio !== undefined && unidAgora.wacc_medio !== unidAntes?.wacc_medio
 
-  for (const r of sistemasMudados.filter((x) => x.usa_sistema_cts !== 'Sim')) {
-    await gravarSistema(r)
+  const gravarUnidade = (comCts: boolean) => {
+    const corpo: Record<string, unknown> = {}
+    if (comCts) corpo.usaCts = ctsAgora === 'Sim'
+    if (waccMudou) corpo.waccMedio = unidAgora?.wacc_medio ?? ''
+    return api.put(`/api/unidades/${u}`, corpo)
   }
+
+  // DESMARCAR VAI ANTES da topologia: sem isto, colocar a segunda CTS num
+  // sistema é recusada pelo servidor por uma marcação que a pessoa acabou de
+  // tirar na mesma tela. Marcar vai DEPOIS, logo abaixo, pela razão simétrica.
+  //
+  // O WACC PEGA CARONA NA PRIMEIRA IDA, seja qual for o sentido da caixa: ele não
+  // tem dependência de ordem nenhuma, e mandá-lo à parte seria uma requisição a
+  // mais para gravar duas colunas da mesma linha.
+  if ((ctsMudou && ctsAgora !== 'Sim') || waccMudou) await gravarUnidade(ctsMudou && ctsAgora !== 'Sim')
 
   // ---- topologia: o SISTEMA INTEIRO, numa transação só ----
   //
@@ -733,9 +760,10 @@ export async function salvarCadastro(
   const envio = envioDaTopologia(base.dados['sistema-topologia'], d['sistema-topologia'])
   if (envio) await api.put(`/api/unidades/${u}/topologia`, envio)
 
-  for (const r of sistemasMudados.filter((x) => x.usa_sistema_cts === 'Sim')) {
-    await gravarSistema(r)
-  }
+  // MARCAR VAI DEPOIS da topologia: o servidor recusa marcar enquanto algum
+  // sistema tiver duas CTS, e tirar a excedente é justamente o que a topologia
+  // acabou de gravar. Aqui o WACC já foi na ida de cima.
+  if (ctsMudou && ctsAgora === 'Sim') await api.put(`/api/unidades/${u}`, { usaCts: true })
 
   const agora = new Date().toISOString()
   return { ok: true, unidade_id: unidade.id, criado_em: agora, atualizado_em: agora }
