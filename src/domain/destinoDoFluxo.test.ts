@@ -96,3 +96,68 @@ describe('sistemaDoNo — a topologia manda', () => {
     expect(sistemaDoNo(DADOS, 't9')).toMatchObject({ id: 's02' })
   })
 })
+
+/**
+ * A CTS QUE AINDA NÃO TEM FICHA NA UNIDADE — o caso que a tela vive de verdade.
+ *
+ * Uma CTS só pertence a uma unidade ATRAVÉS do sistema em que alguém a colocou.
+ * Enquanto está livre, `GET /unidades/{u}/cts` não a devolve, e `cts-operacional`
+ * chega sem ela — nas três unidades da base hoje, chega VAZIA. Quem traz as 149
+ * CTS livres é a topologia, e é nela que a tela escreve o `sistema_id` ao
+ * adicionar uma.
+ *
+ * Montar o catálogo só com as fichas fazia a CTS recém-colocada não aparecer
+ * como destino: a linha existia, o sistema estava escrito nela, e o `<select>`
+ * de jusante não a oferecia até salvar e recarregar a página.
+ */
+const SEM_FICHA: Dados = {
+  ...DADOS,
+  // A unidade ainda não tem CTS nenhuma cadastrada — é o estado real da base.
+  'cts-operacional': [],
+  // O NOME VEM NA LINHA DA TOPOLOGIA, e é o que o servidor manda: a coluna
+  // espelho `componente_sistema_nome` existe justamente porque o código sozinho
+  // não se lê. Sem ficha, é a única fonte do nome.
+  'sistema-topologia': DADOS['sistema-topologia'].map((r) =>
+    r.componente_sistema_id === 't1'
+      ? { ...r, componente_sistema_nome: 'CTS Alegria' }
+      : r.componente_sistema_id === 't9'
+        ? { ...r, componente_sistema_nome: 'CTS Pavuna' }
+        : r,
+  ),
+}
+
+describe('opcoesDestino — CTS sem ficha, só na topologia', () => {
+  const idsSemFicha = (origem: string) =>
+    opcoesDestino(SEM_FICHA, { componente_sistema_id: origem }).map(([id]) => id)
+
+  it('a CTS colocada no sistema é oferecida como destino', () => {
+    expect(idsSemFicha('b1')).toContain('t1')
+  })
+
+  it('e continua sem misturar sistemas', () => {
+    expect(idsSemFicha('b1')).not.toContain('t9')
+  })
+
+  it('o rótulo usa o nome da topologia, e não o código pelado', () => {
+    const [, rotulo] = opcoesDestino(SEM_FICHA, { componente_sistema_id: 'b1' }).find(
+      ([id]) => id === 't1',
+    )!
+    expect(rotulo).toBe('t1 · CTS Alegria')
+  })
+
+  it('TIRADA do sistema, some da lista na mesma leitura', () => {
+    // É o espelho de adicionar: `aoTirarDoSistema` limpa `sistema_id` e o
+    // jusante, e a opção tem de sair sem passar pelo servidor.
+    const tirada: Dados = {
+      ...SEM_FICHA,
+      'sistema-topologia': SEM_FICHA['sistema-topologia'].map((r) =>
+        r.componente_sistema_id === 't1'
+          ? { ...r, sistema_id: '', componente_sistema_id_jusante: '' }
+          : r,
+      ),
+    }
+    expect(opcoesDestino(tirada, { componente_sistema_id: 'b1' }).map(([id]) => id)).not.toContain(
+      't1',
+    )
+  })
+})

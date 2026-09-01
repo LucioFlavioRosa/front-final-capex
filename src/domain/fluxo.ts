@@ -295,7 +295,40 @@ function catalogo(dados: Dados): Catalogo {
   const subbaciasTodas = (dados['subbacia-operacional'] ?? [])
     .map((r) => txt(r.sub_bacia_id))
     .filter(Boolean)
-  const ctss = (dados['cts-operacional'] ?? []).map((r) => txt(r.cts_id)).filter(Boolean)
+  /**
+   * AS CTS QUE A TELA CONHECE — as com ficha na unidade E as que só existem na
+   * topologia. A união é o ponto, e não uma soma por precaução.
+   *
+   * `cts-operacional` só traz a CTS que JÁ PERTENCE à unidade, e uma CTS só
+   * pertence a uma unidade através do sistema em que alguém a colocou. Enquanto
+   * ela está livre, `GET /unidades/{u}/cts` não a devolve — hoje, nas três
+   * unidades da base, ele devolve ZERO — e a ficha dela só aparece depois de
+   * salvar. A topologia, essa, chega inteira: as 149 CTS livres estão lá, é
+   * delas que sai a lista do "Adicionar CTS", e é nela que a tela escreve o
+   * `sistema_id` ao colocar uma.
+   *
+   * Ler só as fichas fazia a CTS recém-colocada não aparecer como destino: a
+   * linha existia, o sistema estava escrito nela, e mesmo assim o `<select>` de
+   * jusante não a oferecia — até salvar e recarregar. O contrário também: tirar
+   * a CTS do sistema deixava a opção lá.
+   */
+  const ctss: string[] = []
+  const vistas = new Set<string>()
+  for (const id of (dados['cts-operacional'] ?? []).map((r) => txt(r.cts_id))) {
+    if (!id || vistas.has(id)) continue
+    vistas.add(id)
+    ctss.push(id)
+  }
+  /** Nome da CTS sem ficha — só a linha da topologia o tem. */
+  const nomeNaTopologia = new Map<string, string>()
+  for (const r of dados['sistema-topologia'] ?? []) {
+    const id = txt(r.componente_sistema_id)
+    if (!id || vistas.has(id) || !ehCts(dados, r)) continue
+    vistas.add(id)
+    ctss.push(id)
+    const nome = txt(r.componente_sistema_nome)
+    if (nome) nomeNaTopologia.set(id, nome)
+  }
   const etes = (dados['ete-capex'] ?? []).map((r) => txt(r.ete_id)).filter(Boolean)
 
   /**
@@ -328,7 +361,13 @@ function catalogo(dados: Dados): Catalogo {
 
   const rotulos = new Map<string, string>()
   for (const id of [...subbaciasDoFluxo, ...subbaciasTodas, ...ctss, ...etes, ...origensLivres]) {
-    if (!rotulos.has(id)) rotulos.set(id, rotuloNo(dados, id))
+    if (rotulos.has(id)) continue
+    // `rotuloNo` procura o nome na ficha, e devolve o código puro quando não
+    // acha. Para a CTS ainda sem ficha na unidade, o nome está na linha da
+    // topologia — sem isto ela entraria na lista como 'cts_003' pelado, ao lado
+    // de vizinhos que dizem 'b004 · Canal do Cunha'.
+    const nome = nomeNaTopologia.get(id)
+    rotulos.set(id, nome ? `${id} · ${nome}` : rotuloNo(dados, id))
   }
 
   const novo: Catalogo = {
