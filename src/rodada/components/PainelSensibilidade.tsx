@@ -60,22 +60,12 @@ import {
   situacaoDaVarredura,
   vezesOOrcamento,
   type ComparativoDeObras,
-  type EstadoDoDegrau,
   type PontoDaCurva,
   type TetoDeSensibilidade,
 } from '@/rodada/domain/sensibilidade'
 import { brlMi, inteiro, pct, vazao } from '@/rodada/lib/formato'
 import { corDoComponente } from '@/rodada/components/cores'
 import type { RunMeta } from '@/rodada/domain/resultado'
-
-/** A cor de cada estado do degrau. `erro` é ÂMBAR, e não vermelho: dá para
- *  tentar de novo ali mesmo, então não é um beco. */
-const CHIP: Record<EstadoDoDegrau, string> = {
-  ausente: 'border-ink-200 bg-ink-50 text-ink-water',
-  'em voo': 'border-water-500/30 bg-water-50 text-water-700',
-  pronto: 'border-aegea-500/30 bg-aegea-50 text-aegea-700',
-  erro: 'border-warning/40 bg-warning/10 text-amber-800',
-}
 
 interface Medida {
   chave: 'cobertura' | 'metas' | 'vpl'
@@ -222,14 +212,13 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
   /**
    * O ALVO É O NÚMERO DIGITADO, sempre — e não "o próximo que falta".
    *
-   * Com um ponto por vez a pergunta é direta: rode ESTE acréscimo. Se ele já
-   * rodou, o botão diz "de novo" em vez de sumir — repetir é legítimo (o plano
-   * mudou, o modo mudou de estimativa para completo), e um botão que desaparece
-   * porque o ponto existe deixaria a pessoa sem saber o que fazer.
+   * Com um ponto por vez a pergunta é direta: rode ESTE acréscimo. A tela não diz
+   * se ele já rodou: o botão fica igual, e repetir é legítimo — o servidor
+   * deduplica por parâmetros e devolve a rodada que já existe quando é o caso.
+   * Quem quer saber o que já rodou olha a curva, que é onde a resposta está.
    */
   const alvo = degrau
   const situacaoDoAlvo = situacao.find((s) => s.degrau === alvo) ?? null
-  const jaRodou = situacaoDoAlvo?.estado === 'pronto'
   const falhou = situacaoDoAlvo?.estado === 'erro' ? situacaoDoAlvo : null
   const jaFalhou = !!falhou
   /**
@@ -290,9 +279,7 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
                 ? 'Disparando…'
                 : emExecucao
                   ? 'Aguardando a rodada em curso'
-                  : jaRodou
-                    ? `Rodar +${alvo}% de novo`
-                    : escalar
+                  : escalar
                       ? `Rodar +${alvo}% completo`
                       : `${jaFalhou ? 'Tentar de novo ' : 'Rodar '}+${alvo}%${
                         emReais(alvo) ? ` · +${brlMi(emReais(alvo)!.aMais)} no plano` : ''
@@ -308,57 +295,6 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
             primeiro gráfico empurraria para baixo justamente o que a pessoa veio
             ver. */}
         {teto && !pronta && <Teto teto={teto} />}
-
-        {/* O ESTADO DE CADA DEGRAU, sempre visível. Uma rodada leva minutos, e
-            sem esta linha a tela fica muda entre o clique e o resultado — uma
-            rodada em execução que nunca dá sinal de vida. */}
-        <ul className="mt-4 flex flex-wrap gap-2">
-          {situacao.map(({ degrau, estado, ponto }) => {
-            const dinheiro = emReais(degrau)
-            const conteudo = (
-              <>
-                <span className="font-mono">+{degrau}%</span>
-                {/* O DINHEIRO AO LADO DA PORCENTAGEM. "+10%" não é uma quantia, e
-                    quem decide orçamento decide em reais — sem esta parte, cada
-                    leitor faz a conta de cabeça. O que "no plano" significa está
-                    dito uma vez, no cabeçalho. */}
-                {dinheiro && (
-                  <span className="ml-2 font-mono font-normal opacity-70">
-                    +{brlMi(dinheiro.aMais)}
-                  </span>
-                )}
-                <span className="ml-2 font-normal opacity-80">
-                  {estado === 'ausente' ? 'não rodou' : estado}
-                </span>
-                {ponto?.estimativa && estado === 'pronto' && (
-                  <span className="ml-1.5 font-normal opacity-70">· estimativa</span>
-                )}
-              </>
-            )
-            const classe = `rounded-full border px-3 py-1 text-[12px] font-semibold ${CHIP[estado]}`
-            return (
-              <li key={degrau}>
-                {/* A ESTIMATIVA É EXPLORÁVEL, e é aqui que ela se abre.
-                    Ela não aparece no histórico de propósito — parou no relógio e
-                    não é comparável com uma simulação —, mas o resultado dela é
-                    completo: plano, obras, explicabilidade. Este link é o único
-                    caminho até ele, e é o certo: quem chega vem da rodada que a
-                    originou, e não de uma lista onde ela pareceria só mais uma. */}
-                {estado === 'pronto' && ponto ? (
-                  <Link
-                    to={`/resultados/${ponto.runId}`}
-                    title={`Abrir o resultado de +${degrau}%`}
-                    className={`${classe} inline-block transition-colors duration-hover ease-saida hover:border-water-500 hover:text-water-800`}
-                  >
-                    {conteudo}
-                  </Link>
-                ) : (
-                  <span className={`${classe} inline-block`}>{conteudo}</span>
-                )}
-              </li>
-            )
-          })}
-        </ul>
 
         {/* POR QUE O DEGRAU FALHOU, na tela.
             Ele aparecia como "erro" e mais nada. Quem olhava não tinha como
@@ -485,13 +421,22 @@ function SeletorDeAcrescimo({
       <label className="flex items-center gap-1.5">
         <span>CAPEX anual</span>
         <span className="font-mono text-ink-800">+</span>
+        {/* `text` COM `inputMode="numeric"`, e nao `type="number"`.
+            O campo de numero do navegador vem com as setinhas de aumentar e
+            diminuir, que aqui nao servem: o acrescimo se digita, nao se busca de
+            um em um. E ele tem uma armadilha pior que as setas — com o cursor
+            sobre o campo focado, a RODA DO MOUSE muda o valor, entao rolar a
+            pagina altera o que vai ser rodado sem ninguem perceber.
+
+            `inputMode` preserva o que importava: o teclado numerico no celular.
+            E o filtro deixa passar so digito — colar "35%" ou "+35" resulta em
+            35, em vez de um campo que recusa em silencio. */}
         <input
-          type="number"
-          min={1}
-          max={MAIOR_DEGRAU}
-          value={degrau}
+          type="text"
+          inputMode="numeric"
+          value={degrau === 0 ? '' : String(degrau)}
           disabled={desabilitado}
-          onChange={(e) => aoTrocar(Number(e.target.value))}
+          onChange={(e) => aoTrocar(Number(e.target.value.replace(/\D/g, '')) || 0)}
           className="w-[4.5rem] rounded-lg border border-ink-200 bg-white px-2 py-1 text-right font-mono text-[12.5px] tabular-nums text-ink-800 focus:border-water-500 focus:outline-none disabled:opacity-50"
           aria-label="Acréscimo de CAPEX por ano, em %"
         />

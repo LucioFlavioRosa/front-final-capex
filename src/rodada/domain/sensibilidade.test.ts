@@ -357,6 +357,7 @@ describe('a faixa é de quem analisa', () => {
     expect(pontosDaFaixa({ de: 25, ate: 25, pontos: 1 })).toEqual([25])
     // e continua sujeito aos limites
     expect(faixaValida({ de: 0, ate: 0, pontos: 1 })).toBe(false)
+    expect(faixaValida({ de: 10, ate: 0, pontos: 1 })).toBe(false)
     expect(faixaValida({ de: MAIOR_DEGRAU + 1, ate: MAIOR_DEGRAU + 1, pontos: 1 })).toBe(false)
     expect(faixaValida({ de: 10, ate: 50, pontos: 6 })).toBe(false)
     expect(faixaValida(FAIXA_PADRAO)).toBe(true)

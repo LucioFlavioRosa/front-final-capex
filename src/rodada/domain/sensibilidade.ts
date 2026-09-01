@@ -92,7 +92,7 @@ export interface Faixa {
  */
 export function pontosDaFaixa({ de, ate, pontos }: Faixa): number[] {
   if (pontos < MINIMO_DE_PONTOS || pontos > MAXIMO_DE_PONTOS) return []
-  if (de < 1 || de > MAIOR_DEGRAU) return []
+  if (de < 1 || ate < 1 || de > MAIOR_DEGRAU) return []
   // UM PONTO NÃO TEM FIM: `de` é a resposta inteira, e exigir `ate > de`
   // recusaria justamente o pedido mais comum. Mesma regra do servidor.
   if (pontos === 1) return [de]

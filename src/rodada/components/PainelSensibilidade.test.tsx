@@ -117,16 +117,14 @@ describe('o teto vem antes de qualquer execução', () => {
     servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
     abrir()
 
-    // No chip do degrau — que é onde a lista de degraus vira uma lista de
-    // valores, em vez de cinco porcentagens sem escala.
-    const dinheiro = await screen.findByText('+R$ 11,0 Mi')
-    expect(dinheiro.closest('li')).toHaveTextContent('+10%')
-    // …e no botão, que é onde a pessoa se compromete com o gasto — com o
+    // NO BOTÃO, que é onde a pessoa se compromete com o gasto — com o
     // qualificador "no plano", porque o valor é a soma dos anos e não a verba
-    // anual.
+    // anual. "+10%" sozinho não é uma quantia, e quem decide orçamento decide em
+    // reais.
     expect(
-      screen.getByRole('button', { name: /Rodar \+10% · \+R\$ 11,0 Mi no plano/ }),
+      await screen.findByRole('button', { name: /Rodar \+10% · \+R\$ 11,0 Mi no plano/ }),
     ).toBeInTheDocument()
+    expect(screen.getByText(/R\$ 11,0 Mi somados os/)).toBeInTheDocument()
   })
 
   it('sem orçamento publicado não há teto, e nenhum valor é inventado', async () => {
@@ -346,10 +344,9 @@ describe('a curva mostra tudo o que rodou, mesmo fora da faixa', () => {
     })
     abrir()
 
-      // O chip fala do ALVO — o que o campo pede agora —, e não da análise inteira.
-      expect(await screen.findByText('Cobertura ao fim')).toBeInTheDocument()
-      const chips = screen.getByRole('list')
-      expect(within(chips).getAllByText(/^\+\d+%$/).map((e) => e.textContent)).toEqual(['+10%'])
+    // O botão fala do ALVO — o que o campo pede agora —, e não da análise inteira.
+    expect(await screen.findByText('Cobertura ao fim')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Rodar \+10%/ })).toBeInTheDocument()
 
     // …e a curva mostra os três, inclusive os de fora.
     const quadro = screen.getByRole('figure', { name: 'Cobertura ao fim' })
@@ -389,45 +386,9 @@ describe('a estimativa é nomeada, e não só colorida', () => {
     })
     abrir()
 
-    expect(await screen.findByText('· estimativa')).toBeInTheDocument()
-    expect(screen.getByText(/estimativas rápidas/)).toBeInTheDocument()
-  })
-})
-
-describe('a estimativa é explorável a partir da rodada padrão', () => {
-  it('o degrau pronto vira link para o resultado dele', async () => {
-    // Ela NÃO aparece no histórico de propósito — parou no relógio e não é
-    // comparável com uma simulação. Este link é o único caminho até o resultado
-    // completo dela, e é o certo: quem chega vem da rodada que a originou.
-    servirSensibilidade({
-      teto: TETO,
-      pontos: [
-        BASE_PONTO,
-        {
-          ...BASE_PONTO,
-          degrau: 10,
-          runId: 'run_estimativa_10',
-          estimativa: true,
-          vpl: 161_500_000,
-          coberturaFimPct: 44.0,
-        },
-      ],
-    })
-    abrir()
-
-    // O nome acessível do link é o próprio conteúdo do chip — degrau, dinheiro
-    // e estado —, que é mais informativo para quem navega por teclado do que um
-    // "abrir" genérico.
-    const link = await screen.findByRole('link', { name: /\+10%.*estimativa/ })
-    expect(link).toHaveAttribute('href', '/resultados/run_estimativa_10')
-    expect(link).toHaveAttribute('title', 'Abrir o resultado de +10%')
-  })
-
-  it('degrau que ainda não rodou não é link', async () => {
-    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
-    abrir()
-    await screen.findByText('Antes de simular: o teto')
-    expect(screen.queryByRole('link', { name: /\+10%/ })).not.toBeInTheDocument()
+    // O ponto vazado (○) precisa vir explicado: sem a nota, quem lê a curva não
+    // tem como saber que aquele ponto parou no relógio em vez de fechar a prova.
+    expect(await screen.findByText(/estimativas rápidas/)).toBeInTheDocument()
   })
 })
 
@@ -512,16 +473,20 @@ describe('um acréscimo de cada vez', () => {
     expect(pediu).toBe(false)
   })
 
-  it('um ponto que já rodou pode ser rodado de novo', async () => {
-    // Repetir é legítimo: o modo pode ter mudado de estimativa para completo. Um
-    // botão que sumisse porque o ponto existe deixaria a pessoa sem saída.
+  it('a tela não diz se o acréscimo já rodou — o botão é sempre o mesmo', async () => {
+    // Saber se aquele ponto existe não muda o que a pessoa faz aqui: ela digita o
+    // número e roda. Quem responde "o que já rodou" é a curva. E repetir é
+    // inofensivo — o servidor deduplica por parâmetros e devolve a rodada que já
+    // existe quando é o caso.
     servirSensibilidade({
       teto: TETO,
       pontos: [BASE_PONTO, { ...BASE_PONTO, degrau: 10, runId: 'v10', coberturaFimPct: 44 }],
     })
     abrir()
 
-    expect(await screen.findByRole('button', { name: /Rodar \+10% de novo/ })).toBeInTheDocument()
+    const botao = await screen.findByRole('button', { name: /^Rodar \+10%/ })
+    expect(botao).toBeInTheDocument()
+    expect(botao.textContent).not.toContain('de novo')
   })
 
   it('a curva mostra os pontos que já rodaram, mesmo os que o campo não pede', async () => {
