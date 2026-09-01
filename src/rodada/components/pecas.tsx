@@ -421,10 +421,27 @@ export function Tile({
 
   if (!para) return <div>{corpo}</div>
 
+  /**
+   * O LINK PREENCHE A CELULA, e nao pode transbordar dela.
+   *
+   * Ele E o filho direto da grade, e as linhas divisorias do painel sao o fundo cinza do
+   * container aparecendo num `gap` de 1px (`.tiles`, em index.css). Um `-m-1.5 p-1.5` —
+   * o truque de aumentar a area de clique sem mexer no layout — fazia esta celula ficar
+   * 6px maior de cada lado e PINTAR DE BRANCO POR CIMA DO VAO: a divisoria sumia, mas so
+   * ao redor dos KPIs com link. Era por isso que o painel parecia quebrado no Plano e na
+   * Sensibilidade, que tem KPI clicavel, e inteiro no Por que, que nao tem.
+   *
+   * Sem margem negativa, o realce de hover passa a ocupar a celula inteira — que e o
+   * alvo de clique de verdade, e le melhor que um retangulo arredondado flutuando dentro
+   * dela. O `p-1.5` tambem sai: o respiro ja vem do `.tiles > *`.
+   *
+   * O foco ganha anel INTERNO (`ring-inset`): o container tem `overflow-hidden` para
+   * arredondar as quinas, e um anel externo seria cortado justamente nos tiles da borda.
+   */
   return (
     <Link
       to={para}
-      className="group/tile -m-1.5 block rounded-lg p-1.5 transition-colors duration-hover ease-saida hover:bg-water-50 focus-visible:bg-water-50"
+      className="group/tile block h-full transition-colors duration-hover ease-saida hover:bg-water-50 focus-visible:bg-water-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-water-600"
     >
       {corpo}
     </Link>
