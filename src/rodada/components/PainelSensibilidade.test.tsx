@@ -157,22 +157,6 @@ describe('o disparo manda o modo', () => {
     expect(corpo).toMatchObject({ modo: 'rapido', fator: 1.1 })
   })
 
-  it('trocar para simulação muda o que é enviado', async () => {
-    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
-    let corpo: Record<string, unknown> | null = null
-    servidor.use(
-      http.post('/api/runs/:runId/variacao', async ({ request }) => {
-        corpo = (await request.json()) as Record<string, unknown>
-        return HttpResponse.json({ runId: 'novo', status: 'PENDENTE', jaExistia: false })
-      }),
-    )
-
-    abrir()
-    await userEvent.click(await screen.findByRole('radio', { name: 'Simulação' }))
-    await userEvent.click(screen.getByRole('button', { name: /Rodar \+10%/ }))
-
-    expect(corpo).toMatchObject({ modo: 'completo' })
-  })
 })
 
 describe('o teto vive só enquanto a pergunta dele está aberta', () => {

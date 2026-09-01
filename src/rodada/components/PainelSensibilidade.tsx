@@ -162,15 +162,18 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
   const disparar = useDispararVariacao()
 
   /**
-   * O MODO É ESCOLHA DE QUEM OLHA, e o padrão é a estimativa.
+   * A ANÁLISE RODA EM MODO RÁPIDO, e isso não é escolha na tela.
    *
-   * O padrão importa mais que o controle: quase toda análise de sensibilidade
-   * termina em "a curva é plana" ou "sobe pouco", e gastar oitenta minutos de
-   * cluster para chegar lá é desperdício que ninguém percebe estar fazendo. A
-   * simulação completa continua a um clique, para o degrau que a pessoa quiser
-   * confirmar depois de ver a inclinação.
+   * Quase toda análise de sensibilidade termina em "a curva é plana" ou "sobe
+   * pouco", e gastar oitenta minutos de cluster para chegar lá é desperdício que
+   * ninguém percebe estar fazendo. O que a curva responde é a INCLINAÇÃO, e 60s de
+   * solver bastam para ela.
+   *
+   * A ÚNICA exceção é automática e está logo abaixo: quando um degrau falha por
+   * falta de tempo de solver, repetir em 60s reproduz a falha — aí o pedido sobe
+   * para completo sozinho, e o botão passa a dizer isso.
    */
-  const [modo, setModo] = useState<ModoDaVariacao>('rapido')
+  const modo: ModoDaVariacao = 'rapido'
 
   const teto = consulta.data?.teto ?? null
   const melhor = melhorPorDegrau(consulta.data?.pontos ?? [])
@@ -250,38 +253,22 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="carta p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0 max-w-2xl">
-            {/* `h2` e nao `h3`: este e o primeiro titulo depois do `h1` do nivel,
-                e pular um nivel faz quem navega por titulos com leitor de tela
-                acreditar que ficou conteudo para tras. O tamanho e o peso vem da
-                classe, entao a tag muda sem mexer no desenho. */}
-            <h2 className="text-[15px] font-bold tracking-tight text-ink-900">
-              E se o CAPEX anual fosse maior?
-            </h2>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-ink-water">
-              O teto abaixo sai do plano atual e não custa execução nenhuma. A curva vem depois,
-              e cada ponto dela é{' '}
-              <strong className="font-semibold text-ink-700">uma otimização de verdade</strong>,
-              com o orçamento de cada ano multiplicado e todo o resto idêntico a esta rodada.
-            </p>
-            {/* A CONVENÇÃO DITA UMA VEZ, no lugar onde ela é lida primeiro.
-                Os percentuais são POR ANO e os valores em reais são a SOMA da
-                janela: sem esta frase, "+10%" ao lado de "R$ 11,0 Mi" convida a
-                ler o dinheiro como verba anual — erro de um fator igual ao
-                número de anos do plano. */}
-            {teto && teto.anosDoPlano > 0 && (
-              <p className="mt-1.5 text-[12px] text-ink-water">
-                Os percentuais são por ano. Os valores em reais são o acréscimo{' '}
-                <strong className="font-semibold text-ink-water">
-                  somado nos {teto.anosDoPlano} anos do plano
-                </strong>
-                .
-              </p>
-            )}
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-2">
-<SeletorDeAcrescimo
+        {/* UMA LINHA SÓ: o campo e o botão lado a lado. Com o texto fora, a coluna
+            à direita que existia para não brigar com o parágrafo perdeu a razão —
+            e empilhados eles liam como dois passos separados, quando são um. */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {/* O TÍTULO É SÓ PARA LEITOR DE TELA (`sr-only`), e a razão é estrutura:
+              este é o primeiro cabeçalho depois do `h1` do nível, e sumir com ele
+              faria quem navega por títulos pular direto do nível para o gráfico,
+              como se a seção não existisse. Visualmente a tela não precisa dele —
+              a aba já se chama Sensibilidade, e o campo diz o que faz.
+
+              A CONVENÇÃO DO DINHEIRO sobrevive onde ela é lida: o botão diz
+              "+R$ 126,0 Mi NO PLANO". Sem esse qualificador, "+35%" ao lado de um
+              valor em reais convida a ler o dinheiro como verba anual — erro de um
+              fator igual ao número de anos do plano. */}
+          <h2 className="sr-only">Sensibilidade ao CAPEX</h2>
+            <SeletorDeAcrescimo
               degrau={degrau}
               aoTrocar={setDegrau}
               valido={degrauValido}
@@ -290,7 +277,6 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
                  diferente do que está sendo calculado. */
               desabilitado={!!emExecucao}
             />
-            <SeletorDeModo modo={modo} aoTrocar={setModo} desabilitado={!!emExecucao} />
             <button
               type="button"
               onClick={() => pedir(alvo, modoDoPedido)}
@@ -312,7 +298,6 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
                         emReais(alvo) ? ` · +${brlMi(emReais(alvo)!.aMais)} no plano` : ''
                         }`}
             </button>
-          </div>
         </div>
 
         {/* O TETO SÓ ENQUANTO NÃO HÁ CURVA.
@@ -517,60 +502,6 @@ function SeletorDeAcrescimo({
           entre 1% e {MAIOR_DEGRAU}%
         </span>
       )}
-    </div>
-  )
-}
-
-/**
- * O seletor de modo — duas opções, e a diferença dita por extenso.
- *
- * "Rápido" e "completo" sozinhos não dizem o que muda, e a diferença aqui não é
- * de precisão de exibição: é de quanto tempo o solver teve. Quem escolhe precisa
- * saber que a estimativa pode ser subótima e que ela não vai para o histórico.
- */
-function SeletorDeModo({
-  modo,
-  aoTrocar,
-  desabilitado,
-}: {
-  modo: ModoDaVariacao
-  aoTrocar: (m: ModoDaVariacao) => void
-  desabilitado: boolean
-}) {
-  const opcoes: { valor: ModoDaVariacao; rotulo: string; dica: string }[] = [
-    {
-      valor: 'rapido',
-      rotulo: 'Estimativa · 60s',
-      dica: 'A mesma otimização com solver curto. Pode ser subótima e não entra no histórico.',
-    },
-    {
-      valor: 'completo',
-      rotulo: 'Simulação',
-      dica: 'Rodada normal, com o tempo de solver de sempre. Entra no histórico.',
-    },
-  ]
-  return (
-    <div
-      role="radiogroup"
-      aria-label="Modo da variação"
-      className="flex rounded-full border border-ink-200 bg-ink-50 p-0.5"
-    >
-      {opcoes.map((o) => (
-        <button
-          key={o.valor}
-          type="button"
-          role="radio"
-          aria-checked={modo === o.valor}
-          title={o.dica}
-          disabled={desabilitado}
-          onClick={() => aoTrocar(o.valor)}
-          className={`rounded-full px-3 py-1 text-[12px] font-semibold transition-colors duration-hover ease-saida disabled:cursor-not-allowed disabled:opacity-50 ${
-            modo === o.valor ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-water hover:text-ink-700'
-          }`}
-        >
-          {o.rotulo}
-        </button>
-      ))}
     </div>
   )
 }
