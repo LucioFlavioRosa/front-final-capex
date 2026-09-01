@@ -53,7 +53,7 @@ export function Cidade() {
   const explicabilidade = useExplicabilidadeDaCidade(runId, cidadeId)
 
   /**
-   * A POSIÇÃO DESTA CIDADE NO RANKING DE VPL (item 8 do feedback de 26/08).
+   * A POSIÇÃO DESTA CIDADE NO RANKING DE VPL.
    *
    * Sai da lista do nível 1, que já traz TODAS as cidades com o VPL de cada
    * uma — não há consulta nova: `useCidades` compartilha a `queryKey` com a
@@ -235,8 +235,8 @@ export function Cidade() {
             )}
 
             {/* "QUAIS SISTEMAS E SUB-BACIAS ESTÃO SENDO PRIORIZADOS E QUAIS
-                FICARAM DE FORA" — item 10 do feedback de 26/08. Mesmo bloco do
-                nível 1, recortado por cidade: sem `Estado` de erro/carregando
+                FICARAM DE FORA" — mesmo bloco do nível 1, recortado por cidade.
+                Sem `Estado` de erro/carregando
                 próprio de propósito — se a explicabilidade falhar aqui, a
                 tela inteira já falhou antes (o mesmo `runId`/`cidadeId`), e
                 duplicar o tratamento seria alarme sem informação nova. */}
@@ -254,7 +254,7 @@ export function Cidade() {
             {c.sistemas.length === 0 ? (
               <div className="rounded-2xl border-[1.5px] border-dashed border-ink-300 bg-white p-8 text-center">
                 <p className="text-sm font-semibold text-ink-800">Nenhum sistema nesta cidade</p>
-                <p className="mt-1 text-[12.5px] text-ink-500">
+                <p className="mt-1 text-[12.5px] text-ink-water">
                   A cidade existe na rodada, mas não tem sistema com resultado.
                 </p>
               </div>

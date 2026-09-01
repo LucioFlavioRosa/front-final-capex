@@ -82,13 +82,13 @@ export function Modal({
             )}
             <div>
               <h2 className="text-xl font-semibold text-ink-900">{title}</h2>
-              {subtitle && <p className="text-xs text-ink-500">{subtitle}</p>}
+              {subtitle && <p className="text-xs text-ink-water">{subtitle}</p>}
             </div>
           </div>
           <button
             onClick={onClose}
             aria-label="Fechar"
-            className="p-2 rounded-lg hover:bg-ink-100 text-ink-500 transition-colors duration-hover ease-saida"
+            className="p-2 rounded-lg hover:bg-ink-100 text-ink-water transition-colors duration-hover ease-saida"
           >
             <X className="text-xl" />
           </button>

@@ -53,7 +53,7 @@ export function UsaSistemaCts({
           {sistemaNome || sistemaId} usa sistema de CTS
         </span>
       </label>
-      <div className="mt-1 pl-6 text-[11.5px] leading-snug text-ink-500">
+      <div className="mt-1 pl-6 text-[11.5px] leading-snug text-ink-water">
         {impedido ? (
           <>
             O sistema tem <strong>{quantasCts} CTS</strong>. Tire as excedentes no fluxo para poder

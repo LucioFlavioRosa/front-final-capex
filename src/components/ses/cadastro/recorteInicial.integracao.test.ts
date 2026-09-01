@@ -77,8 +77,8 @@ describe('as abas grandes abrem recortadas', () => {
     if (!noAr) return console.log('backend fora do ar — pulado')
 
     // `cidade-operacional` tem 21 linhas na uB1: acima do mínimo, tem barra.
-    // `regional-superintendencia` tem 8: abaixo, e abre inteira.
-    const { total, recortada } = linhasAoAbrir('regional-superintendencia')
+    // `empresa` tem 8: abaixo, e abre inteira.
+    const { total, recortada } = linhasAoAbrir('empresa')
     expect(recortada).toBe(total)
   }, 120_000)
 })

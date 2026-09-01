@@ -261,14 +261,14 @@ function CardPanorama({
     >
       <div className="flex items-baseline justify-between gap-2">
         <span className="truncate text-[13px] font-bold text-ink-800">{serie.componente}</span>
-        <span className="shrink-0 text-[11px] text-ink-400 opacity-0 transition-opacity duration-hover group-hover:opacity-100">
+        <span className="shrink-0 text-[11px] text-ink-water opacity-0 transition-opacity duration-hover group-hover:opacity-100">
           abrir →
         </span>
       </div>
 
       <div aria-hidden="true" style={{ height: ALTURA_CARD }}>
         {vazio ? (
-          <div className="flex h-full items-center text-[11px] text-ink-400">
+          <div className="flex h-full items-center text-[11px] text-ink-water">
             sem valor nesta leitura
           </div>
         ) : (
@@ -294,7 +294,7 @@ function CardPanorama({
                 content={({ active, payload, label }) =>
                   active && payload?.length ? (
                     <div className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-[11px] shadow-elev">
-                      <span className="text-ink-500">{label}</span>{' '}
+                      <span className="text-ink-water">{label}</span>{' '}
                       <span className="font-mono font-semibold tabular-nums text-ink-800">
                         {formatar(
                           payload[0].value === null || payload[0].value === undefined
@@ -361,7 +361,7 @@ function CardPanorama({
         )}
       </div>
 
-      <div className="flex items-baseline justify-between gap-2 border-t border-ink-100 pt-2 text-[10.5px] text-ink-500">
+      <div className="flex items-baseline justify-between gap-2 border-t border-ink-100 pt-2 text-[10.5px] text-ink-water">
         <span className="font-mono tabular-nums">
           {dados[0]?.ano ?? VAZIO}–{dados[dados.length - 1]?.ano ?? VAZIO}
         </span>
@@ -426,7 +426,7 @@ function PainelMetrica({
   return (
     <div>
       {rotulo && (
-        <p className="mb-0.5 px-1 text-[11px] font-semibold text-ink-500">
+        <p className="mb-0.5 px-1 text-[11px] font-semibold text-ink-water">
           {rotuloMetrica(metrica, serie.unidade)}
         </p>
       )}
@@ -457,7 +457,7 @@ function PainelMetrica({
                 <div className="rounded-xl border border-ink-200 bg-white px-3 py-2 shadow-elev">
                   <div className="mb-1 text-[11px] font-bold text-ink-800">{label}</div>
                   <div className="flex items-center gap-2 text-[11px]">
-                    <span className="text-ink-500">{rotuloMetrica(metrica, serie.unidade)}</span>
+                    <span className="text-ink-water">{rotuloMetrica(metrica, serie.unidade)}</span>
                     <span className="ml-auto font-mono font-semibold tabular-nums text-ink-800">
                       {formatar(
                         payload[0].value === null || payload[0].value === undefined
@@ -581,7 +581,7 @@ function VistaPanorama({ series }: { series: SerieComponente[] }) {
               onChange={setMetrica}
               aria-label="Métrica do panorama"
             />
-            <span className="text-[11px] text-ink-400">
+            <span className="text-[11px] text-ink-water">
               cada card tem escala própria — compare pelo máximo, não pela altura
             </span>
           </div>

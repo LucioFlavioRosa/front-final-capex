@@ -35,14 +35,17 @@ export interface EstadoSimulacao {
   modoOrcamento: ModoOrcamento
   orcamento: LinhaOrcamento[]
   /**
-   * Modo "valor unico": o TOTAL do orcamento, nao a verba por ano.
+   * Modo "valor unico": o CAPEX POR ANO, nao o total do plano.
    *
-   * Ate a validacao de 18/08 este campo ERA a verba anual — decisao invertida
-   * na reuniao: "a gente coloca e o valor total. E dai, qual o horizonte que a
-   * gente vai gastar? Dai a gente divide por igual ao longo dos anos." Quem
-   * digita pensa em "quanto tenho para o plano todo", nao em "quanto por ano".
+   * E VERBA ANUAL, e nao o total do plano dividido pelo horizonte. A diferenca
+   * importa porque o motor so entende verba anual constante: um campo "total"
+   * seria dividido pelo horizonte antes de sair no payload, e quem digitasse 400
+   * em 8 anos mandaria 50 por ano sem ver o 50 em lugar nenhum — com o horizonte
+   * mexendo calado no teto de cada ano. Assim, o que se digita e o que o motor
+   * recebe.
    */
-  orcamentoValor: string
+  capexAnual: string
+  /** Quantos anos o CAPEX anual acima se repete — a janela de CAPEX. */
   horizonte: string
   foco: string
   penalidade: Penalidade
@@ -82,7 +85,7 @@ export function estadoInicial(): EstadoSimulacao {
     nome: '',
     modoOrcamento: 'ano',
     orcamento: ORCAMENTO_PADRAO.map(([ano, v]) => ({ ano: String(ano), valor: String(v) })),
-    orcamentoValor: '50',
+    capexAnual: '50',
     horizonte: '8',
     foco: '1',
     penalidade: 'meta+cobertura',
@@ -139,9 +142,15 @@ export interface DerivadoOrcamento {
   valores: number[]
   /** Soma, em milhoes. */
   total: number
-  /** Anos que efetivamente recebem verba, ordenados. */
+  /**
+   * Anos que efetivamente recebem verba, ordenados — e VAZIO no modo "valor
+   * unico", onde a tela diz QUANTOS anos, nunca QUAIS. Use `quantosAnos` para
+   * contar; esta lista e so para quem precisa dos anos nomeados.
+   */
   anosComVerba: number[]
-  /** "2026–2033 (8 anos)" — a janela e DERIVADA, nunca digitada. */
+  /** Quantos anos recebem verba. Vale nos dois modos. */
+  quantosAnos: number
+  /** "2026–2033 (8 anos)", ou so "8 anos" quando os anos nao tem nome. */
   janelaTexto: string
   /** Maior verba anual; e o default do teto de execucao. */
   pico: number
@@ -166,36 +175,49 @@ export function derivarOrcamento(e: EstadoSimulacao): DerivadoOrcamento {
       .sort((a, b) => a - b)
   } else {
     const anos = Math.max(0, Math.round(num(e.horizonte)))
-    // `orcamentoValor` e o TOTAL do plano; a verba por ano e ele dividido pelo
-    // horizonte, igualmente — a divisao que a reuniao de 18/08 pediu.
-    const porAno = anos > 0 ? num(e.orcamentoValor) / anos : 0
+    // `capexAnual` JA E a verba por ano — nao ha divisao aqui, e e esse o ponto
+    // do campo. O TOTAL e que e derivado (anual x janela).
+    const porAno = num(e.capexAnual)
     valores = Array<number>(anos).fill(porAno)
-    const base = num(e.orcamento[0]?.ano) || new Date().getFullYear()
-    anosComVerba = porAno > 0 ? Array.from({ length: anos }, (_, i) => base + i) : []
+
+    // OS ANOS FICAM SEM NOME AQUI, DE PROPOSITO.
+    //
+    // Neste modo a tela pergunta QUANTOS anos, nunca QUAIS: o ano de inicio vem
+    // do cadastro (ou de `DATA_INICIO`, que hoje nem tem campo), e nao daqui.
+    // A versao anterior tomava emprestado o primeiro ano do cronograma — que
+    // neste modo esta escondido —, entao editar a tabela em "por ano" e voltar
+    // para ca mudava a janela exibida sem ninguem ter mexido nela; e com a
+    // tabela vazia ela caia no ano corrente, fazendo o texto depender do dia em
+    // que a tela foi aberta. Nenhum dos dois chegava ao payload, que so leva
+    // `orcamento_anual` e `horizonte_capex` — era mentira so na leitura, que e
+    // onde ela engana.
+    anosComVerba = []
   }
 
   const total = valores.reduce((a, b) => a + b, 0)
+  const quantosAnos = anosComVerba.length || valores.filter((v) => v > 0).length
   const janelaTexto = anosComVerba.length
     ? `${anosComVerba[0]}–${anosComVerba[anosComVerba.length - 1]} (${anosComVerba.length} anos)`
-    : 'sem verba'
+    : quantosAnos > 0
+      ? `${quantosAnos} anos`
+      : 'sem verba'
 
-  return { valores, total, anosComVerba, janelaTexto, pico: Math.max(0, ...valores) }
+  return {
+    valores,
+    total,
+    anosComVerba,
+    quantosAnos,
+    janelaTexto,
+    pico: Math.max(0, ...valores),
+  }
 }
 
-/** Rotulo do foco, para o usuario ler o numero sem precisar interpretar. */
-export function rotuloFoco(v: number): string {
-  if (v === 0) return 'só VPL'
-  if (v === 1) return 'cobertura em 1º lugar'
-  // A tela oferece TRES escolhas (0 · 0,5 · 1), entao so estes tres rotulos
-  // ocorrem. Havia "puxando para VPL" e "puxando para cobertura" para traduzir
-  // valor digitado no meio da faixa — e a necessidade daquela traducao era o
-  // sintoma de que o numero livre nao dizia nada a quem escolhia.
-  //
-  // O intervalo continua respondendo, e nao com string vazia: o payload aceita
-  // qualquer valor entre 0 e 1, e um pedido montado fora da tela nao pode fazer
-  // o resumo mentir por omissao.
-  return 'equilíbrio'
-}
+// O ROTULO DO OBJETIVO NAO MORA AQUI: e `rotuloObjetivo`, em `pedido.ts`.
+//
+// Ele nao e assunto so de quem MONTA a rodada — as telas de resultado mostram o
+// mesmo texto das pilhas, em vez do numero cru ("Objetivo 1"). Duas copias do
+// mapa divergem no dia em que alguem renomeia uma opcao, e a divergencia aparece
+// como a mesma rodada descrita de dois jeitos em duas telas.
 
 export type Severidade = 'bloqueia' | 'avisa' | 'ok'
 
@@ -280,7 +302,7 @@ export function resumirFaltando(faltando: ComponenteFaltando[] | undefined): str
 
 export function validar(e: EstadoSimulacao, prontidao: Prontidao | undefined): ItemChecklist[] {
   const itens: ItemChecklist[] = []
-  const { total, anosComVerba } = derivarOrcamento(e)
+  const { total, quantosAnos } = derivarOrcamento(e)
 
   if (!e.unidadeId || !prontidao) {
     itens.push({ severidade: 'bloqueia', texto: 'Selecione a regional e a unidade.' })
@@ -335,7 +357,7 @@ export function validar(e: EstadoSimulacao, prontidao: Prontidao | undefined): I
   } else {
     itens.push({
       severidade: 'ok',
-      texto: `Orçamento de R$ ${total.toLocaleString('pt-BR')} Mi distribuído em ${anosComVerba.length} anos.`,
+      texto: `Orçamento de R$ ${total.toLocaleString('pt-BR')} Mi distribuído em ${quantosAnos} anos.`,
     })
   }
 
@@ -389,9 +411,9 @@ export function corpoDaRodada(e: EstadoSimulacao): CorpoNovaRodada {
     )
   } else {
     const anos = Math.max(0, Math.round(num(e.horizonte)))
-    // O motor so entende verba ANUAL constante — a divisao do total pelo
-    // horizonte acontece aqui, antes do payload sair.
-    base.orcamento_anual = anos > 0 ? (num(e.orcamentoValor) * MILHAO) / anos : 0
+    // O motor so entende verba ANUAL constante, e agora e exatamente isso que a
+    // tela pede — o valor sai daqui como foi digitado, sem divisao no meio.
+    base.orcamento_anual = num(e.capexAnual) * MILHAO
     base.horizonte_capex = anos
   }
   return base

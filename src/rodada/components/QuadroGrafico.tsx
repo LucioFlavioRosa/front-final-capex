@@ -21,12 +21,10 @@ import { useIndicador } from '@/components/ui/useIndicador'
  * subtítulo, um print da tela de cidade é indistinguível de um print do global
  * — e a diferença é o que o número significa.
  *
- * O TOGGLE virou EXCLUSIVO no redesign de 19/08 — antes era um link no rodapé
- * que REVELAVA a tabela por baixo do gráfico (as duas ficavam visíveis); o
- * design pede duas abas de peso igual no topo, e só uma vista por vez. Não é
- * regressão de acesso: antes do clique não havia tabela alguma no DOM (mesma
- * ausência de hoje) — mudou o RÓTULO e a POSIÇÃO do gatilho, não o que ele
- * garante. `role="tablist"`/`role="tab"` é o par certo aqui (não o
+ * O TOGGLE É EXCLUSIVO — duas abas de peso igual no topo, e só uma vista por
+ * vez, em vez de um link no rodapé que revela a tabela por baixo do gráfico. Não
+ * custa acesso: antes do clique não há tabela no DOM em nenhum dos dois
+ * desenhos. `role="tablist"`/`role="tab"` é o par certo aqui (não o
  * `radiogroup` do `SegmentedControl`): as duas abas trocam o PAINEL abaixo,
  * que é exatamente o que `aria-controls`/`aria-selected` descrevem.
  */
@@ -92,7 +90,7 @@ export function QuadroGrafico({
             {titulo}
           </figcaption>
           {(subtitulo || escopo) && (
-            <p className="mt-0.5 text-[12px] leading-snug text-ink-500">
+            <p className="mt-0.5 text-[12px] leading-snug text-ink-water">
               {subtitulo}
               {subtitulo && escopo && ' · '}
               {escopo && <strong className="font-semibold text-ink-700">{escopo}</strong>}
@@ -117,7 +115,7 @@ export function QuadroGrafico({
             data-indicador={!verTabela ? '1' : undefined}
             onClick={() => setVerTabela(false)}
             className={`relative z-10 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors duration-hover ease-saida ${
-              !verTabela ? 'text-water-700' : 'text-ink-500 hover:text-ink-700'
+              !verTabela ? 'text-water-700' : 'text-ink-water hover:text-ink-700'
             }`}
           >
             Gráfico
@@ -131,7 +129,7 @@ export function QuadroGrafico({
             data-indicador={verTabela ? '1' : undefined}
             onClick={() => setVerTabela(true)}
             className={`relative z-10 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors duration-hover ease-saida ${
-              verTabela ? 'text-water-700' : 'text-ink-500 hover:text-ink-700'
+              verTabela ? 'text-water-700' : 'text-ink-water hover:text-ink-700'
             }`}
           >
             Tabela

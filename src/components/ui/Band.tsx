@@ -9,12 +9,8 @@ interface BandProps {
 /**
  * Superfície navy para números em destaque.
  *
- * TINHA UMA CURVA TURQUESA ANIMADA NO FUNDO, e ela saiu em 29/08/2026. O
- * comentário a chamava de "motivo de marca sutil (ligadura do logo)", mas o
- * traço era uma onda arbitrária: num produto sobre ESCOAMENTO, uma curva que não
- * é a topologia de nada é decoração fingindo significado. A `SelecaoUnidade` já
- * a desligava com `flow={false}` — ou seja, das duas telas que usam esta
- * superfície, uma já tinha julgado que ela atrapalhava.
+ * SEM CURVA ANIMADA NO FUNDO, de propósito: num produto sobre ESCOAMENTO, uma
+ * onda que não é a topologia de nada é decoração fingindo significado.
  *
  * O turquesa não sumiu do produto: ele passou a carregar dado, na faixa do
  * horizonte da Home. Cor de acento que informa vale mais que cor de acento que

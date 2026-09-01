@@ -1,9 +1,9 @@
 /**
  * A HOME NÃO BUSCA DADO — e é isso que o teste prende.
  *
- * Ela já mostrou VPL, horizonte do plano e status do cadastro, e para isso fazia
- * quatro chamadas de API antes de desenhar. A decisão de 29/08/2026 foi tirar
- * tudo: esse dado tem casa própria, e a entrada não é lugar de resumo.
+ * VPL, horizonte do plano e status do cadastro custavam quatro chamadas de API
+ * antes de desenhar. Esse dado tem casa própria, e a entrada não é lugar de
+ * resumo.
  *
  * O que se afirma aqui é o CONTRATO da tela, não a aparência: nenhuma rede, e as
  * três portas de entrada presentes com destino certo. Se alguém reintroduzir um

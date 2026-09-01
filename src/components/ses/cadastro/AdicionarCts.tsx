@@ -22,7 +22,7 @@ import { ehCts, type Dados } from '../../../domain/fluxo'
  * de lá primeiro.
  *
  * NÃO é recortada por unidade, e não poderia ser: CTS fora de sistema não tem
- * cidade, nem superintendência, nem unidade. Por isso o texto diz "da base".
+ * cidade, nem empresa, nem unidade. Por isso o texto diz "da base".
  */
 export function AdicionarCts({
   sistemaId,
@@ -61,7 +61,7 @@ export function AdicionarCts({
 
   if (limitada)
     return (
-      <div className="mt-3 rounded-[10px] border border-ink-200 bg-ink-50 px-3.5 py-2.5 text-[11.5px] leading-snug text-ink-500">
+      <div className="mt-3 rounded-[10px] border border-ink-200 bg-ink-50 px-3.5 py-2.5 text-[11.5px] leading-snug text-ink-water">
         Este sistema está marcado como <strong>sistema de CTS</strong> e já tem a dele. Para
         adicionar outra, desmarque a opção acima — ou tire a atual da tabela.
       </div>
@@ -103,7 +103,7 @@ export function AdicionarCts({
           + adicionar
         </button>
       </div>
-      <div className="mt-1.5 text-[11.5px] leading-snug text-ink-500">
+      <div className="mt-1.5 text-[11.5px] leading-snug text-ink-water">
         Só aparecem CTS que não estão em nenhum outro sistema. Depois de adicionar, defina para onde
         ela escoa na tabela e salve.
       </div>

@@ -47,18 +47,18 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2.5 border-b border-ink-200 px-4 py-3.5">
-          <MagnifyingGlass className="text-lg text-ink-400" />
+          <MagnifyingGlass className="text-lg text-ink-water" />
           <input
             autoFocus
             placeholder="Buscar sub-bacia, simulação, obra…"
-            className="flex-1 border-0 bg-transparent text-sm text-ink-900 outline-none placeholder:text-ink-400"
+            className="flex-1 border-0 bg-transparent text-sm text-ink-900 outline-none placeholder:text-ink-water"
           />
-          <span className="rounded-[5px] border border-ink-200 px-1.5 py-0.5 font-mono text-[10.5px] text-ink-400">
+          <span className="rounded-[5px] border border-ink-200 px-1.5 py-0.5 font-mono text-[10.5px] text-ink-water">
             ESC
           </span>
         </div>
         <div className="p-2">
-          <div className="px-2.5 pb-1.5 pt-2 text-[10.5px] font-semibold uppercase tracking-[.09em] text-ink-400">
+          <div className="px-2.5 pb-1.5 pt-2 text-[10.5px] font-semibold uppercase tracking-[.09em] text-ink-water">
             Ir para
           </div>
           {ITEMS.map((item) => (

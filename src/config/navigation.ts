@@ -28,10 +28,9 @@ export interface NavItem {
 /**
  * Módulos da plataforma — fonte única para o menu e para os cards da Home.
  *
- * DE 1 PARA 3 ITENS (17/08/2026, fase 9). É só isto que o Trilho precisou para
- * absorver as telas novas: o `Header.tsx` não mudou de layout, e o indicador
- * deslizante que estava implementado e desligado desde 11/08 por
- * `NAV_ITEMS.length > 1` acende sozinho agora que há mais de um módulo.
+ * É A ÚNICA fonte da navegação: acrescentar um módulo aqui basta, o `Header.tsx`
+ * não muda de layout. O indicador deslizante acende sozinho quando há mais de um
+ * item (`NAV_ITEMS.length > 1`).
  *
  * A ordem é a do fluxo de trabalho — preparar a base, disparar, ler o que saiu
  * —, e não alfabética nem por frequência de uso.

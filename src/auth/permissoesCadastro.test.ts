@@ -4,7 +4,7 @@ import { ADMIN_UNIDADE, FINANCEIRO_HOLDING, GERENCIADOR_USUARIOS, USUARIO_UNIDAD
 
 /**
  * Espelho, no front, do que `app/cadastro/routes.py::salvar_cadastro` já
- * decide no servidor (N7/N8, 18/08/2026). Isto é PREVENÇÃO — a permissão de
+ * decide no servidor. Isto é PREVENÇÃO — a permissão de
  * verdade é o 403 do servidor —, mas os três ramos têm que concordar, senão
  * a tela deixa preencher o que o servidor vai recusar.
  */

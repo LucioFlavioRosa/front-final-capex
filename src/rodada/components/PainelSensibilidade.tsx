@@ -74,7 +74,7 @@ import type { RunMeta } from '@/rodada/domain/resultado'
 /** A cor de cada estado do degrau. `erro` é ÂMBAR, e não vermelho: dá para
  *  tentar de novo ali mesmo, então não é um beco. */
 const CHIP: Record<EstadoDoDegrau, string> = {
-  ausente: 'border-ink-200 bg-ink-50 text-ink-500',
+  ausente: 'border-ink-200 bg-ink-50 text-ink-water',
   'em voo': 'border-water-500/30 bg-water-50 text-water-700',
   pronto: 'border-aegea-500/30 bg-aegea-50 text-aegea-700',
   erro: 'border-warning/40 bg-warning/10 text-amber-800',
@@ -353,10 +353,14 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
       <div className="carta p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 max-w-2xl">
-            <h3 className="text-[15px] font-bold tracking-tight text-ink-900">
+            {/* `h2` e nao `h3`: este e o primeiro titulo depois do `h1` do nivel,
+                e pular um nivel faz quem navega por titulos com leitor de tela
+                acreditar que ficou conteudo para tras. O tamanho e o peso vem da
+                classe, entao a tag muda sem mexer no desenho. */}
+            <h2 className="text-[15px] font-bold tracking-tight text-ink-900">
               E se o CAPEX anual fosse maior?
-            </h3>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-ink-500">
+            </h2>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-ink-water">
               O teto abaixo sai do plano atual e não custa execução nenhuma. A curva vem depois,
               e cada ponto dela é{' '}
               <strong className="font-semibold text-ink-700">uma otimização de verdade</strong>,
@@ -368,9 +372,9 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
                 ler o dinheiro como verba anual — erro de um fator igual ao
                 número de anos do plano. */}
             {teto && teto.anosDoPlano > 0 && (
-              <p className="mt-1.5 text-[12px] text-ink-400">
+              <p className="mt-1.5 text-[12px] text-ink-water">
                 Os percentuais são por ano. Os valores em reais são o acréscimo{' '}
-                <strong className="font-semibold text-ink-500">
+                <strong className="font-semibold text-ink-water">
                   somado nos {teto.anosDoPlano} anos do plano
                 </strong>
                 .
@@ -459,9 +463,8 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
         {teto && !pronta && <Teto teto={teto} />}
 
         {/* O ESTADO DE CADA DEGRAU, sempre visível. Uma rodada leva minutos, e
-            sem esta linha a tela ficaria muda entre o clique e o resultado — o
-            defeito que a revisão de UX de 25/08 apontou como o de maior impacto
-            ("rodada em execução que nunca dá sinal de vida"). */}
+            sem esta linha a tela fica muda entre o clique e o resultado — uma
+            rodada em execução que nunca dá sinal de vida. */}
         <ul className="mt-4 flex flex-wrap gap-2">
           {situacao.map(({ degrau, estado, ponto }) => {
             const dinheiro = emReais(degrau)
@@ -538,7 +541,7 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
         )}
 
         {varrendo && !emExecucao && (
-          <p className="mt-3 text-[12px] text-ink-500">
+          <p className="mt-3 text-[12px] text-ink-water">
             Varredura ligada — pedindo o próximo degrau…
           </p>
         )}
@@ -595,7 +598,7 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
                marca a estimativa no desenho, e esta linha a nomeia por escrito.
                Sem ela, quem lê a curva não tem como saber que um dos pontos
                parou no relógio em vez de fechar a prova. */
-            <p className="text-[12px] text-ink-500">
+            <p className="text-[12px] text-ink-water">
               Os pontos vazados (○) são{' '}
               <strong className="font-semibold text-ink-700">estimativas rápidas</strong>: a mesma
               otimização com 60s de solver em vez de 1000s. Servem para ler a inclinação. Para
@@ -696,7 +699,7 @@ function SeletorDeFaixa({
           o fim precisa ser maior que o início, e ambos entre 1% e {MAIOR_DEGRAU}%
         </span>
       ) : menosQuePedidos ? (
-        <span className="text-[12px] text-ink-500">
+        <span className="text-[12px] text-ink-water">
           faixa estreita: {degraus.length} pontos distintos ({degraus.map((d) => `+${d}%`).join(', ')})
         </span>
       ) : null}
@@ -748,7 +751,7 @@ function SeletorDeModo({
           disabled={desabilitado}
           onClick={() => aoTrocar(o.valor)}
           className={`rounded-full px-3 py-1 text-[12px] font-semibold transition-colors duration-hover ease-saida disabled:cursor-not-allowed disabled:opacity-50 ${
-            modo === o.valor ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-700'
+            modo === o.valor ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-water hover:text-ink-700'
           }`}
         >
           {o.rotulo}
@@ -781,7 +784,7 @@ function Teto({ teto }: { teto: TetoDeSensibilidade }) {
     <div className="mt-4 rounded-2xl border border-ink-200 bg-ink-50/60 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h4 className="text-[13px] font-bold text-ink-800">Antes de simular: o teto</h4>
-        <span className="text-[11.5px] text-ink-500">
+        <span className="text-[11.5px] text-ink-water">
           limite superior — precedência e ETE só reduzem
         </span>
       </div>
@@ -825,7 +828,7 @@ function Teto({ teto }: { teto: TetoDeSensibilidade }) {
             sub-bacias e o máximo de vazão que esse dinheiro poderia destravar.
           </caption>
           <thead>
-            <tr className="text-left text-[11px] uppercase tracking-wide text-ink-500">
+            <tr className="text-left text-[11px] uppercase tracking-wide text-ink-water">
               <th scope="col" className="pb-1.5 pr-3 font-semibold">
                 CAPEX por ano
               </th>
@@ -855,7 +858,7 @@ function Teto({ teto }: { teto: TetoDeSensibilidade }) {
                     valor anual, errando por um fator igual ao número de anos. */}
                 <td className="py-1.5 pr-3 text-right text-ink-600">
                   {brlMi(teto.orcamentoTotal + d.folga)}
-                  <span className="ml-1.5 text-ink-400">(+{brlMi(d.folga)})</span>
+                  <span className="ml-1.5 text-ink-water">(+{brlMi(d.folga)})</span>
                 </td>
                 <td className="py-1.5 pr-3 text-right font-semibold text-ink-800">
                   {inteiro(d.subbaciasNoMaximo)}
@@ -967,7 +970,7 @@ function QuadroDeObras({
                               className="h-2 w-2 shrink-0 rounded-sm"
                               style={{ background: s.color }}
                             />
-                            <span className="text-ink-500">{s.name}</span>
+                            <span className="text-ink-water">{s.name}</span>
                             <span className="ml-auto font-mono font-semibold tabular-nums text-ink-800">
                               {inteiro(Number(s.value))}
                             </span>
@@ -1005,7 +1008,7 @@ function QuadroDeObras({
               <span className="text-ink-600">{l.nome}</span>
               <span
                 className={`font-mono font-semibold tabular-nums ${
-                  d > 0 ? 'text-aegea-700' : d < 0 ? 'text-amber-700' : 'text-ink-400'
+                  d > 0 ? 'text-aegea-700' : d < 0 ? 'text-amber-700' : 'text-ink-water'
                 }`}
               >
                 {sinal(d)}
@@ -1014,7 +1017,7 @@ function QuadroDeObras({
           )
         })}
       </ul>
-      <p className="mt-2 text-[11.5px] leading-relaxed text-ink-500">
+      <p className="mt-2 text-[11.5px] leading-relaxed text-ink-water">
         A variação é contra o plano de hoje, no maior degrau já rodado (+{ultimo.degrau}%). Um
         componente pode aparecer com <span className="font-mono">−1</span>: com mais orçamento o
         otimizador <strong className="font-semibold text-ink-600">rearranja</strong>, e trocar uma
@@ -1187,7 +1190,7 @@ function SinalDeVida({
   const d = status.data
 
   if (!d) {
-    return <p className="mt-3 text-[12px] text-ink-500">Consultando a rodada de +{degrau}%…</p>
+    return <p className="mt-3 text-[12px] text-ink-water">Consultando a rodada de +{degrau}%…</p>
   }
 
   const fila = d.fila
@@ -1202,7 +1205,7 @@ function SinalDeVida({
         <span className="font-semibold text-ink-800">
           <span className="font-mono">+{degrau}%</span> · {d.status.toLowerCase()}
         </span>
-        <span className="text-ink-500">
+        <span className="text-ink-water">
           {estimativa ? 'estimativa · 60s' : 'simulação completa'}
         </span>
         {d.progresso > 0 && d.status === 'RODANDO' && (
@@ -1218,7 +1221,7 @@ function SinalDeVida({
           />
         </div>
       )}
-      <p className="mt-1.5 text-[11.5px] text-ink-500">
+      <p className="mt-1.5 text-[11.5px] text-ink-water">
         A curva se completa sozinha quando ela publicar — dá para sair desta tela.
       </p>
     </div>

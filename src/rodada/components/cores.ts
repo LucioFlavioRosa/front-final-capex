@@ -74,7 +74,7 @@ export const COR_FLUXO = {
 } as const
 
 /**
- * O fluxo de escoamento do VPL (Global/Cidade/Sub-bacia) — porte do design de 19/08.
+ * O fluxo de escoamento do VPL (Global/Cidade/Sub-bacia).
  *
  * Três cores, e nenhuma delas é o par divergente `COR.entra`/`COR.sai`: aquele
  * é vermelho/azul porque em muitos gráficos "sai" é alerta. Num fluxo de escoamento de

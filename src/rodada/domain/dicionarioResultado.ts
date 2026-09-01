@@ -8,12 +8,11 @@
  * respondem a perguntas diferentes ("o que isto muda?" contra "de onde isto
  * saiu?").
  *
- * POR QUE ELE EXISTE. Dos treze pontos do segundo lote de feedback da Aegea
- * (26/08/2026), seis eram literalmente "o que é isto?" sobre um rótulo de
- * resultado — Faturando, Ocupação da ETE, Componentes, Obras que travam,
- * Receita arrecadada ou faturada, Sub-bacias faturando. Renomear cada um resolve
- * seis perguntas; um verbete por número resolve a classe inteira, inclusive as
- * perguntas que ainda não foram feitas.
+ * POR QUE ELE EXISTE. Meia dúzia de rótulos de resultado geram sempre a mesma
+ * pergunta — "o que é isto?" sobre Faturando, Ocupação da ETE, Componentes,
+ * Obras que travam, Receita arrecadada ou faturada, Sub-bacias faturando.
+ * Renomear cada um resolve meia dúzia de perguntas; um verbete por número
+ * resolve a classe inteira, inclusive as perguntas que ainda não foram feitas.
  *
  * O `tec` AQUI É A COLUNA DO BANCO, e não um parâmetro do motor. Em
  * `dicionario.ts` o nome técnico serve para reconhecer o controle no notebook;

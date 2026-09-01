@@ -1,12 +1,12 @@
 /**
  * Regionais e unidades — a estrutura organizacional da Aegea.
  *
- * Antes de 17/08/2026 esta lista vivia compilada em
- * `data/cadastroUnidade/hierarquiaReal.ts` (3.279 linhas, 5 regionais, 52
- * unidades — geradas do de-para que a Aegea mandou). Passou a vir do banco
- * pela mesma regra que rege o resto do app: **se uma unidade não existe no
- * banco, ela não aparece no front.** Hoje isso significa 1 regional (R4) e 2
- * unidades (56, 57) — as únicas carregadas em `input.unidade_regional`.
+ * A LISTA VEM DO BANCO, e não de um arquivo compilado no bundle, pela mesma
+ * regra que rege o resto do app: **se uma unidade não existe no banco, ela não
+ * aparece no front.** Hoje isso significa 1 regional (R4) e 2 unidades (56, 57)
+ * — as únicas carregadas em `input.unidade_regional`. O de-para completo (5
+ * regionais, 52 unidades) vive em `scripts/hierarquiaReal.ts`, como insumo de
+ * carga.
  *
  * Fica em `lib/`, e não em `rodada/`, porque os dois consumidores são de áreas
  * diferentes: o Cadastro (`SelecaoUnidade`, `CadastroContext`) e o Simular

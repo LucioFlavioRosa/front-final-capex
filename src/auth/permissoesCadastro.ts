@@ -4,7 +4,7 @@ import { ehAdministrador, FINANCEIRO_HOLDING, type Papel } from './papeis'
 /**
  * Quem pode digitar em QUAL campo do cadastro — espelho, no front, da mesma
  * regra de três ramos que `app/cadastro/routes.py::salvar_cadastro` já
- * impõe no servidor (N7/N8, 18/08/2026):
+ * impõe no servidor:
  *
  *   administrador   edita qualquer campo
  *   financeiro      edita só os campos de WACC (`data/cadastroUnidade/wacc.ts`)

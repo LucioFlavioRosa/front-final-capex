@@ -1,14 +1,17 @@
 import { useMemo } from 'react'
 import { Modal } from '@/components/ui/Modal'
-import { ordenarParametros, rotuloDoParametro, valorDoParametro } from '@/rodada/domain/pedido'
+import {
+  ordenarParametros,
+  rotuloDoParametro,
+  segmentosDoParametro,
+} from '@/rodada/domain/pedido'
 import { brlMi, dataCurta, deTotal, inteiro, pct, VAZIO } from '@/rodada/lib/formato'
 import type { RunResumo } from '@/rodada/domain/resultado'
 import { idCurtoDaRodada } from '@/rodada/domain/rodadaId'
 
 /**
- * COMPARAR N SIMULAÇÕES — item 2 do feedback de 26/08, definido pela Aegea em
- * 27/08: "escolher entre n>=2 simulações do histórico e comparar os dados de
- * resultado e parâmetros do motor de cada simulação".
+ * COMPARAR N SIMULAÇÕES — escolher n>=2 rodadas do histórico e ler lado a lado
+ * os resultados e os parâmetros do motor de cada uma.
  *
  * NÃO PRECISA DE BACKEND NENHUM: `GET /runs` já devolve, para cada rodada, as
  * métricas de resultado (`metricas`) e o pedido completo com que ela foi
@@ -76,7 +79,14 @@ interface Linha {
   rotulo: string
   /** O nome técnico, quando existe — a rastreabilidade com o notebook. */
   tecnico?: string
-  valores: string[]
+  /**
+   * Um valor por rodada, e cada valor em PEDAÇOS.
+   *
+   * Quase todo parâmetro tem um pedaço só. Os de mapa — orçamento por ano,
+   * prioridade por cidade — têm um por entrada, e é isso que permite a célula
+   * quebrar entre eles sem quebrar nenhum pelo meio.
+   */
+  valores: string[][]
   difere: boolean
 }
 
@@ -96,7 +106,7 @@ function Secao({
     <section className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-4">
         <h3 className="text-[13px] font-bold text-ink-800">{titulo}</h3>
-        {nota && <span className="text-[11px] text-ink-400">{nota}</span>}
+        {nota && <span className="text-[11px] text-ink-water">{nota}</span>}
       </div>
       <div className="carta carta-tabela min-w-0 overflow-x-auto">
         <table>
@@ -109,7 +119,7 @@ function Secao({
               {runs.map((r) => (
                 <th key={r.runId} scope="col" data-r>
                   <span className="block max-w-[180px] truncate">{r.nome || 'Sem nome'}</span>
-                  <span className="mt-0.5 block font-mono text-[10px] font-normal normal-case tracking-normal text-ink-400">
+                  <span className="mt-0.5 block font-mono text-[10px] font-normal normal-case tracking-normal text-ink-water">
                     {idCurtoDaRodada(r.runId)} · {dataCurta(r.dataHora)}
                   </span>
                 </th>
@@ -122,17 +132,15 @@ function Secao({
                 <th scope="row" className="sticky left-0 z-10 bg-white text-left font-normal">
                   <span className="block text-[12.5px] font-medium text-ink-700">{l.rotulo}</span>
                   {l.tecnico && (
-                    <code className="font-mono text-[9.5px] text-ink-400">{l.tecnico}</code>
+                    <code className="font-mono text-[9.5px] text-ink-water">{l.tecnico}</code>
                   )}
                 </th>
-                {l.valores.map((v, i) => (
-                  <td
+                {l.valores.map((segmentos, i) => (
+                  <CelulaDeValor
                     key={runs[i].runId}
-                    data-m
-                    className={l.difere ? 'font-semibold text-ink-800' : 'text-ink-500'}
-                  >
-                    {v}
-                  </td>
+                    segmentos={segmentos}
+                    difere={l.difere}
+                  />
                 ))}
               </tr>
             ))}
@@ -183,6 +191,24 @@ function linhasDeResultado(runs: RunResumo[]): Linha[] {
  * mais nova do formulário, por exemplo), essa ausência é exatamente o tipo de
  * diferença que explica um resultado divergente. Interseção a esconderia.
  */
+/**
+ * PARÂMETROS QUE A COMPARAÇÃO OMITE ENQUANTO FOREM IGUAIS.
+ *
+ * A equipe não os varia: a estratégia de cobertura e os dois de execução saem
+ * sempre no mesmo valor, e três linhas que nunca mudam empurram para baixo as
+ * que mudam — que são o motivo de o modal existir.
+ *
+ * MAS SÓ ENQUANTO FOREM IGUAIS. Se duas rodadas trouxerem valores diferentes
+ * aqui, a linha volta. O pedido aceita qualquer valor e uma rodada montada por
+ * script pode divergir — e esta é a única tela feita para revelar divergência.
+ * Escondê-la justamente quando ela aconteceu seria o pior momento possível.
+ */
+const CONSTANTES_NA_PRATICA = new Set([
+  'PENALIDADE_COBERTURA',
+  'MAX_TIME_S',
+  'ANOS_EXTRA_CONCLUSAO',
+])
+
 function linhasDeParametros(runs: RunResumo[]): Linha[] {
   const chaves: string[] = []
   for (const r of runs) {
@@ -199,17 +225,75 @@ function linhasDeParametros(runs: RunResumo[]): Linha[] {
     ([k]) => k,
   )
 
-  return ordenadas.map((chave) =>
-    montar(
-      rotuloDoParametro(chave),
-      chave,
-      runs.map((r) =>
-        r.pedido && chave in r.pedido ? valorDoParametro(chave, r.pedido[chave]) : VAZIO,
+  return ordenadas
+    .map((chave) =>
+      montarSegmentado(
+        rotuloDoParametro(chave),
+        chave,
+        runs.map((r) =>
+          r.pedido && chave in r.pedido ? segmentosDoParametro(chave, r.pedido[chave]) : [VAZIO],
+        ),
       ),
-    ),
+    )
+    .filter((l) => l.difere || !CONSTANTES_NA_PRATICA.has(l.tecnico ?? ''))
+}
+
+/**
+ * A CÉLULA DE VALOR — e a razão de ela existir em vez de um `<td>` inline.
+ *
+ * O `td[data-m]` do kit é `whitespace-nowrap`, e está certo: "R$ 1.234,5"
+ * quebrado no meio deixa de ser um número. Mas o orçamento por ano é uma
+ * SEQUÊNCIA de números — quinze deles numa rodada típica — e a mesma regra que
+ * protege um número forçava o quadro inteiro a rolar de lado para mostrar o
+ * décimo quinto. Quem comparava duas rodadas perdia de vista a coluna da
+ * primeira ao chegar no fim da linha.
+ *
+ * Então a proteção desce um nível: quem não pode quebrar é cada PEDAÇO, não a
+ * linha. O grupo quebra à vontade, cada "2026: R$ 60 mi" fica inteiro, e a
+ * tabela volta a caber na largura do modal.
+ *
+ * Valor de um pedaço só continua exatamente como era — `data-m` e nada mais.
+ */
+function CelulaDeValor({ segmentos, difere }: { segmentos: string[]; difere: boolean }) {
+  const tom = difere ? 'font-semibold text-ink-800' : 'text-ink-water'
+
+  if (segmentos.length === 1) {
+    return (
+      <td data-m className={tom}>
+        {segmentos[0]}
+      </td>
+    )
+  }
+
+  return (
+    // Sem `data-m`: as classes vêm à mão justamente para deixar o `nowrap` de
+    // fora, mantendo o resto (mono, tabular, alinhamento à direita).
+    <td className={`text-right font-mono text-[12.5px] font-medium ${tom}`}>
+      <span className="flex flex-wrap justify-end gap-x-2 gap-y-0.5 tabular-nums">
+        {segmentos.map((seg, i) => (
+          <span key={`${i}:${seg}`} className="whitespace-nowrap">
+            {seg}
+          </span>
+        ))}
+      </span>
+    </td>
   )
 }
 
 function montar(rotulo: string, tecnico: string | undefined, valores: string[]): Linha {
-  return { rotulo, tecnico, valores, difere: new Set(valores).size > 1 }
+  return montarSegmentado(rotulo, tecnico, valores.map((v) => [v]))
+}
+
+/** O mesmo, para valor que vem repartido. `difere` compara o valor INTEIRO. */
+function montarSegmentado(
+  rotulo: string,
+  tecnico: string | undefined,
+  valores: string[][],
+): Linha {
+  return {
+    rotulo,
+    tecnico,
+    valores,
+    difere: new Set(valores.map((v) => v.join(' · '))).size > 1,
+  }
 }

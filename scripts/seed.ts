@@ -1,13 +1,12 @@
 /**
- * MOVIDO de `src/data/cadastroUnidade/` para `scripts/` em 17/08/2026 —
- * junto com `hierarquiaReal.ts`, sua única fonte de dado real.
+ * VIVE EM `scripts/`, e não em `src/`, porque não é código de tela.
  *
- * A regra do projeto passou a ser "o banco é a única fonte, em toda tela": o
- * `CadastroContext` não chama mais `seed()` para abrir uma unidade — ele parte
- * de um estado vazio e hidrata com `GET /api/cadastro/{id}`. Este arquivo
- * continua existindo como GERADOR, para `semear-banco.ts`: quem precisar
- * povoar o banco com um cadastro de exemplo roda o script, que importa `seed`
- * daqui e faz o `POST /api/cadastro`. Nenhum arquivo de `src/` importa mais
+ * A regra do projeto é "o banco é a única fonte, em toda tela": o
+ * `CadastroContext` não chama `seed()` para abrir uma unidade — parte de um
+ * estado vazio e hidrata com `GET /api/cadastro/{id}`. Este arquivo é um
+ * GERADOR, para `semear-banco.ts`: quem precisar povoar o banco com um cadastro
+ * de exemplo roda o script, que importa `seed` daqui e faz o
+ * `POST /api/cadastro`. Nenhum arquivo de `src/` importa
  * este módulo.
  */
 import type { Cidade, Row, UnidadeState } from '../src/data/cadastroUnidade/types'
@@ -28,14 +27,13 @@ export const REGIONAIS = REGIONAIS_REAIS
 export const UNIDADES_POR_REGIONAL = UNIDADES_POR_REGIONAL_REAL
 
 /**
- * IDS GERADOS — o esquema de códigos provisórios do cadastro (31/07/2026).
+ * IDS GERADOS — o esquema de códigos provisórios do cadastro.
  *
- * O PROBLEMA que ele resolve: quatro colunas de ID mostravam o mesmo texto da
- * coluna de nome ao lado. `sub_bacia_id` era 'Canal do Cunha', igual a
- * `sub_bacia_name`; `cidade_id` era '57-BELFORD_ROXO' ao lado de 'BELFORD
- * ROXO'; `sistema_id` era 'Alegria'. Cada uma dessas colunas gastava 168px
- * repetindo o que já estava dito, em abas que têm 20+ colunas — e a Aegea
- * apontou o resultado na apresentação: tela poluída.
+ * O PROBLEMA que ele resolve: sem ele, quatro colunas de ID mostram o mesmo
+ * texto da coluna de nome ao lado — `sub_bacia_id` = 'Canal do Cunha' ao lado de
+ * `sub_bacia_name`, `cidade_id` = '57-BELFORD_ROXO' ao lado de 'BELFORD ROXO'.
+ * Cada uma gasta a largura de uma coluna repetindo o que já está dito, em abas
+ * que têm 20+ colunas.
  *
  * A REGRA: ID é código curto e tipado; NOME é o texto legível. Quando a fonte
  * traz só um dos dois, o que falta é GERADO — nunca duplicado.
@@ -70,11 +68,8 @@ export const UNIDADES_POR_REGIONAL = UNIDADES_POR_REGIONAL_REAL
 /**
  * Os componentes de obra, na ordem física do dicionário.
  *
- * Os nomes seguem o vocabulário pedido pela Aegea em 05/08/2026 — 'Tronco' virou
- * 'Coletor Tronco'. 'Coleta de tempo seco' chegou a ser aplicado pela lista
- * escrita e voltou para 'Coletor de tempo seco' em 07/08/2026, pela transcrição
- * ("faz sentido ser coletor mesmo, vamos botar"). São
- * VALORES de dado, e precisam bater exatamente com as chaves de
+ * Os nomes são VALORES de dado, não rótulos, e precisam bater exatamente com as
+ * chaves de
  * `UNIDADE_POR_COMPONENTE` (senão a unidade de medida da linha exibe '—') e com
  * as chaves de `CAPEX_EXEMPLO` abaixo. Ver a nota sobre a classificação por
  * substring no motor, em `schema.ts`.
@@ -116,9 +111,9 @@ const CAPEX_VAZIO: Record<string, string> = {
  * sub-bacias com mais de um SES). É a mesma coluna que já preenche "Sistema" na
  * aba Sub-bacias.
  *
- * Usamos UM sistema como amostra, por decisão de 30/07/2026: as 1.047 de uma vez
- * deixariam o Fluxo de escoamento com 1.047 linhas numa grade sem virtualização,
- * e a base de sub-bacias não tem recorte por unidade (as mesmas apareceriam em qualquer
+ * UM sistema serve de amostra: as 1.047 de uma vez deixariam o Fluxo de
+ * escoamento com 1.047 linhas numa grade sem virtualização, e a base de
+ * sub-bacias não tem recorte por unidade (as mesmas apareceriam em qualquer
  * unidade selecionada). O escolhido é o sistema da PRIMEIRA sub-bacia do CSV —
  * assim o Fluxo de escoamento mostra o mesmo sistema que aparece no topo da aba
  * Sub-bacias, em vez de um recorte que parece arbitrário.
@@ -130,20 +125,19 @@ const CAPEX_VAZIO: Record<string, string> = {
  * deságua em quem até a ETE. É campo da unidade.
  */
 /**
- * A BASE COMERCIAL SAIU DO BUNDLE (07/08/2026).
+ * A BASE COMERCIAL NÃO ENTRA NO BUNDLE — estas duas constantes ficam vazias.
  *
- * Estas duas constantes vinham de `dadosComerciaisReal.ts`, um arquivo gerado de
- * 873 KB — as 1.047 sub-bacias com receita faturada e arrecadada, e as 304 CTS.
- * Eram 873 dos 1.087 KB do JavaScript publicado: a maior parte de tudo que o
- * navegador baixava era dado comercial da Aegea, protegido apenas pela senha
- * compartilhada do Static Web App. É a preocupação registrada no §5.0 do
- * PLANO-DEPLOY-SWA, e a resposta para ela é o dado não sair do servidor.
+ * Embutida, ela seria um arquivo gerado de 873 KB (1.047 sub-bacias com receita
+ * faturada e arrecadada, e 304 CTS) contra 1.087 KB de JavaScript publicado: a
+ * maior parte do que o navegador baixa seria dado comercial do cliente,
+ * protegido apenas pela senha compartilhada do Static Web App. Dado comercial
+ * não sai do servidor.
  *
- * Agora essas abas nascem VAZIAS e são preenchidas pelo que vem de
+ * Essas abas nascem VAZIAS e são preenchidas pelo que vem de
  * `GET /api/cadastro/{unidade}` — ver `HIDRATAR` no CadastroContext. O cadastro
- * passou a depender do banco: sem a API respondendo, a unidade abre sem
- * sub-bacia e sem CTS, e isso é intencional. O caminho de volta não é
- * reintroduzir o arquivo, é semear a unidade no banco (`scripts/semear-banco.ts`).
+ * DEPENDE do banco: sem a API respondendo, a unidade abre sem sub-bacia e sem
+ * CTS, e isso é intencional. A saída não é reintroduzir o arquivo, é semear a
+ * unidade no banco (`scripts/semear-banco.ts`).
  *
  * As constantes ficam como listas vazias, e não some o código que as usa, porque
  * o resto do seed já trata os dois casos: há guardas em `cidade-sistema`,
@@ -189,22 +183,19 @@ export function seed(unId: string, unName: string, regionalId?: string): Unidade
     { regional_id: regional, ano_base: '2026' },
   ]
   /**
-   * SUPERINTENDÊNCIA não tem fonte: o de-para pula de empresa direto para
-   * cidade. Fica UMA linha placeholder, só para o elo unidade → superintendência
-   * → cidade fechar na validação (ver `elos` em cadastroValidacao.ts) e as
-   * cidades reais terem onde se pendurar. O nome fica vazio de propósito — é
-   * coluna 'db' sem carga, e o vazio é o recado de que falta integração.
+   * A EMPRESA É O NÍVEL ENTRE UNIDADE E CIDADE (modelo de dados v8).
+   *
+   * Até a v7 havia aqui uma linha de reserva ('p01', nome vazio) para o elo
+   * unidade → superintendência → cidade fechar na validação: o nível não vinha
+   * de fonte nenhuma, e o de-para pulava de empresa direto para cidade. A v8
+   * removeu o reservado e promoveu a EMPRESA OPERADORA, que é real — então o
+   * `empresa` montado acima, que antes só acompanhava as linhas de cidade,
+   * passa a ser a própria linha da hierarquia.
    */
-  // 'p01' e não '56-SUP': padrão de código curto adotado em 31/07/2026 para
-  // todos os ids gerados (ver `IDS GERADOS` no topo do arquivo). Há uma
-  // superintendência por unidade, então o contador nunca passa de 01.
-  const supId = 'p01'
-  data['regional-superintendencia'] = [
-    { unidade_id: unId, superintendencia_id: supId, superintendencia_name: '' },
-  ]
-  // Cidades reais da unidade (de-para) — antes eram 3 fixas de exemplo.
-  data['superintendencia-cidade'] = cidades.map((c) => ({
-    ...empresa, superintendencia_id: supId, cidade_id: c.id, cidade_name: c.name,
+  data['empresa'] = [{ unidade_id: unId, ...empresa }]
+  // Cidades reais da unidade, vindas do de-para.
+  data['cidade-empresa'] = cidades.map((c) => ({
+    ...empresa, cidade_id: c.id, cidade_name: c.name,
   }))
   /**
    * SISTEMA não tem fonte. Os sistemas s1/s2/s3 seguem fictícios (o fluxo de escoamento e
@@ -221,12 +212,11 @@ export function seed(unId: string, unName: string, regionalId?: string): Unidade
    *   - Os sistemas FICTÍCIOS pendurados nas primeiras cidades reais. Existem só
    *     para sustentar os exemplos de CAPEX de ETE, que seguem mockados.
    *
-   * O ID, esse, é uniforme: s01, s02, s03, s04. Antes o real trazia o próprio
-   * nome ('Alegria') e os fictícios traziam s1/s2/s3, e a coluna "ID Sistema"
-   * exibia as duas coisas empilhadas — a Aegea apontou (31/07/2026) que 'Alegria'
-   * sozinha no meio dos códigos ficava estranha, "ou faz tudo mockado ou tudo
-   * real". Como não existe código de sistema em fonte nenhuma, o caminho é o
-   * mock uniforme; o nome ao lado continua dizendo o que é real e o que não é.
+   * O ID é UNIFORME: s01, s02, s03, s04, inclusive no sistema real. Misturar —
+   * o real trazendo o próprio nome ('Alegria') e os fictícios trazendo s1/s2/s3 —
+   * empilha duas coisas na mesma coluna. Como não existe código de sistema em
+   * fonte nenhuma, o código é gerado para todos; o NOME ao lado é que diz o que é
+   * real e o que não é.
    */
   const codigoSistema = (i: number) => `s${String(i + 1).padStart(2, '0')}`
   /** Id do sistema-amostra — o Fluxo e o CAPEX de sub-bacias se penduram nele. */
@@ -255,32 +245,29 @@ export function seed(unId: string, unName: string, regionalId?: string): Unidade
     componente_sistema_id_jusante: '',
     componente_sistema_nome_jusante: '',
   }))
-  // Cidades reais; `data_fim_concessao` vazio porque nenhuma das fontes traz o
-  // ano — é campo 'un', a unidade preenche. Antes havia '2045' de exemplo em
-  // duas cidades fictícias.
+  // Cidades reais; `data_fim_concessao` vazio porque nenhuma fonte traz o ano —
+  // é campo 'un', a unidade preenche.
   data['cidade-operacional'] = cidades.map((c) => ({
     ...empresa, cidade_id: c.id, cidade_name: c.name, data_fim_concessao: '',
   }))
   // Dados reais (Databricks) de SUB_BACIAS_DADOS_COMERCIAIS.csv — ver
   // ANALISE-CSV-DADOS-COMERCIAIS.md para o mapeamento campo a campo. O CSV é
   // uma base única, sem recorte por unidade/regional, então as mesmas 1.047
-  // sub-bacias aparecem para qualquer unidade selecionada até existir esse
-  // de-para. O de-para de 30/07/2026 resolveu isso para CTS (via EMP_CODIGO),
-  // não para sub-bacia: não há coluna de empresa no CSV de sub-bacias.
+  // sub-bacias aparecem para qualquer unidade selecionada. O de-para resolve
+  // isso para CTS (via EMP_CODIGO), não para sub-bacia: não há coluna de empresa
+  // no CSV de sub-bacias.
   data['subbacia-operacional'] = []
   /**
    * CAPEX de sub-bacias — as 5 obras físicas de cada uma, na ordem do
    * dicionário: Ligação → Rede → Coletor Tronco → EEE → Linha de recalque.
    *
-   * SUB-BACIA E SISTEMA agora são REAIS (pedido da Aegea, 31/07/2026): as 19
-   * sub-bacias do sistema-amostra, as MESMAS que a aba Fluxo de escoamento mostra e que
-   * existem na aba Sub-bacias. Antes eram três inventadas — 'Sub-bacia 1_1',
-   * 'Sub-bacia 1_2', 'Sub-bacia 2_1' — sobre sistemas fictícios s1/s2.
+   * SUB-BACIA E SISTEMA são REAIS: as 19 sub-bacias do sistema-amostra, as
+   * MESMAS que a aba Fluxo de escoamento mostra e que existem na aba Sub-bacias.
    *
-   * Além de nome de verdade na tela, isso conserta um erro que a própria
-   * validação já apontava: `componentes-subbacias-capex.sub_bacia_id` é
-   * chave estrangeira de `subbacia-operacional` (ver `elos` em
-   * cadastroValidacao.ts), e 'b1_1_1' não existia lá — toda unidade abria a
+   * Não é só nome de verdade na tela: `componentes-subbacias-capex.sub_bacia_id`
+   * é chave estrangeira de `subbacia-operacional` (ver `elos` em
+   * cadastroValidacao.ts). Uma sub-bacia inventada aqui não existe lá, e toda
+   * unidade abre a
    * Revisão com "Referência de sub-bacia inexistente" em vermelho.
    *
    * O que continua exemplo é só a OBRA: quantidade, preço, OPEX, prazos e
@@ -313,7 +300,7 @@ export function seed(unId: string, unName: string, regionalId?: string): Unidade
   /**
    * Metas e faixas de paridade seguem sendo EXEMPLO (a unidade cria as linhas),
    * mas agora sobre a primeira cidade real da unidade — antes apontavam para
-   * c1/c2, ids que não existem mais em `superintendencia-cidade` e que fariam a
+   * c1/c2, ids que não existem mais em `cidade-empresa` e que fariam a
    * validação acusar cidade inexistente em toda unidade.
    */
   const cidadeExemplo = cidades[0]
@@ -332,9 +319,9 @@ export function seed(unId: string, unName: string, regionalId?: string): Unidade
 
   /**
    * Dados reais (Databricks) de CTS_DADOS_COMERCIAIS.csv, RECORTADOS POR
-   * UNIDADE: o de-para de 30/07/2026 revelou que a coluna EMP_CODIGO do CSV é o
-   * código da empresa operadora (56 = ÁGUAS DO RIO 01 com 102 CTS,
-   * 57 = ÁGUAS DO RIO 04 com 202). Antes as 304 apareciam em toda unidade.
+   * UNIDADE: a coluna EMP_CODIGO do CSV é o código da empresa operadora
+   * (56 = ÁGUAS DO RIO 01 com 102 CTS, 57 = ÁGUAS DO RIO 04 com 202), e é ela
+   * que recorta.
    *
    * As outras 51 unidades ficam com lista vazia — correto, não é falta de
    * carga: essa base comercial só cobre as duas unidades da regional R4.
@@ -395,11 +382,9 @@ export function seed(unId: string, unName: string, regionalId?: string): Unidade
       .filter((r) => nomeSistema.has(r.sistema_id))
       .map((r) => ({ ...r, sistema_name: nomeSistema.get(r.sistema_id) ?? '' })),
     /**
-     * UMA LINHA POR CTS DA UNIDADE (itens 22 e 28, 07/08/2026).
+     * UMA LINHA POR CTS DA UNIDADE.
      *
-     * A aba nasceu só com as sub-bacias da amostra, e o texto dela dizia "cada
-     * linha é uma sub-bacia (ou uma CTS)" descrevendo uma tela onde CTS nenhuma
-     * aparecia. Agora aparece — e não por simetria: a CTS PRECISA de linha aqui,
+     * Não é simetria com as sub-bacias: a CTS PRECISA de linha aqui,
      * porque é dela que sai o único vínculo que diz a que sistema a CTS pertence
      * (item 21). Sem a linha, o campo Sistema da aba Dados da CTS não tem de onde
      * ser derivado, e a CTS fica fora de qualquer cadeia até a ETE.
@@ -424,11 +409,11 @@ export function seed(unId: string, unName: string, regionalId?: string): Unidade
       componente_sistema_nome_jusante: '',
     })),
   ]
-  // O CAPEX de sub-bacias passou a nascer sobre sub-bacias e sistema REAIS, então o
-  // filtro aqui virou rede de segurança em vez de necessidade: o
-  // sistema-amostra sempre existe em `cidade-sistema`. Fica porque o dia em que
-  // não existir (CSV vazio, recorte por unidade) é melhor a aba ficar vazia do
-  // que despejar 95 linhas apontando para um sistema que a validação não acha.
+  // FILTRO DE SEGURANÇA: o CAPEX de sub-bacias nasce sobre sub-bacias e sistema
+  // REAIS, e o sistema-amostra sempre existe em `cidade-sistema` — na prática
+  // este filtro não corta nada. Fica porque o dia em que não existir (CSV vazio,
+  // recorte por unidade) é melhor a aba ficar vazia do que despejar 95 linhas
+  // apontando para um sistema que a validação não acha.
   data['componentes-subbacias-capex'] = data['componentes-subbacias-capex']
     .filter((r) => nomeSistema.has(r.sistema_id))
   // `sistema_id` sai daqui e passa a ser COLUNA da aba (item 22): o vínculo ETE →

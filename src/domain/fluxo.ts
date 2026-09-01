@@ -1,14 +1,14 @@
 /**
- * O FLUXO DE ESCOAMENTO COMO GRAFO — a leitura que os itens 21, 22 e 23 pedem.
+ * O FLUXO DE ESCOAMENTO COMO GRAFO.
  *
- * Até 07/08/2026 a aba `sistema-topologia` era um par de colunas de texto livre:
- * quem preenchia digitava o código do destino de cabeça, e a única checagem
- * existente ("destino que não existe") só rodava na Revisão. Os três pedidos de
- * 05/08 mudam isso de lugar — o destino vira lista suspensa filtrada (22), o
- * sistema da CTS passa a ser DERIVADO do destino (21) e a topologia é conferida
- * na própria aba (23) — e os três precisam da mesma coisa: enxergar as linhas do
- * fluxo como arestas de um grafo, com os nós resolvidos contra as abas onde eles
- * de fato existem.
+ * Três coisas da aba `sistema-topologia` dependem desta leitura, e as três
+ * precisam do mesmo: enxergar as linhas do fluxo como ARESTAS DE UM GRAFO, com
+ * os nós resolvidos contra as abas onde eles de fato existem.
+ *
+ *   · o destino é lista suspensa FILTRADA, e não texto livre — digitado de
+ *     cabeça, um destino errado só apareceria na Revisão;
+ *   · o sistema da CTS é DERIVADO do destino dela;
+ *   · a topologia é conferida na própria aba, enquanto se preenche.
  *
  * É aqui que essa leitura mora, e ela é PURA: recebe o estado do cadastro e
  * devolve resposta, sem tocar em React nem em nada mutável. `cadastroCalc`,
@@ -236,11 +236,11 @@ const origensDoFluxo = (dados: Dados): string[] =>
  * CATÁLOGO DAS LISTAS SUSPENSAS — cache, e ele não é otimização prematura.
  *
  * As opções dependem só do cadastro, mas a célula que as pede é uma POR LINHA, e
- * a aba do Fluxo passou a ter uma linha por sub-bacia da amostra mais uma por CTS
- * da unidade — 221 na maior. A primeira versão montava a lista de origens dentro
- * de `opcoesOrigem`, varrendo as 1.047 sub-bacias da base e derivando o sistema de
- * cada uma: 221 × 1.047 travessias a cada render da grade, ou seja, a cada tecla
- * digitada em qualquer célula da aba. A grade não terminava de desenhar.
+ * a aba do Fluxo tem uma linha por sub-bacia da amostra mais uma por CTS da
+ * unidade — 221 na maior. Montar a lista dentro de `opcoesOrigem`, varrendo as
+ * 1.047 sub-bacias da base e derivando o sistema de cada uma, dá 221 × 1.047
+ * travessias A CADA RENDER da grade, ou seja, a cada tecla digitada em qualquer
+ * célula da aba: a grade não termina de desenhar.
  *
  * Aqui a varredura acontece UMA VEZ por versão do cadastro, e o que sobra por
  * linha é filtrar uma lista de algumas centenas de códigos já prontos. Mesma
@@ -435,16 +435,12 @@ export function opcoesOrigem(dados: Dados): [string, string][] {
 }
 
 /**
- * AS CÉLULAS QUE SÃO LISTA SUSPENSA DE ENTIDADE — e por que isto deixou de ser
- * um `Set` de nomes de coluna.
+ * AS CÉLULAS QUE SÃO LISTA SUSPENSA DE ENTIDADE — uma FUNÇÃO (aba, coluna), e
+ * não um `Set` de nomes de coluna.
  *
- * Era `COLUNAS_DINAMICAS`, um conjunto de duas colunas usado com um
- * `abaKey === 'sistema-topologia'` cravado ao lado, no `AbaCell`. Serviu enquanto
- * a única aba com escolha de entidade era a do Fluxo.
- *
- * DEIXOU DE SERVIR em 20/08/2026, quando a auditoria de "o que o cadastro NÃO
- * deixa preencher" achou duas lacunas reais — e as duas eram células que
- * precisavam justamente desta lista:
+ * Um conjunto de colunas com um `abaKey === 'sistema-topologia'` cravado ao lado
+ * só serve enquanto a única aba com escolha de entidade é a do Fluxo. Não é o
+ * caso — estas duas também precisam da lista:
  *
  *   `subbacia-cts` — a aba do pareamento não tinha UMA célula editável. Os quatro
  *     campos eram 'db', e a aba não tinha "Adicionar linha": ela era uma tela de
@@ -508,10 +504,10 @@ export function espelharColunas(
   valor: string,
 ): Record<string, string> {
   /**
-   * O PAREAMENTO SUB-BACIA · CTS entrou aqui em 20/08/2026, junto de os dois
-   * códigos dele deixarem de ser travados (ver `opcoesDaCelula`). Os nomes
-   * continuam 'db' na tela e é isto que os preenche — sem o espelho, escolher a
-   * CTS deixaria o nome da anterior ao lado do código novo.
+   * O PAREAMENTO SUB-BACIA · CTS: os dois CÓDIGOS são escolha (ver
+   * `opcoesDaCelula`) e os dois NOMES são 'db' na tela — é isto que os preenche.
+   * Sem o espelho, escolher a CTS deixa o nome da anterior ao lado do código
+   * novo.
    */
   if (abaKey === 'subbacia-cts') {
     if (col === 'sub_bacia_id') return { sub_bacia_name: nomeDoNo(dados, valor) }
@@ -556,29 +552,20 @@ export type FimDoCaminho = 'ete' | 'sem-destino' | 'destino-inexistente' | 'cicl
 
 /**
  * ============================================================================
- * A REPRESENTAÇÃO (UNIFILAR) — item 34, pedido na reunião de 04/08/2026.
+ * A REPRESENTAÇÃO (UNIFILAR) — o mesmo grafo, devolvido como desenho.
  * ============================================================================
  *
- * O pedido é de Wagner (15:01), depois de perguntar onde o unifilar tinha ido
- * parar (13:27): *"podem ficar numa aba só, mas mostrando o unifilar. E aí, se
- * vocês quiserem, dá até para botar uns filtros que são respectivos a esses
- * dados. Eu quero filtrar os unifilares que estão na cidade tal."* Lúcio fechou o
- * formato (16:50): *"talvez criar uma aba só para mostrar a representação, porque
- * daí a pessoa cadastra tudo e tal, até para não ficar misturando assunto — e daí
- * vai lá na outra, você digita qual cidade, qual sistema você quer mostrar."*
+ * São a mesma leitura das funções acima, entregando nós com nível e arestas.
+ * Elas não sabem nada de pixel; posição é assunto de `Unifilar.tsx`.
  *
- * Wagner também fixou a ordem (15:17): *"a topologia tem que vir primeiro"* — o
- * Fluxo de escoamento é onde se preenche, a representação é onde se confere.
- *
- * O QUE ESTAS FUNÇÕES SÃO: a mesma leitura de grafo que os itens 21–23 já fazem,
- * agora devolvida como desenho — nós com nível e arestas. Elas não sabem nada de
- * pixel; posição é assunto de `Unifilar.tsx`.
+ * O desenho é recortado por SISTEMA, escolhido na barra da aba: um unifilar de
+ * unidade inteira não é legível nem útil — quem confere confere um sistema.
  *
  * A FONTE É A ABA DO FLUXO, e essa escolha é deliberada. `tipoDoNo` e `nomeDoNo`
  * resolvem o nó contra a aba onde ele vive, o que é o certo e é o que dá o TIPO —
- * mas hoje há cadastro no banco cujas colunas de entidade vêm com o nome da
- * planilha do otimizador (`sub_bacia` em vez de `sub_bacia_id`), e nele a busca
- * não acha nada. Como o id, o nome e a aresta estão na PRÓPRIA linha do fluxo
+ * mas há cadastro no banco cujas colunas de entidade vêm com o nome da planilha
+ * do otimizador (`sub_bacia` em vez de `sub_bacia_id`), e nele a busca não acha
+ * nada. Como o id, o nome e a aresta estão na PRÓPRIA linha do fluxo
  * (`componente_sistema_nome`, `_id_jusante`), o desenho continua correto nos dois
  * casos: o que se perde é o tipo, e nó de tipo desconhecido é desenhado neutro em
  * vez de sumir. Um desenho que só funciona com uma das duas cargas seria pior.

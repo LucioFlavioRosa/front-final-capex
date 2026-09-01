@@ -1,3 +1,4 @@
+import { rotuloObjetivo } from '@/rodada/domain/pedido'
 import { Link, useParams } from 'react-router-dom'
 import { Estado } from '@/rodada/components/Estado'
 import { BotaoExportar } from '@/rodada/components/BotaoExportar'
@@ -79,7 +80,14 @@ export function Global() {
             <FaixaKpi
               nivel="Nível 1 · Geral"
               titulo={m.nome || `Rodada ${idCurtoDaRodada(m.runId)}`}
-              subtitulo={m.statusTexto}
+              /* SEM SUBTÍTULO. Aqui saía o `statusTexto` cru do solver —
+                 "OTIMO | obrig 3/9 | lexicografico: min metas_nao=2, 2a
+                 prior=cobertura". Dele, a única coisa que respondia a uma
+                 pergunta de negócio era a contagem de obrigatórias, que virou
+                 KPI abaixo (e sai de campo tipado, não de um `split` desta
+                 string). O resto é vocabulário do solver, e continua no payload
+                 e no histórico — que é onde ele serve, para explicar uma rodada
+                 que morreu entre o solver e a publicação. */
               acoes={
                 <>
                   <BotaoParametros meta={meta.data} />
@@ -146,10 +154,9 @@ export function Global() {
                 { rotulo: 'OPEX total', valor: brlMi(m.kpis.opexTotal), ajuda: 'OPEX_TOTAL' },
                 {
                   /**
-                   * A BASE VAI NO RÓTULO (item 16 do feedback de 26/08).
+                   * A BASE VAI NO RÓTULO, e não só no rodapé.
                    *
-                   * Ela já estava na tela — no rodapé, a três linhas daqui —,
-                   * mas o número dizia só "Receita", e arrecadada e faturada
+                   * Um número que diz só "Receita" é ambíguo: arrecadada e faturada
                    * são valores diferentes do mesmo plano: a arrecadada já
                    * desconta inadimplência. Quem printa este card e manda por
                    * e-mail manda um número sem a régua dele.
@@ -172,6 +179,21 @@ export function Global() {
                   aoLado: 'e as que não entraram →',
                 },
                 {
+                  /**
+                   * O QUE SOBROU DO TEXTO DO SOLVER — e o único pedaço dele que
+                   * respondia a uma pergunta de negócio.
+                   *
+                   * Fica ao lado de "Obras priorizadas" porque é o mesmo tipo de
+                   * leitura, com uma diferença que importa: aquelas o otimizador
+                   * escolheu, estas o contrato impôs. "3 de 9" com o total menor
+                   * que o das priorizadas é o normal — obrigatória é um
+                   * subconjunto pequeno, e o que se lê aqui é quantas delas o
+                   * plano conseguiu acomodar.
+                   */
+                  rotulo: 'Obras obrigatórias',
+                  valor: deTotal(m.kpis.obrigatoriasConstruidas, m.kpis.obrigatoriasTotal),
+                },
+                {
                   rotulo: 'Sub-bacias que passam a faturar',
                   valor: deTotal(m.kpis.subbaciasFaturando, m.kpis.subbaciasTotal),
                   ajuda: 'SUBBACIAS_FATURANDO',
@@ -189,13 +211,12 @@ export function Global() {
                    *
                    * O numero JA e so da janela de CAPEX: o motor nunca conta
                    * meta com ano >= `anos_capex`, entao `metasTotal` ja exclui
-                   * as de fora. "Metas atingidas" fazia o denominador parecer o
-                   * contrato inteiro; "Metas na janela" corrigiu isso e virou
-                   * jargao interno — a Aegea leu e nao entendeu a que se referia
-                   * (item 6 de 26/08).
+                   * as de fora. "Metas atingidas" faz o denominador parecer o
+                   * contrato inteiro; "Metas na janela" corrige isso e vira
+                   * jargao interno que ninguem de fora entende.
                    *
-                   * Agora o titulo diz o que se conta e a restricao de janela
-                   * vive no verbete, que e onde cabe uma frase inteira. Alargar
+                   * O titulo diz o que se conta, e a restricao de janela vive no
+                   * verbete, que e onde cabe uma frase inteira. Alargar
                    * o denominador para o contrato continua fora de questao:
                    * faria toda rodada de janela curta parecer fracasso.
                    */
@@ -207,7 +228,7 @@ export function Global() {
                 },
                 {
                   /**
-                   * A OITAVA CÉLULA, que antes era um retângulo cinza vazio.
+                   * A OITAVA CÉLULA — o uso do orçamento.
                    *
                    * `capexTotal / orcamento` é conta de tela porque os dois
                    * lados já estão no payload — e é a leitura que falta para
@@ -234,7 +255,7 @@ export function Global() {
                   />
                   <ItemRodape rotulo="Base de receita" valor={m.parametros.baseReceita} />
                   <ItemRodape rotulo="CTS" valor={m.parametros.usarCts ? 'sim' : 'não'} />
-                  <ItemRodape rotulo="Objetivo" valor={m.parametros.focoCobertura} />
+                  <ItemRodape rotulo="Objetivo" valor={rotuloObjetivo(m.parametros.focoCobertura)} />
                   <ItemRodape rotulo="Criada por" valor={m.autor} />
                   <ItemRodape rotulo="Em" valor={dataHora(m.dataHora)} />
                 </>
@@ -312,15 +333,13 @@ export function Global() {
             {aba === 'plano' && (
               <>
 
-                {/* O CRONOGRAMA de obras, e não uma lista ordenada — item 3 do
-                    feedback de 26/08, na leitura corrigida em 27/08. Carrega e
+                {/* O CRONOGRAMA de obras, e não uma lista ordenada. Carrega e
                     falha por conta própria: vem de um endpoint diferente do
                     painel.
 
-                    O item 4 daquele feedback (a cobertura contra meta POR
-                    CIDADE) ficava logo abaixo, na seção Cidades, que saiu a
-                    pedido — o nível 1 termina no bloco de componentes, e a
-                    cobertura por cidade se lê no nível 2. */}
+                    A cobertura contra meta POR CIDADE não fica aqui: o nível 1
+                    termina no bloco de componentes, e essa leitura é do nível
+                    2. */}
                 <TituloSecao nota="clique num ano para ver as obras">Plano de obras</TituloSecao>
                 <GraficoCronogramaObras runId={runId} />
 
@@ -341,11 +360,11 @@ export function Global() {
                 <>
                   {/* A ORDEM E AS LARGURAS SÃO AS DO DESIGN, e não um grid de
                       duas colunas para tudo. Fluxo de escoamento, Desembolso e
-                      EBITDA são largura cheia: a Curva S saiu como quadro
-                      próprio (decisão de 18/08, incorporada ao Desembolso) e não
-                      deixou par para o EBITDA dividir a linha — cada um destes
-                      tem seis+ categorias ou duas séries com eixo duplo, e em
-                      meia largura os rótulos colidem.
+                      EBITDA são largura cheia: a Curva S não é quadro próprio
+                      (foi incorporada ao Desembolso), então não há par para o
+                      EBITDA dividir a linha — e cada um destes tem seis+
+                      categorias ou duas séries com eixo duplo, que em meia
+                      largura colidem os rótulos.
 
                       "CAPEX por componente" saiu a pedido: o mesmo número já
                       está em "Componentes e preço unitário", na aba CAPEX de

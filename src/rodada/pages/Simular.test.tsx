@@ -51,40 +51,71 @@ async function escolherUnidade(id = '56') {
   throw new Error(`unidade ${id} não encontrada em nenhuma regional`)
 }
 
-describe('Simular — a janela de CAPEX é derivada', () => {
-  it('NÃO existe campo de janela: ela é leitura, não entrada', () => {
+describe('Simular — a janela de CAPEX é derivada no modo POR ANO', () => {
+  it('não existe campo de janela: ali ela é leitura, não entrada', () => {
     renderizar(<Simular />)
 
-    const janela = screen.getByText('Janela de CAPEX ƒ')
-    expect(janela).toBeInTheDocument()
-    // A prova: não há input nem select associado ao rótulo.
+    // O padrão é "por ano", e nesse modo a janela sai do cronograma. A prova é
+    // a ausência de input: não há rótulo de formulário que a nomeie.
+    expect(screen.getByRole('radio', { name: 'Por ano' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
     expect(screen.queryByLabelText(/janela de capex/i)).not.toBeInTheDocument()
-    expect(screen.getByText('Derivada dos anos com verba. Não se digita.')).toBeInTheDocument()
   })
 
   it('a janela ACOMPANHA o cronograma — é a mesma verdade, não duas', async () => {
     renderizar(<Simular />)
 
-    // A janela aparece em DOIS lugares — o campo derivado do bloco de
-    // orçamento e a linha do resumo lateral — e `getAllBy` é o próprio ponto
-    // do teste: sendo a mesma derivação, as duas exibições nunca divergem.
-    // Uma delas mostrando um intervalo diferente da outra seria exatamente a
-    // segunda verdade que a ausência do campo veio evitar.
+    // Ela aparece UMA vez, no Resumo. Os quadros derivados que o cartão de
+    // orçamento repetia saíram: no modo por ano eles diziam de volta o que a
+    // tabela logo abaixo já mostra.
     const janelas = () => screen.getAllByText(/^\d{4}–\d{4} \(\d+ anos\)$/)
 
     // O cronograma padrão vai de 2026 a 2040.
-    expect(janelas()).toHaveLength(2)
-    for (const j of janelas()) expect(j).toHaveTextContent('2026–2040 (15 anos)')
+    expect(janelas()).toHaveLength(1)
+    expect(janelas()[0]).toHaveTextContent('2026–2040 (15 anos)')
 
     // Zerar o primeiro ano tira ele da janela, sem ninguém digitar a janela.
     const verba2026 = screen.getByLabelText('Verba do ano 2026')
     await userEvent.clear(verba2026)
     await userEvent.type(verba2026, '0')
 
-    await waitFor(() => {
-      expect(janelas()).toHaveLength(2)
-      for (const j of janelas()) expect(j).toHaveTextContent('2027–2040 (14 anos)')
-    })
+    await waitFor(() => expect(janelas()[0]).toHaveTextContent('2027–2040 (14 anos)'))
+  })
+})
+
+describe('Simular — o modo VALOR ÚNICO pede CAPEX anual e janela', () => {
+  async function valorUnico() {
+    renderizar(<Simular />)
+    await userEvent.click(screen.getByRole('radio', { name: 'Valor único' }))
+  }
+
+  it('troca o cronograma pelos dois campos, e não mostra os dois ao mesmo tempo', async () => {
+    await valorUnico()
+
+    expect(screen.getByLabelText(/CAPEX anual/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Janela de CAPEX/i)).toBeInTheDocument()
+    // A tabela some: os dois modos são formas ALTERNATIVAS de dizer a mesma
+    // coisa, e mostrar as duas convidaria a preencher as duas e a perguntar
+    // qual vale.
+    expect(screen.queryByText('Cronograma anual')).not.toBeInTheDocument()
+  })
+
+  it('O CAMPO É ANUAL: o total do resumo é ele vezes a janela', async () => {
+    await valorUnico()
+
+    // O SENTIDO DO CAMPO é o que este teste prende, e ele já se inverteu antes:
+    // com os defaults 50 e 8, o total é 400. Se o campo voltasse a ser o total,
+    // seriam 50.
+    await waitFor(() => expect(screen.getByText('R$ 400 Mi')).toBeInTheDocument())
+
+    const janela = screen.getByLabelText(/Janela de CAPEX/i)
+    await userEvent.clear(janela)
+    await userEvent.type(janela, '4')
+
+    // Encurtar a janela reduz o TOTAL, e não o teto de cada ano.
+    await waitFor(() => expect(screen.getByText('R$ 200 Mi')).toBeInTheDocument())
   })
 })
 

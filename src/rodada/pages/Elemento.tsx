@@ -189,7 +189,7 @@ export function Elemento() {
                   nota="rateio do CAPEX por vazão contribuída"
                 >
                   {o.dependencias.length === 0 ? (
-                    <p className="m-2.5 rounded-xl border-[1.5px] border-dashed border-ink-300 p-4 text-center text-[12px] text-ink-500">
+                    <p className="m-2.5 rounded-xl border-[1.5px] border-dashed border-ink-300 p-4 text-center text-[12px] text-ink-water">
                       Nenhuma outra estrutura depende desta obra — o custo é todo da sub-bacia
                       dela.
                     </p>
@@ -219,7 +219,7 @@ export function Elemento() {
                                   {d.subbaciaId}
                                 </CelulaLink>
                                 {!d.fatura && (
-                                  <span className="ml-1.5 text-[10px] text-ink-400">não fatura</span>
+                                  <span className="ml-1.5 text-[10px] text-ink-water">não fatura</span>
                                 )}
                               </td>
                               <td data-m>{vazao(d.vazao)}</td>
@@ -257,7 +257,7 @@ export function Elemento() {
 function Campo({ rotulo, valor }: { rotulo: string; valor: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-ink-100 py-2 last:border-b-0">
-      <dt className="text-[12px] text-ink-500">{rotulo}</dt>
+      <dt className="text-[12px] text-ink-water">{rotulo}</dt>
       <dd className="m-0 text-right font-mono text-[12.5px] font-medium tabular-nums text-ink-800">
         {valor}
       </dd>

@@ -1,3 +1,4 @@
+import { rotuloObjetivo } from '@/rodada/domain/pedido'
 import { useMemo, useReducer, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle, Play, Plus, XCircle, X } from '@phosphor-icons/react'
@@ -21,7 +22,6 @@ import {
   derivarOrcamento,
   estadoInicial,
   numOuNulo,
-  rotuloFoco,
   validar,
   type BaseReceita,
   type CurvaAdocao,
@@ -94,12 +94,11 @@ export function Simular() {
   const { toast } = useToast()
   const [estado, despachar] = useReducer(redutor, undefined, estadoInicial)
   /**
-   * NASCE ABERTO, e o cartão subiu para antes do Orçamento (item 1 do feedback
-   * de 26/08).
+   * NASCE ABERTO, e antes do Orçamento na coluna.
    *
-   * Ele nasceu fechado e no fim da coluna por uma razão que continua verdadeira:
-   * mudar um destes valores muda o resultado de quem só clica Iniciar. Mas essa
-   * proteção supunha um operador, e a Aegea disse que o usuário é analista de
+   * O argumento para nascer fechado e no fim continua verdadeiro: mudar um
+   * destes valores muda o resultado de quem só clica Iniciar. Mas essa proteção
+   * supõe um operador, e o usuário é analista de
    * cenário — "esses parâmetros serão bastante usados para brincar com os
    * cenários". Quem usa todo dia não deve ter de abrir uma gaveta todo dia.
    *
@@ -179,7 +178,7 @@ export function Simular() {
                 respondendo por ela. */}
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
-                <span className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-[.075em] text-ink-500">
+                <span className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-[.075em] text-ink-water">
                   Regional
                 </span>
                 <select
@@ -191,7 +190,7 @@ export function Simular() {
                       patch: { regionalId: e.target.value, unidadeId: '' },
                     })
                   }
-                  className={`${SELECT} disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-400`}
+                  className={`${SELECT} disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-water`}
                 >
                   <option value="">
                     {regionais.isPending ? 'Carregando…' : 'Selecione…'}
@@ -226,7 +225,7 @@ export function Simular() {
                   value={estado.unidadeId}
                   disabled={!estado.regionalId || unidades.isPending}
                   onChange={(e) => despachar({ tipo: 'set', patch: { unidadeId: e.target.value } })}
-                  className={`${SELECT} disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-400`}
+                  className={`${SELECT} disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-water`}
                 >
                   <option value="">
                     {!estado.regionalId
@@ -279,7 +278,7 @@ export function Simular() {
                 {avancado ? 'Ocultar' : 'Mostrar'}
               </span>
             </button>
-            <p className="mt-1 text-[11.5px] leading-snug text-ink-500">
+            <p className="mt-1 text-[11.5px] leading-snug text-ink-water">
               Os valores padrão são os que a equipe roda hoje — mudar um deles muda o resultado de
               quem só clicar Iniciar.
             </p>
@@ -288,7 +287,7 @@ export function Simular() {
               <div className="mt-3.5 grid gap-3 sm:grid-cols-2">
                 <div>
                   <RotuloParametro
-                    texto={`Objetivo — ${rotuloFoco(numOuNulo(estado.foco) ?? 0)}`}
+                    texto={`Objetivo — ${rotuloObjetivo(numOuNulo(estado.foco) ?? 0)}`}
                     tecnico="FOCO_COBERTURA"
                   />
                   <SegmentedControl
@@ -419,40 +418,22 @@ export function Simular() {
               />
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <span className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-[.075em] text-ink-500">
-                  Total do cronograma
-                </span>
-                <div className="rounded-lg border-[1.5px] border-transparent bg-ink-50 px-3 py-2 font-mono text-[13px] font-semibold tabular-nums text-ink-700">
-                  R$ {derivado.total.toLocaleString('pt-BR')} Mi
-                </div>
-                <p className="mt-1 text-[10.5px] text-ink-400">Soma dos anos com verba.</p>
-              </div>
-              <div>
-                <span className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-[.075em] text-ink-500">
-                  Janela de CAPEX ƒ
-                </span>
-                {/* DERIVADA. O estado é o mesmo `calc` do cadastro: fundo cinza,
-                    semibold, sem borda. E não há campo para ela em lugar nenhum. */}
-                <div className="rounded-lg border-[1.5px] border-transparent bg-ink-50 px-3 py-2 font-mono text-[13px] font-semibold tabular-nums text-ink-700">
-                  {derivado.janelaTexto}
-                </div>
-                <p className="mt-1 text-[10.5px] text-ink-400">
-                  Derivada dos anos com verba. Não se digita.
-                </p>
-              </div>
-            </div>
-
+            {/* OS DOIS QUADROS DERIVADOS (total do cronograma e janela) SAIRAM
+                DAQUI. Eles apareciam nos dois modos e repetiam, no modo "por
+                ano", o que a propria tabela logo abaixo ja diz — e no modo
+                "valor unico" descreviam de volta o que a pessoa acabara de
+                digitar. Os dois numeros continuam na tela: o cartao Resumo, que
+                e a ultima leitura antes de disparar, mostra "Orcamento total" e
+                "Janela de CAPEX". */}
             {estado.modoOrcamento === 'unico' ? (
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <CampoNumero
-                  rotulo="Verba total do plano (R$ Mi)"
-                  valor={estado.orcamentoValor}
-                  aoMudar={(v) => despachar({ tipo: 'set', patch: { orcamentoValor: v } })}
+                  rotulo="CAPEX anual (R$ Mi)"
+                  valor={estado.capexAnual}
+                  aoMudar={(v) => despachar({ tipo: 'set', patch: { capexAnual: v } })}
                 />
                 <CampoNumero
-                  rotulo="Horizonte (anos)"
+                  rotulo="Janela de CAPEX (anos)"
                   valor={estado.horizonte}
                   aoMudar={(v) => despachar({ tipo: 'set', patch: { horizonte: v } })}
                 />
@@ -511,7 +492,7 @@ export function Simular() {
                               type="button"
                               aria-label={`Remover o ano ${l.ano || i + 1}`}
                               onClick={() => despachar({ tipo: 'delLinha', i })}
-                              className="rounded-md p-1 text-ink-400 transition-colors duration-hover ease-saida hover:bg-ink-100 hover:text-danger"
+                              className="rounded-md p-1 text-ink-water transition-colors duration-hover ease-saida hover:bg-ink-100 hover:text-danger"
                             >
                               <X weight="bold" />
                             </button>
@@ -521,7 +502,7 @@ export function Simular() {
                     </tbody>
                   </table>
                 </div>
-                <p className="mt-1.5 text-[10.5px] leading-snug text-ink-400">
+                <p className="mt-1.5 text-[10.5px] leading-snug text-ink-water">
                   Campo tracejado está esperando valor. Vírgula é decimal
                   (<code className="font-mono">1.234,5</code> = 1234,5); sem vírgula, o ponto é
                   decimal (<code className="font-mono">0.35</code>).
@@ -553,7 +534,7 @@ export function Simular() {
             {/* O botão desabilitado EXPLICA. Botão cinza sem motivo faz o
                 usuário procurar o problema na tela inteira. */}
             {barrado && (
-              <p className="mt-1.5 text-center text-[11px] text-ink-500">
+              <p className="mt-1.5 text-center text-[11px] text-ink-water">
                 Resolva o que está marcado acima para liberar.
               </p>
             )}
@@ -561,7 +542,7 @@ export function Simular() {
 
           {prontidao.data && (
             <Cartao>
-              <div className="text-[10.5px] font-bold uppercase tracking-[.09em] text-ink-400">
+              <div className="text-[10.5px] font-bold uppercase tracking-[.09em] text-ink-water">
                 Prontidão da unidade
               </div>
               <div className="mt-1 flex items-baseline gap-2">
@@ -572,9 +553,9 @@ export function Simular() {
                 >
                   {prontidao.data.pendencias}
                 </span>
-                <span className="text-[11.5px] text-ink-500">campos pendentes</span>
+                <span className="text-[11.5px] text-ink-water">campos pendentes</span>
               </div>
-              <p className="mt-2 text-[11px] leading-snug text-ink-400">
+              <p className="mt-2 text-[11px] leading-snug text-ink-water">
                 Lida no instante do clique — muda a cada campo salvo no cadastro, inclusive em
                 outra aba.
               </p>
@@ -619,7 +600,7 @@ function ResumoDaRodada({
   const foco = Number(estado.foco)
   return (
     <Cartao>
-      <div className="text-[10.5px] font-bold uppercase tracking-[.09em] text-ink-400">Resumo</div>
+      <div className="text-[10.5px] font-bold uppercase tracking-[.09em] text-ink-water">Resumo</div>
       <dl className="mt-3 grid gap-y-2">
         <Item
           rotulo="Unidade"
@@ -642,8 +623,8 @@ function ResumoDaRodada({
         />
         <Item rotulo="Janela de CAPEX" valor={derivado.janelaTexto} calculado />
         <Item
-          rotulo="Foco em cobertura"
-          valor={`${foco.toFixed(2).replace('.', ',')} · ${rotuloFoco(foco)}`}
+          rotulo="Objetivo"
+          valor={rotuloObjetivo(foco)}
         />
         <Item rotulo="Estratégia de cobertura" valor={estado.penalidade} />
         <Item rotulo="Base de receita" valor={estado.baseReceita} />
@@ -718,7 +699,7 @@ function Item({
 }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-      <dt className="text-[12px] text-ink-500">{rotulo}</dt>
+      <dt className="text-[12px] text-ink-water">{rotulo}</dt>
       <dd
         className={`min-w-0 flex-1 text-right text-[12.5px] font-semibold ${
           alerta ? 'text-warning' : calculado ? 'text-aegea-700' : 'text-ink-800'
@@ -799,7 +780,7 @@ function CampoNumero({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-[.075em] text-ink-500">
+      <span className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-[.075em] text-ink-water">
         {rotulo}
       </span>
       <input

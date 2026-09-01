@@ -23,13 +23,12 @@ import { brMi, brlMi, inteiro, VAZIO } from '@/rodada/lib/formato'
 import type { AnoDeObras, ObraLinha } from '@/rodada/domain/resultado'
 
 /**
- * O CRONOGRAMA DE OBRAS DO PLANO — "quais obras serão executadas ano a ano"
- * (item 3, na leitura corrigida pela Aegea em 27/08).
+ * O CRONOGRAMA DE OBRAS DO PLANO — "quais obras serão executadas ano a ano".
  *
- * A PRIMEIRA VERSÃO DESTE ITEM ERA UMA TABELA paginada ordenada por data de
- * início, e estava errada: uma lista de 370 linhas não responde "como o plano
- * se distribui no tempo" — ela obriga a reconstruir isso de cabeça, página por
- * página. O gráfico responde de uma olhada, e a lista vira o DETALHE de um ano.
+ * É UM GRÁFICO, e não uma tabela paginada por data de início: uma lista de 370
+ * linhas não responde "como o plano se distribui no tempo", obriga a reconstruir
+ * isso de cabeça, página por página. O gráfico responde de uma olhada, e a lista
+ * é o DETALHE de um ano.
  *
  * EMPILHADO POR COMPONENTE, e não uma barra lisa por ano: o que distingue um ano
  * de rede de um ano de ETE é justamente a composição — dois anos com 40 obras
@@ -299,7 +298,7 @@ export function GraficoCronogramaObras({ runId }: { runId: string | undefined })
                               className="h-2 w-2 shrink-0 rounded-sm"
                               style={{ background: s.color }}
                             />
-                            <span className="text-ink-500">{s.name}</span>
+                            <span className="text-ink-water">{s.name}</span>
                             <span className="ml-auto font-mono font-semibold tabular-nums text-ink-800">
                               {inteiro(Number(s.value))}
                             </span>
@@ -310,17 +309,16 @@ export function GraficoCronogramaObras({ runId }: { runId: string | undefined })
                 )
               }}
             />
-            {/* A legenda deixou de ser opcional quando entrou uma segunda série:
-                antes a cor só distinguia componentes dentro de uma pilha só, e
-                agora ela separa DUAS leituras de data. Identidade por cor
-                sozinha não se sustenta aí. */}
+            {/* A legenda é OBRIGATÓRIA com duas séries: a cor não distingue só
+                componentes dentro de uma pilha, ela separa DUAS leituras de
+                data. Identidade por cor sozinha não se sustenta aí. */}
             <Legend
               verticalAlign="bottom"
               height={30}
               iconType="square"
               iconSize={9}
               formatter={(v) => (
-                <span className="text-[10.5px] text-ink-500">{String(v)}</span>
+                <span className="text-[10.5px] text-ink-water">{String(v)}</span>
               )}
             />
             {componentes.map((nome) => (
@@ -415,11 +413,11 @@ function linhaDaPlanilha(o: ObraLinha) {
 /**
  * AS OBRAS DE UM ANO — o detalhe que o clique na barra abre.
  *
- * Era um cartão que crescia abaixo do gráfico, e virou modal por um motivo
- * prático: a lista de um ano cheio empurrava o resto da página para baixo, e
- * quem clicava numa barra alta perdia o gráfico de vista justamente quando
- * queria comparar o ano aberto com os vizinhos. O modal fixa a lista sobre a
- * página e devolve o gráfico intacto ao fechar.
+ * É MODAL, e não um cartão que cresce abaixo do gráfico: a lista de um ano
+ * cheio empurraria o resto da página para baixo, e quem clica numa barra alta
+ * perderia o gráfico de vista justamente quando quer comparar o ano aberto com
+ * os vizinhos. O modal fixa a lista sobre a página e devolve o gráfico intacto
+ * ao fechar.
  *
  * SÓ MONTA COM UM ANO ABERTO, e é isso que este invólucro de três linhas
  * garante: enquanto `ano` é `null` o corpo não existe, então o `useObras` lá
@@ -554,7 +552,7 @@ function ObrasDoAno({
           <tbody>
             {obras.isPending && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 9 : 8} className="py-6 text-center text-[12.5px] text-ink-400">
+                <td colSpan={recorte === 'todas' ? 9 : 8} className="py-6 text-center text-[12.5px] text-ink-water">
                   Carregando as obras de {ano}…
                 </td>
               </tr>
@@ -568,7 +566,7 @@ function ObrasDoAno({
             )}
             {!obras.isPending && !obras.isError && vazio && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 9 : 8} className="py-6 text-center text-[12.5px] text-ink-400">
+                <td colSpan={recorte === 'todas' ? 9 : 8} className="py-6 text-center text-[12.5px] text-ink-water">
                   Nenhuma obra com ano de execução em {ano}.
                 </td>
               </tr>

@@ -96,9 +96,8 @@ export const resultados = {
    * Uma rota para as duas metades porque a tela não consegue usar uma sem a
    * outra: o teto responde na hora e diz se vale disparar alguma coisa; os
    * pontos são as variações que já rodaram. Os pontos saem da LINHAGEM gravada
-   * no servidor (`run_request.base_run_id`) — a versão anterior os procurava
-   * pelo rótulo da rodada, que é livre e editável, então renomear desmanchava a
-   * curva em silêncio.
+   * no servidor (`run_request.base_run_id`), e nunca do rótulo da rodada: o
+   * rótulo é livre e editável, e renomear desmancharia a curva em silêncio.
    */
   sensibilidade: (runId: string, faixa: Faixa) =>
     api.get<Sensibilidade>(
@@ -160,7 +159,7 @@ export const resultados = {
 
   /**
    * O mesmo resumo, recortado por cidade — "sub-bacias fora do plano" do
-   * nível 2 (item 10 de 26/08). Endpoint próprio, e não um `?cidade=` no de
+   * nível 2. Endpoint próprio, e não um `?cidade=` no de
    * cima: a URL de cidade já tem `/cidades/{id}`, e colar o recorte nela
    * segue o mesmo padrão de `cidade()` logo abaixo.
    */
@@ -172,7 +171,7 @@ export const resultados = {
     api.get<CidadeDetalhe>(`${BASE}/${runId}/cidades/${cidadeId}`),
 
   /**
-   * Lista de obras por ordem de execução, nível 1 (item 3 de 26/08). Paginada:
+   * Lista de obras por ordem de execução, nível 1. Paginada:
    * uma unidade grande publica milhares de linhas em `otim_obra`.
    */
   obras: (
@@ -202,8 +201,8 @@ export const resultados = {
   },
 
   /**
-   * O cronograma de obras do plano — quantas de cada componente por ano.
-   * Item 3 na leitura corrigida em 27/08: o gráfico do plano de execução.
+   * O cronograma de obras do plano — quantas de cada componente por ano. É o
+   * gráfico do plano de execução.
    */
   cronogramaDeObras: (runId: string) =>
     api.get<CronogramaDeObras>(`${BASE}/${runId}/obras/cronograma`),

@@ -18,13 +18,11 @@ interface CadastroState {
 }
 
 /**
- * NENHUMA UNIDADE ABERTA POR PADRÃO (17/08/2026).
+ * NENHUMA UNIDADE ABERTA POR PADRÃO.
  *
- * Havia uma — ÁGUAS DO RIO 04 (57) — montada por `seed()` a partir de
- * `hierarquiaReal.ts` compilado no bundle. As duas coisas saíram juntas: a
- * regra do projeto passou a ser "o banco é a única fonte, em toda tela", e
- * `seed()` é justamente o gerador que fabricava um cadastro de exemplo sem
- * perguntar ao banco nada.
+ * A regra do projeto é "o banco é a única fonte, em toda tela", e abrir uma
+ * unidade de partida exigiria fabricá-la com `seed()` — um cadastro de exemplo
+ * montado sem perguntar nada ao banco.
  *
  * A tela de seleção (`SelecaoUnidade`) busca as unidades reais por
  * `useRegionais`/`useUnidades` (`lib/organizacaoApi.ts`, que lê
@@ -60,12 +58,12 @@ type Action =
  *
  * Existia como um `if` cravado no reducer: `cidade_id` escolhido nas abas de metas
  * e paridade preenchia `cidade_name` ao lado, para não exigir duas seleções da
- * mesma coisa. O item 22 trouxe o segundo caso — no Fluxo de escoamento, escolher
- * o código da origem ou do destino preenche o nome (e, na origem, o sistema) — e
- * dois `if` com nomes de coluna cravados em dois `case` do mesmo reducer é o
- * caminho garantido para eles divergirem.
+ * mesma coisa. O segundo caso é o Fluxo de escoamento — escolher o código da
+ * origem ou do destino preenche o nome (e, na origem, o sistema) — e dois `if`
+ * com nomes de coluna cravados em dois `case` do mesmo reducer é o caminho
+ * garantido para eles divergirem.
  *
- * Então a regra virou função, e ela vale para os DOIS caminhos de escrita: a
+ * Por isso a regra é uma FUNÇÃO, e ela vale para os DOIS caminhos de escrita: a
  * digitação (`SET_CELL`) e o colar em lote (`SET_CELLS`). O segundo é o que
  * importa proteger — colar 200 códigos numa coluna sem levar os nomes junto
  * deixaria 200 linhas com o código novo e o nome antigo, e nada na tela
@@ -207,7 +205,7 @@ function reducer(state: CadastroState, action: Action): CadastroState {
     }
 
     /**
-     * Faixa de cobertura 0 da escala de paridade (item 30 de 05/08/2026).
+     * Faixa de cobertura 0 da escala de paridade.
      *
      * A regra vive em `garantirFaixaZero`; aqui só o disparo. Ela é chamada ao
      * ENTRAR na aba — ver o comentário da função para por que não a cada tecla.
@@ -259,7 +257,7 @@ function reducer(state: CadastroState, action: Action): CadastroState {
      *
      * MESCLA, e não substitui como `HIDRATAR`: o template só cobre as 12 abas
      * visíveis do wizard (`template_excel.PLANILHAS`), e as três abas ocultas
-     * da hierarquia (Ano-base, Superintendências, Cidades atendidas — ver
+     * da hierarquia (Ano-base, Empresas, Cidades atendidas — ver
      * `ocultaNoWizard` em types.ts) não entram nele. Uma substituição total
      * zeraria essas três em silêncio; a mescla troca só as abas que a
      * planilha de fato trouxe, campo por campo.

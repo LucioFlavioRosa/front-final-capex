@@ -12,12 +12,11 @@ const API_BASE = import.meta.env.VITE_API_URL ?? ''
 /**
  * O login do mock de dev ATUAL — só existe com `VITE_SKIP_AUTH=true`.
  *
- * ATÉ 18/08/2026, o toggle de perfil (`AuthContext.tsx`) trocava só o `user`
- * exibido na tela: o MENU mudava, mas toda chamada de rede continuava
- * autenticada como o mesmo `dev@local` de sempre — porque nada aqui dizia ao
- * backend qual perfil estava "logado". Era por isso que `/api/regionais`
- * devolvia a MESMA lista (ou a mesma lista vazia) não importa qual dos 8
- * perfis estivesse selecionado: o filtro por escopo (`app/api/organizacao.py`)
+ * O E-MAIL DO PERFIL ESCOLHIDO PRECISA CHEGAR AO BACKEND. Sem isto, o toggle de
+ * perfil (`AuthContext.tsx`) troca só o `user` exibido na tela: o MENU muda, mas
+ * toda chamada de rede continua autenticada como o mesmo `dev@local`, e
+ * `/api/regionais` devolve a MESMA lista não importa qual dos 8 perfis esteja
+ * selecionado — o filtro por escopo (`app/api/organizacao.py`)
  * roda sobre a identidade REAL da requisição, não sobre o mock da tela.
  *
  * `X-Usuario-Dev` é o mecanismo que `app/api/deps.py` já tinha, pronto,

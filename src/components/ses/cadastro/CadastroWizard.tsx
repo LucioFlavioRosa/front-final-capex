@@ -46,18 +46,15 @@ import { validarTopologia } from '../../../domain/validacao'
 import { ehCts, unifilarDoSistema} from '../../../domain/fluxo'
 
 /**
- * OS BANNERS VERDES "DADOS REAIS" SAÍRAM (07/08/2026), junto da legenda de
- * procedência — é o mesmo pedido (item 25).
+ * NENHUMA ABA TEM BANNER DE "DADOS REAIS" no topo — e a ausência é a decisão.
  *
- * Eram três, no topo das abas de CAPEX de sub-bacias, Sub-bacias e Dados da CTS, e
- * diziam parágrafo por parágrafo o que naquela aba era carga real e o que era exemplo.
- * Na revisão de 04/08 o cliente confirmou a remoção aba por aba ("vai ser removido
- * também"), pelo mesmo motivo da legenda: eram andaime de construção, úteis enquanto
- * a base era metade invenção, e viraram parágrafo que ninguém lê depois que os dados
- * reais chegaram.
+ * Um parágrafo por aba dizendo o que ali é carga real e o que é exemplo é andaime
+ * de construção: útil enquanto a base é metade invenção, e texto que ninguém lê
+ * depois que os dados reais chegam. Mesmo motivo do selo de procedência (ver o
+ * topo de `AbaGrid`).
  *
- * O conteúdo não se perdeu — o essencial de cada um está na `desc` da própria aba
- * (que continua no SCHEMA e é conteúdo negociado), e o mapeamento campo a campo vive
+ * O conteúdo não se perde — o essencial de cada um está na `desc` da própria aba
+ * (que fica no SCHEMA e é conteúdo negociado), e o mapeamento campo a campo vive
  * em ANALISE-CSV-DADOS-COMERCIAIS.md.
  *
  * `AvisoSemCts` FICOU, e é outra coisa: não fala de procedência, fala de uma aba
@@ -72,7 +69,7 @@ import { ehCts, unifilarDoSistema} from '../../../domain/fluxo'
 function AvisoSemCts() {
   return (
     <div className="flex items-start gap-2.5 rounded-2xl border border-ink-200 bg-ink-50 p-4">
-      <Info weight="fill" className="mt-0.5 shrink-0 text-lg text-ink-400" />
+      <Info weight="fill" className="mt-0.5 shrink-0 text-lg text-ink-water" />
       <p className="text-[12.5px] leading-snug text-ink-600">
         <strong className="font-semibold">Esta unidade não tem CTS na base.</strong> Não é falha de
         carga: o coletor de tempo seco é a exceção, e a base comercial hoje só traz CTS para as
@@ -83,12 +80,11 @@ function AvisoSemCts() {
 }
 
 /**
- * A ABA DO FLUXO — uma so desde 20/08/2026, quando ela absorveu a Representacao.
+ * A ABA DO FLUXO — uma so: nela se preenche a topologia E se confere o desenho.
  *
- * Era um `Set` de duas chaves: `sistema-topologia` (onde se preenchia) e
- * `fluxo-unifilar` (onde se conferia). Continua constante nomeada, e nao literal
- * espalhado, porque tres coisas desta tela dependem dela: o painel de problemas
- * de topologia, o layout em duas colunas e o elo de foco entre grade e desenho.
+ * Constante nomeada, e nao literal espalhado, porque tres coisas desta tela
+ * dependem dela: o painel de problemas de topologia, o layout em duas colunas e o
+ * elo de foco entre grade e desenho.
  */
 const ABA_DO_FLUXO = 'sistema-topologia'
 
@@ -109,8 +105,8 @@ const MIN_LINHAS_PARA_ESCOPO = 15
  * container que rola tem 1px de borda de cada lado e mostra a barra de rolagem
  * VERTICAL (a grade rola por dentro, `max-h-[calc(100vh-13rem)]`). Com a coluna
  * exatamente do tamanho da tabela, sobram ~783px de 800 para 800px de conteúdo —
- * e aparece uma barra HORIZONTAL. Ou seja: a tabela cabia, e ficava cortada pela
- * própria moldura. Foi o defeito relatado em 20/08/2026.
+ * e aparece uma barra HORIZONTAL: a tabela cabia, e fica cortada pela própria
+ * moldura.
  */
 const CROMO_DA_GRADE = 20
 
@@ -134,7 +130,7 @@ function DescricaoDaAba({ texto }: { texto: string }) {
   const longa = texto.length > DESC_LONGA
   return (
     <div className="mt-1 max-w-3xl">
-      <p className={`text-[12.5px] text-ink-500 ${longa && !aberta ? 'line-clamp-2' : ''}`}>
+      <p className={`text-[12.5px] text-ink-water ${longa && !aberta ? 'line-clamp-2' : ''}`}>
         {texto}
       </p>
       {longa && (
@@ -274,14 +270,14 @@ export function CadastroWizard() {
   const ehFluxo = aba.key === ABA_DO_FLUXO
 
   /**
-   * A CTS APARECE NO FLUXO. Ficou oculta entre 21 e 29/08 por pedido daquela
-   * data ("não vamos usar CTS no fluxo de escoamento no momento") — a lógica
-   * seguiu intacta o tempo todo, era só a UI que saía.
+   * A CTS APARECE NO FLUXO — é o que expõe a regra de uma CTS por sistema.
    *
-   * Voltou porque a regra que ela expõe é a que se quer usar: marcada, a caixa
-   * "usa sistema de CTS" limita o sistema a UMA CTS; desmarcada, ele aceita
-   * quantas forem colocadas. Sem esses dois controles não há onde marcar nem
-   * onde adicionar, e a regra existe só no servidor.
+   * Marcada, a caixa "usa sistema de CTS" limita o sistema a UMA CTS;
+   * desmarcada, ele aceita quantas forem colocadas. Sem esses dois controles não
+   * há onde marcar nem onde adicionar, e a regra passa a existir só no servidor.
+   *
+   * A flag fica como constante para poder esconder os controles sem tirar a
+   * lógica do caminho — desligá-la não muda o dado, só a UI.
    */
   const mostrarCtsNoFluxo: boolean = true
 
@@ -530,12 +526,11 @@ export function CadastroWizard() {
   }, [aba.key, garantirFaixaZeroParidade])
 
   /**
-   * O WACC MÉDIO SAI DA GRADE e vira cartão (item 24 do pedido de 05/08/2026).
+   * O WACC MÉDIO NÃO FICA NA GRADE, e sim num cartão acima dela.
    *
-   * Ele era a ÚNICA célula editável de uma aba com quatro colunas travadas de
-   * hierarquia, e o cliente diagnosticou o efeito: *"está roubando um pouco da
-   * atenção do preenchimento"* (Wagner) — o olho vai para a tabela, e o único número
-   * que a unidade tem de informar naquele bloco é o que menos aparece.
+   * Ele é a ÚNICA célula editável de uma aba com quatro colunas travadas de
+   * hierarquia: dentro da tabela, o olho vai para as colunas travadas, e o único
+   * número que a unidade tem de informar naquele bloco é o que menos aparece.
    *
    * A coluna é retirada de `aba.cols` só na hora de desenhar a grade. É de propósito
    * que o SCHEMA não muda: `contarAba` continua contando `wacc_medio` na completude e
@@ -604,9 +599,9 @@ export function CadastroWizard() {
    * duas vão juntas para a COLUNA DA ESQUERDA, e a legenda (DB / un / fx) é sobre
    * células, não sobre o desenho ao lado.
    *
-   * A legenda vem DEPOIS da tabela desde 04/08/2026: a grade já termina numa faixa
-   * de metadados (contagem de linhas, somas, dica de atalhos) e a legenda é da
-   * mesma natureza — chave de leitura, não instrução de entrada. Quem abre a aba lê
+   * A legenda vem DEPOIS da tabela: a grade já termina numa faixa de metadados
+   * (contagem de linhas, somas, dica de atalhos) e a legenda é da mesma natureza
+   * — chave de leitura, não instrução de entrada. Quem abre a aba lê
    * título → descrição → dados; a chave dos selos só é procurada quando um selo
    * chama atenção, e aí ela está no caminho do olho, logo abaixo.
    */
@@ -777,11 +772,9 @@ export function CadastroWizard() {
             {unidade.id} · {unidade.regionalName}
           </span>
         </div>
-        {/* O CHIP DE PROGRESSO entra aqui, no eixo do título e da ação — era uma
-            coluna fixa de 336px à direita da grade (`PainelProgresso`). A troca é
-            de 07/08/2026: 336px de cromo permanente eram caros numa tela cuja aba
-            mais larga tem 22 colunas, e a grade os usa melhor. Ver o comentário
-            no topo de `PainelProgresso`. */}
+        {/* O PROGRESSO é um CHIP no eixo do título, e não uma coluna à direita
+            da grade: 336px de cromo permanente são caros numa tela cuja aba mais
+            larga tem 22 colunas. Ver o comentário no topo de `PainelProgresso`. */}
         <div className="flex flex-wrap items-end gap-5">
           <ChipProgresso
             dados={unidade.data}
@@ -901,7 +894,7 @@ export function CadastroWizard() {
             data-indicador={i === abaAtualIdx ? '1' : undefined}
             onClick={() => setAbaIdx(i)}
             className={`whitespace-nowrap border-0 border-b-2 border-transparent bg-none pb-[11px] text-[13.5px] transition-colors duration-hover ease-saida ${
-              i === abaAtualIdx ? 'font-semibold text-ink-900' : 'text-ink-500 hover:text-ink-800'
+              i === abaAtualIdx ? 'font-semibold text-ink-900' : 'text-ink-water hover:text-ink-800'
             }`}
           >
             {a.titulo}
@@ -929,10 +922,9 @@ export function CadastroWizard() {
           <PainelTopologia problemas={problemasTopologia} />
 
           <div className="min-w-0 rounded-2xl border border-ink-200 bg-white p-5">
-            {/* Sem a legenda ao lado (ela desceu para depois da tabela, pedido da
-                Aegea de 04/08), o cabeçalho é só título + descrição — e a
-                descrição recupera a largura que disputava com ela: o
-                `justify-between` que havia aqui comprimia as duas. */}
+            {/* O cabeçalho é só título + descrição: a legenda fica depois da
+                tabela, e a descrição usa a largura inteira. Um `justify-between`
+                aqui, com a legenda ao lado, comprime as duas. */}
             <div className="min-w-0">
               <h2 className="flex items-center gap-2 text-[15px] font-bold tracking-tight text-ink-900">
                 <aba.icone weight="fill" className="text-water-600" />
@@ -1054,12 +1046,12 @@ export function CadastroWizard() {
 }
 
 /**
- * CARTÃO DO WACC MÉDIO — item 24 do pedido de 05/08/2026.
+ * CARTÃO DO WACC MÉDIO.
  *
- * Escreve na mesma célula que a grade escrevia (`unidade-regional[0].wacc_medio`);
+ * Escreve na MESMA célula que a grade escreveria (`unidade-regional[0].wacc_medio`);
  * ver o comentário de `abaGrade` acima para por que isso não é detalhe.
  *
- * O texto ao lado é o segundo pedido do mesmo trecho da reunião: *"aqui é para
+ * O texto ao lado explica a herança: *"aqui é para
  * preencher o ponderado de capital, e aí bota esse disclaimer — quando uma obra não
  * tem seu WACC próprio, ela herda dessa média. Ficou muito direto, esse textinho pode
  * dar uma melhorada"* (Wagner, 7:35). O que estava só no tooltip da coluna passou a
@@ -1087,7 +1079,7 @@ function CartaoWacc() {
              cartão muda o TAMANHO do campo, não a linguagem visual. */
           className={`mt-2 w-full max-w-[170px] rounded-lg px-3 py-2 font-mono text-[19px] tabular-nums outline-none transition-colors duration-hover ease-saida ${
             vazio
-              ? 'border border-dashed border-amber-400 bg-amber-50 text-ink-800 placeholder:text-ink-400'
+              ? 'border border-dashed border-amber-400 bg-amber-50 text-ink-800 placeholder:text-ink-water'
               : 'border border-water-200 bg-white text-ink-900'
           }`}
         />
@@ -1111,21 +1103,20 @@ function CartaoWacc() {
  * DB = vem do Databricks e se corrige na origem; un = a unidade preenche, e é o que a
  * completude conta; fx = o motor calcula e ignora o que estiver gravado.
  *
- * Era um par de legendas até 07/08/2026: esta e a de PROCEDÊNCIA (dado real ×
- * exemplo × sem fonte). A segunda saiu por pedido do cliente — ver o comentário no
- * topo de `AbaGrid`, que explica por que o mesmo interlocutor pediu o selo em 30/07 e
- * a remoção dele quatro dias depois.
+ * É a ÚNICA legenda da tela: a de PROCEDÊNCIA (dado real × exemplo × sem fonte)
+ * não existe — ver o comentário no topo de `AbaGrid` para o motivo.
  */
 function Legenda() {
   const origens = [
     { sigla: 'DB', texto: 'vem do Databricks — não editável', cls: 'text-water-600 bg-water-50 border-water-200' },
-    { sigla: 'un', texto: 'você preenche', cls: 'text-amber-600 bg-amber-50 border-amber-300' },
+    // Mesmo tom de `AbaGrid`: `amber-600` aos 9px da 3,07:1 sobre `amber-50`.
+    { sigla: 'un', texto: 'você preenche', cls: 'text-[#8A4B0A] bg-amber-50 border-amber-300' },
     { sigla: 'fx', texto: 'calculado', cls: 'text-ink-600 bg-ink-100 border-ink-200' },
   ]
   return (
     <ul className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
       {origens.map((i) => (
-        <li key={i.sigla} className="flex items-center gap-1.5 text-[11px] text-ink-500">
+        <li key={i.sigla} className="flex items-center gap-1.5 text-[11px] text-ink-water">
           <span className={`rounded border px-[3px] text-[9px] font-bold ${i.cls}`}>{i.sigla}</span>
           {i.texto}
         </li>

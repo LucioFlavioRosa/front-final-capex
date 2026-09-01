@@ -17,8 +17,8 @@ export function RevisaoCadastro() {
   if (!unidade) return null
 
   /**
-   * ABAS_VISIVEIS, e não SCHEMA: as quatro abas ocultadas em 05/08/2026 não têm
-   * campo que alguém possa preencher, e uma delas pendente travaria a rodada sem
+   * ABAS_VISIVEIS, e não SCHEMA: as abas ocultas não têm campo que alguém possa
+   * preencher, e uma delas pendente travaria a rodada sem
    * oferecer para onde ir — a lista abaixo (também derivada das visíveis) não
    * teria o botão para chegar até ela.
    */
@@ -85,7 +85,7 @@ export function RevisaoCadastro() {
     <section className="max-w-[1100px] mx-auto px-4 md:px-6 py-8 animate-fade-in">
       <button
         onClick={() => irFase('wizard')}
-        className="text-sm text-ink-500 hover:text-ink-800 inline-flex items-center gap-1.5 mb-4"
+        className="text-sm text-ink-water hover:text-ink-800 inline-flex items-center gap-1.5 mb-4"
       >
         <ArrowLeft weight="bold" />Voltar ao cadastro
       </button>
@@ -94,7 +94,7 @@ export function RevisaoCadastro() {
         <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-ink-900">
           <FlagCheckered weight="fill" className="text-water-600" />Revisão antes de rodar
         </h2>
-        <p className="mt-1 text-sm text-ink-500">
+        <p className="mt-1 text-sm text-ink-water">
           Duas conferências antes de rodar: a consistência do cadastro e a completude por aba. Só é
           possível seguir para a simulação sem problemas críticos e com todos os campos de origem
           unidade preenchidos. Ano-base e orçamento serão pedidos ao iniciar a simulação.
@@ -104,7 +104,7 @@ export function RevisaoCadastro() {
           <PainelProblemas problemas={problemas} onIrParaAba={abrirAba} />
         </div>
 
-        <h3 className="mt-7 text-[10.5px] font-semibold uppercase tracking-[.09em] text-ink-400">
+        <h3 className="mt-7 text-[10.5px] font-semibold uppercase tracking-[.09em] text-ink-water">
           Completude por aba
         </h3>
 
@@ -128,7 +128,7 @@ export function RevisaoCadastro() {
 
         <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-ink-200 pt-5">
           <div>
-            <div className="text-xs uppercase tracking-wide text-ink-400">Completude geral</div>
+            <div className="text-xs uppercase tracking-wide text-ink-water">Completude geral</div>
             <div className="font-mono text-3xl font-bold text-water-700">{geral.pct}%</div>
           </div>
           <div className="flex flex-col items-end gap-1.5">
@@ -172,7 +172,7 @@ export function RevisaoCadastro() {
               </span>
             )}
             {bloqueado && (
-              <span className="text-right text-[11.5px] text-ink-500">
+              <span className="text-right text-[11.5px] text-ink-water">
                 {criticos.length > 0 && faltam
                   ? `Bloqueado: ${criticos.length} problema${criticos.length === 1 ? '' : 's'} crítico${criticos.length === 1 ? '' : 's'} e campos em branco.`
                   : criticos.length > 0

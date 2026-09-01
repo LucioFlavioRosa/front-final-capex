@@ -21,11 +21,9 @@ const NOVAS_OBRAS: Record<string, [string, string]> = {
 }
 
 /**
- * ANO-BASE — o ano 0 do cronograma, automático desde 05/08/2026.
+ * ANO-BASE — o ano 0 do cronograma, automático.
  *
- * Era campo digitado, numa aba própria. A pergunta do Wagner ("por que isso é
- * variável?") e a resposta do Lúcio ("ele poderia só pegar o ano da data que o cara
- * está") aposentaram as duas coisas: o ano de uma análise é o ano em que ela é feita.
+ * Não é campo digitado: o ano de uma análise é o ano em que ela é feita.
  *
  * Lido na hora da renderização, e não congelado numa constante de módulo: uma aba
  * aberta na virada do ano mostraria o ano velho até alguém recarregar a página.
@@ -35,11 +33,9 @@ const anoCorrente = (): string => String(new Date().getFullYear())
 /**
  * Contexto de uma célula derivada — a aba em que ela está e o cadastro inteiro.
  *
- * NASCEU COM O ITEM 21, e é a mudança estrutural que ele exigiu. Até 07/08/2026
- * `computeCalc(col, row)` só enxergava a LINHA ATUAL, e isso bastava para tudo
- * que havia: CAPEX é quantidade × preço da própria linha, capacidade ociosa é
- * nominal − operação da própria linha, a unidade de medida é o componente da
- * própria linha.
+ * A MAIORIA DAS DERIVADAS SÓ PRECISA DA LINHA: CAPEX é quantidade × preço da
+ * própria linha, capacidade ociosa é nominal − operação da própria linha, a
+ * unidade de medida é o componente da própria linha.
  *
  * O sistema da CTS não é assim. Ele mora em OUTRA ABA — a linha do Fluxo de
  * escoamento cuja origem é aquela CTS — e nenhuma quantidade de dados da linha
@@ -120,10 +116,10 @@ export function computeCalc(col: string, row: Row, ctx: CtxCalc = {}): string {
 }
 
 /**
- * FAIXA DE COBERTURA 0 automática na escala de paridade (item 30, 05/08/2026).
+ * FAIXA DE COBERTURA 0 automática na escala de paridade.
  *
- * A regra que o cliente ditou: *"caso a cidade só tenha uma paridade, criar uma faixa
- * de cobertura zero"*. O motivo é que a faixa vale A PARTIR da cobertura informada —
+ * A REGRA: cidade com uma paridade só ganha uma faixa de cobertura zero. A faixa
+ * vale A PARTIR da cobertura informada —
  * uma cidade cuja única faixa começa em 40% fica sem paridade nenhuma enquanto a
  * cobertura estiver abaixo disso, e a receita de esgoto dela sai zerada nos primeiros
  * anos do plano. Faixa 0 = paridade constante, que é o que se quer dizer com "a
@@ -168,7 +164,14 @@ export function garantirFaixaZero(rows: Row[]): Row[] {
 export function contarAba(abaKey: string, rows: Row[]): { feitos: number; total: number } {
   const aba = SCHEMA.find((s) => s.key === abaKey)
   if (!aba) return { feitos: 0, total: 0 }
-  const uncols = aba.cols.filter((c) => c.origem === 'un').map((c) => c.coluna)
+  // `opcional` FICA DE FORA DA CONTA. Sem isso a tela anunciava "89% · 4 abas
+  // incompletas" para uma unidade que o servidor dava como pronta — o campo
+  // vazio era legítimo (WACC que herda o da unidade, jusante de nó terminal,
+  // população onde a cobertura é medida por ligações), mas o contador não
+  // distinguia "não preenchido" de "não se aplica".
+  const uncols = aba.cols
+    .filter((c) => c.origem === 'un' && !c.opcional)
+    .map((c) => c.coluna)
   let feitos = 0
   let total = 0
   rows.forEach((row) => {
@@ -184,13 +187,13 @@ export function contarAba(abaKey: string, rows: Row[]): { feitos: number; total:
 /**
  * Completude geral — sobre as abas VISÍVEIS, não sobre o SCHEMA inteiro.
  *
- * Desde 05/08/2026 quatro abas saíram da tela mas continuam no cadastro
- * (`ocultaNoWizard`). Somar os campos delas aqui contaria trabalho que ninguém tem
+ * Quatro abas ficam fora da tela e dentro do cadastro (`ocultaNoWizard`). Somar
+ * os campos delas aqui contaria trabalho que ninguém tem
  * como fazer: a aba não aparece, o campo não é alcançável, e o percentual nunca
  * fecharia — com a Revisão bloqueando a rodada para sempre.
  *
- * Hoje as quatro não têm nenhuma coluna 'un' (a última, `ano_base`, virou 'calc' no
- * mesmo pedido), então o filtro não muda nenhum número. Ele existe para o dia em que
+ * Hoje as quatro não têm nenhuma coluna 'un', então o filtro não muda nenhum
+ * número. Ele existe para o dia em que
  * uma aba com campo de unidade for ocultada — aí a diferença é entre "98%" e um
  * cadastro que não fecha.
  */

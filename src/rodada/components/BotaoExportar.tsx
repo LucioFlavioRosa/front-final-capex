@@ -5,9 +5,9 @@ import { useToast } from '@/components/ui/Toaster'
 /**
  * "Exportar tabelas" — o botão que o produto final tem e o backend ainda não.
  *
- * Ele existe na tela de propósito (decisão de 20/08): o lugar dele no topo do
- * nível é parte do desenho, e descobrir isso depois obrigaria a remontar a
- * barra de ações. O que ele NÃO faz é fingir: não há endpoint de exportação, e
+ * Ele existe na tela de propósito: o lugar dele no topo do nível é parte do
+ * desenho, e acrescentá-lo depois obrigaria a remontar a barra de ações. O que
+ * ele NÃO faz é fingir: não há endpoint de exportação, e
  * um botão que aparenta baixar e não baixa é pior que um que diz que ainda não
  * dá.
  *

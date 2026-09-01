@@ -489,11 +489,11 @@ describe('a tela abre sobre a análise que EXISTE', () => {
   })
 
   it('degraus de DUAS faixas não viram faixa nenhuma', () => {
-    // Alguém rodou 10..50 e depois 5..20: nenhuma faixa regenera os seis. A
-    // primeira versão devolvia a que os COBRE, e o resultado era pior que o
-    // padrão — a tela abria em +5% +16% +28% +39% +50%, mostrando três degraus
-    // que nunca rodaram e escondendo quatro que rodaram. Uma faixa inventada é
-    // pior que a padrão, porque parece a análise de alguém.
+    // Alguém rodou 10..50 e depois 5..20: nenhuma faixa regenera os seis.
+    // Devolver a faixa que os COBRE é pior que devolver o padrão — a tela
+    // abriria em +5% +16% +28% +39% +50%, mostrando três degraus que nunca
+    // rodaram e escondendo quatro que rodaram. Uma faixa inventada é pior que a
+    // padrão, porque parece a análise de alguém.
     expect(faixaDosPontos(comDegraus(5, 10, 20, 30, 40, 50))).toBeNull()
     expect(faixaDosPontos(comDegraus(5, 10, 15, 20, 30, 40, 50))).toBeNull()
   })

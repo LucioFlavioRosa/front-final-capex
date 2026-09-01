@@ -42,7 +42,7 @@ beforeEach(() => {
     http.get('/api/unidades/:id/hierarquia', () =>
       HttpResponse.json({
         unidReg: { rid: 'R4', rnome: 'Regional 4', uid: UNIDADE, unome: 'Unidade', waccMedio: '8' },
-        superintendencias: [],
+        empresas: [],
         cidades: [],
         sistemas: [],
         topo: [],

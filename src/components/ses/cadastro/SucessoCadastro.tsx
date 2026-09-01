@@ -11,7 +11,7 @@ export function SucessoCadastro() {
         <CheckCircle weight="fill" />
       </div>
       <h2 className="mt-6 text-2xl font-bold tracking-tight text-ink-900">Dados da unidade salvos</h2>
-      <p className="text-ink-500 mt-2">
+      <p className="text-ink-water mt-2">
         As abas foram gravadas. Na sequência você informa o ano-base e o orçamento e dispara a otimização.
       </p>
       <div className="mt-8 flex gap-3 justify-center">

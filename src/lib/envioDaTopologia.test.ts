@@ -14,8 +14,8 @@
  *
  * Não era caso de acertar a ordem: um reapontamento É um "solta" do ponto de
  * vista de quem ele larga, e há reorganização para a qual nenhuma ordem funciona.
- * O envio virou o sistema INTEIRO num `PUT` só, e estes testes prendem o que ele
- * manda.
+ * Por isso o envio é o sistema INTEIRO num `PUT` só, e estes testes prendem o
+ * que ele manda.
  */
 import { describe, expect, it } from 'vitest'
 import { envioDaTopologia } from './cadastroApi'

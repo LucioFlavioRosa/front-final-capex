@@ -37,7 +37,7 @@ export function SemAcesso() {
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-content flex-col items-center justify-center gap-2 px-4 text-center">
       <h1 className="text-[20px] font-bold text-ink-900">Nenhum módulo disponível para o seu perfil</h1>
-      <p className="max-w-md text-[13.5px] text-ink-500">
+      <p className="max-w-md text-[13.5px] text-ink-water">
         O seu acesso não inclui nenhuma das telas desta versão. Se você acredita que isso é um
         engano, procure quem administra os acessos da sua unidade.
       </p>

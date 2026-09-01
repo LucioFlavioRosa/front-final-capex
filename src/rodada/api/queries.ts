@@ -165,7 +165,7 @@ export function useCidade(runId: string | undefined, cidadeId: string | undefine
   })
 }
 
-/** "Sub-bacias fora do plano" do nível 2 — item 10 de 26/08. */
+/** "Sub-bacias fora do plano" do nível 2. */
 export function useExplicabilidadeDaCidade(
   runId: string | undefined,
   cidadeId: string | undefined,
@@ -178,7 +178,7 @@ export function useExplicabilidadeDaCidade(
   })
 }
 
-/** Lista de obras por ordem de execução, nível 1 — item 3 de 26/08. */
+/** Lista de obras por ordem de execução, nível 1. */
 export function useObras(
   runId: string | undefined,
   filtro?: {
@@ -203,7 +203,7 @@ export function useObras(
   })
 }
 
-/** O cronograma de obras do plano — item 3, na leitura corrigida em 27/08. */
+/** O cronograma de obras do plano — quantas de cada componente por ano. */
 export function useCronogramaDeObras(runId: string | undefined) {
   return useQuery({
     queryKey: chaves.cronogramaDeObras(runId ?? '—'),

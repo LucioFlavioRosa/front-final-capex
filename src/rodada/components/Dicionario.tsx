@@ -66,10 +66,15 @@ export function BotaoAjuda({ chave, texto }: { chave: string; texto: string }) {
       aria-label={`O que é "${texto}"?`}
       aria-expanded={aberto}
       onClick={() => dict.abrir(chave)}
-      className={`inline-flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full border text-[10.5px] font-bold leading-none transition-colors duration-hover ease-saida focus:outline-none focus:ring-2 focus:ring-water-600/25 ${
+      /* O CÍRCULO TEM 17px, O ALVO TEM 24px.
+         A WCAG 2.2 pede 24×24 CSS px de área de ponteiro, e este é um controle
+         só de ícone. Crescer o desenho engordaria o "?" ao lado de cada KPI e
+         mudaria a faixa inteira; então o círculo fica como está e o alvo cresce
+         por fora, com `before` centrado. `relative` é o que ancora esse alvo. */
+      className={`relative inline-flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full border text-[10.5px] font-bold leading-none transition-colors duration-hover ease-saida before:absolute before:left-1/2 before:top-1/2 before:h-6 before:w-6 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] focus:outline-none focus:ring-2 focus:ring-water-600/25 ${
         aberto
           ? 'border-water-600 bg-water-600 text-white'
-          : 'border-ink-300 text-ink-400 hover:border-water-600 hover:text-water-600'
+          : 'border-ink-300 text-ink-water hover:border-water-600 hover:text-water-600'
       }`}
     >
       ?
@@ -110,13 +115,13 @@ export function RotuloParametro({
     <span className="mb-1.5 flex items-center gap-1.5">
       <Nome
         htmlFor={htmlFor}
-        className="text-[10.5px] font-bold uppercase tracking-[.075em] text-ink-500"
+        className="text-[10.5px] font-bold uppercase tracking-[.075em] text-ink-water"
       >
         {texto}
       </Nome>
       <code
         aria-hidden="true"
-        className="font-mono text-[9.5px] font-medium normal-case tracking-normal text-ink-400"
+        className="font-mono text-[9.5px] font-medium normal-case tracking-normal text-ink-water"
       >
         {tecnico}
       </code>
@@ -172,14 +177,14 @@ export function PainelDicionario({
       }`}
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="text-[10.5px] font-bold uppercase tracking-[.09em] text-ink-400">
+        <span className="text-[10.5px] font-bold uppercase tracking-[.09em] text-ink-water">
           Dicionário de dados
         </span>
         <button
           type="button"
           onClick={() => dict?.fechar()}
           aria-label="Fechar o dicionário de dados"
-          className="-m-1 rounded p-1 text-ink-400 transition-colors duration-hover ease-saida hover:text-ink-700"
+          className="-m-1 rounded p-1 text-ink-water transition-colors duration-hover ease-saida hover:text-ink-700"
         >
           <X weight="bold" />
         </button>
@@ -188,14 +193,14 @@ export function PainelDicionario({
       {!v ? (
         /* Chave sem verbete é bug de quem escreveu o "?", não do usuário — mas
            quem está na tela precisa de uma frase, e não de um painel vazio. */
-        <p className="mt-4 text-[13px] leading-relaxed text-ink-500">
+        <p className="mt-4 text-[13px] leading-relaxed text-ink-water">
           Verbete “{ultimaChave.current}” ainda não cadastrado no dicionário.
         </p>
       ) : (
         <>
           <div className="mt-2 flex flex-wrap items-baseline gap-2">
             <span className="text-[17px] font-bold leading-snug text-ink-800">{v.rotulo}</span>
-            <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[10.5px] text-ink-500">
+            <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[10.5px] text-ink-water">
               {v.tec}
             </code>
           </div>
@@ -209,7 +214,7 @@ export function PainelDicionario({
           <Secao titulo="Por que o modelo usa">{v.porque}</Secao>
 
           <div className="mt-5 rounded-[10px] border border-ink-200 bg-ink-50 p-3.5">
-            <div className="text-[10.5px] font-bold uppercase tracking-[.09em] text-ink-400">
+            <div className="text-[10.5px] font-bold uppercase tracking-[.09em] text-ink-water">
               Exemplo
             </div>
             <div className="mt-1 text-[14px] font-semibold text-ink-800">{v.exemplo}</div>

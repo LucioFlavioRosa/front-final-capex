@@ -37,8 +37,8 @@ import { idCurtoDaRodada } from '@/rodada/domain/rodadaId'
  *     mutação destrutiva do pacote e não pode ser alcançável por engano
  *     durante uma varredura da lista.
  *
- * Layout portado do design de 19/08 ("Historico SES Aegea"): tabela larga mais
- * painel fixo de 372px à direita, no lugar dos cards empilhados.
+ * O layout é tabela larga mais painel fixo de 372px à direita, e não cards
+ * empilhados: a lista é para varrer, e o painel para ler uma rodada por vez.
  */
 
 type Ordem = 'recentes' | 'vpl' | 'nome'
@@ -119,7 +119,7 @@ function Lista({ runs }: { runs: RunResumo[] }) {
   const [selecionadaId, setSelecionadaId] = useState<string | null>(runs[0]?.runId ?? null)
 
   /**
-   * COMPARAR SIMULAÇÕES — item 2 do feedback, definido em 27/08.
+   * COMPARAR SIMULAÇÕES.
    *
    * `modoComparar` liga as caixas de seleção na tabela; `paraComparar` guarda
    * os ids escolhidos. São dois estados e não um (`Set` vazio = modo desligado)
@@ -193,7 +193,7 @@ function Lista({ runs }: { runs: RunResumo[] }) {
 
       <div className="mb-[18px] flex flex-wrap items-center gap-3">
         <label className="relative min-w-[220px] max-w-[420px] flex-1">
-          <MagnifyingGlass className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
+          <MagnifyingGlass className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-water" />
           <span className="sr-only">Buscar rodada</span>
           <input
             value={busca}
@@ -263,7 +263,7 @@ function Lista({ runs }: { runs: RunResumo[] }) {
       {visiveis.length === 0 ? (
         <div className="carta p-14 text-center">
           <p className="text-base font-bold text-ink-800">Nenhuma rodada com esses filtros</p>
-          <p className="mx-auto mt-2 max-w-[380px] text-sm leading-relaxed text-ink-500">
+          <p className="mx-auto mt-2 max-w-[380px] text-sm leading-relaxed text-ink-water">
             Existem {runs.length} rodadas no total — o que está escondendo as demais é o filtro,
             não a ausência de dado.
           </p>
@@ -363,7 +363,7 @@ function Lista({ runs }: { runs: RunResumo[] }) {
                       <span className="block font-semibold text-ink-800">
                         {r.nome || 'Sem nome'}
                       </span>
-                      <span className="mt-0.5 block font-mono text-[11px] tabular-nums text-ink-400">
+                      <span className="mt-0.5 block font-mono text-[11px] tabular-nums text-ink-water">
                         {idCurtoDaRodada(r.runId)} · {dataHora(r.dataHora)}
                       </span>
                     </td>
@@ -436,7 +436,7 @@ function PainelDaRodada({
             <div className="text-[17px] font-bold leading-snug text-ink-800">
               {run.nome || idCurtoDaRodada(run.runId)}
             </div>
-            <div className="mt-1 font-mono text-[11px] tabular-nums text-ink-400">
+            <div className="mt-1 font-mono text-[11px] tabular-nums text-ink-water">
               {idCurtoDaRodada(run.runId)} · {run.unidadeNome}
             </div>
           </div>
@@ -558,13 +558,13 @@ function PainelDaRodada({
             </Button>
           </div>
         ) : (
-          <p className="mt-2 text-[12px] leading-snug text-ink-500">
+          <p className="mt-2 text-[12px] leading-snug text-ink-water">
             {run.comentario?.autor
               ? `Última edição por ${run.comentario.autor}${
                   run.comentario.atualizadoEm ? ` · ${dataHora(run.comentario.atualizadoEm)}` : ''
                 }`
               : 'Nenhum comentário ainda.'}{' '}
-            <span className="text-ink-400">
+            <span className="text-ink-water">
               Todos que acessam esta unidade leem e editam. Não é anotação privada — para marcar
               algo só para você, use a estrela.
             </span>
@@ -612,7 +612,7 @@ function PainelDaRodada({
           <button
             type="button"
             onClick={() => setConfirmando(true)}
-            className="text-[13px] text-ink-400 transition-colors duration-hover ease-saida hover:text-danger"
+            className="text-[13px] text-ink-water transition-colors duration-hover ease-saida hover:text-danger"
           >
             Excluir simulação
           </button>
@@ -637,7 +637,7 @@ function BotaoDetalhes({ aoAbrir }: { aoAbrir: () => void }) {
     <button
       type="button"
       onClick={aoAbrir}
-      className="mt-2.5 w-full text-center text-[13px] text-ink-500 transition-colors duration-hover ease-saida hover:text-water-600"
+      className="mt-2.5 w-full text-center text-[13px] text-ink-water transition-colors duration-hover ease-saida hover:text-water-600"
     >
       Ver detalhes da simulação
     </button>

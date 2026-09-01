@@ -1,9 +1,9 @@
 /**
  * A HOME — a porta da plataforma, e só isso.
  *
- * ELA MOSTRAVA DADO DE SIMULAÇÃO e deixou de mostrar (29/08/2026, decisão dele):
- * nem VPL, nem horizonte do plano, nem status do cadastro. O argumento é de
- * papel: esse dado tem casa própria — o plano vive em `/resultados`, a
+ * NÃO MOSTRA DADO DE SIMULAÇÃO: nem VPL, nem horizonte do plano, nem status do
+ * cadastro. O argumento é de papel: esse dado tem casa própria — o plano vive em
+ * `/resultados`, a
  * completude vive dentro do wizard, e as duas telas o mostram com muito mais
  * contexto do que um resumo caberia dar. Repetir na entrada não informava,
  * duplicava; e obrigava a Home a quatro chamadas de API para desenhar algo que a
@@ -131,12 +131,12 @@ export function Home() {
                   >
                     <IconCmp weight="fill" className="text-xl" />
                   </div>
-                  <ArrowRight className="text-ink-500" />
+                  <ArrowRight className="text-ink-water" />
                 </div>
                 <h2 className="mt-2.5 text-[15px] font-bold tracking-tight text-body-text">
                   {item.title}
                 </h2>
-                <p className="mt-1 text-[12.5px] leading-relaxed text-ink-500">
+                <p className="mt-1 text-[12.5px] leading-relaxed text-ink-water">
                   {item.description}
                 </p>
               </NavLink>

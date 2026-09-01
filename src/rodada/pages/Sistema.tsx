@@ -93,7 +93,7 @@ export function Sistema() {
               itens={[
                 { rotulo: 'Sub-bacias', valor: inteiro(t.subbacias) },
                 {
-                  /* "FATURANDO" SOZINHO NÃO DIZ DE QUÊ (item 19 de 26/08): num
+                  /* "FATURANDO" SOZINHO NÃO DIZ DE QUÊ: num
                      cabeçalho de sistema, ao lado de "Sub-bacias" e "CAPEX", o
                      gerúndio solto parece um estado do sistema, não uma
                      contagem de sub-bacias. */
@@ -147,14 +147,12 @@ export function Sistema() {
 }
 
 /**
- * A TABELA DE SUB-BACIAS, COM OS COMPONENTES DE CADA UMA — item 21 do feedback
- * de 26/08, complementado pelo comentário da Aegea: "mostrar todos os
- * elementos/componentes da sub-bacia, que foi construído ou não".
+ * A TABELA DE SUB-BACIAS, COM OS COMPONENTES DE CADA UMA — todos eles,
+ * construídos ou não.
  *
- * A primeira resposta ao item foi trocar a contagem crua ("5") pelo par
- * parte/total ("2 de 5"), e ela resolvia só metade: dizia QUANTOS entraram, não
- * QUAIS. E o denominador ainda enganava, porque não é fixo — a ficha de uma
- * sub-bacia tem os componentes que ela tem (encontrei 4, 2 e 2 no mesmo
+ * NÃO BASTA a contagem ("5") nem o par parte/total ("2 de 5"): os dois dizem
+ * QUANTOS entraram, não QUAIS. E o denominador engana, porque não é fixo — a
+ * ficha de uma sub-bacia tem os componentes que ela tem (4, 2 e 2 no mesmo
  * sistema), não sempre cinco.
  *
  * LINHA EXPANSÍVEL, e não colunas por componente: a matriz de cinco colunas
@@ -234,7 +232,7 @@ function TabelaSubBacias({
                           e.stopPropagation()
                           alternar(n.id)
                         }}
-                        className="grid h-6 w-6 place-items-center rounded-md text-ink-400 transition-colors duration-hover ease-saida hover:bg-ink-100 hover:text-ink-600"
+                        className="grid h-6 w-6 place-items-center rounded-md text-ink-water transition-colors duration-hover ease-saida hover:bg-ink-100 hover:text-ink-600"
                       >
                         <CaretRight
                           weight="bold"
@@ -252,7 +250,7 @@ function TabelaSubBacias({
                         </span>
                       )}
                       {!n.fatura && (
-                        <span className="ml-1.5 text-[10px] text-ink-400">não fatura</span>
+                        <span className="ml-1.5 text-[10px] text-ink-water">não fatura</span>
                       )}
                     </td>
                     <td data-m>{vazao(n.vazao)}</td>
@@ -301,7 +299,7 @@ function ComponentesDaSubBacia({ no, runId }: { no: NoFluxo; runId: string | und
 
   if (ordenados.length === 0) {
     return (
-      <p className="py-3 text-[11.5px] text-ink-400">
+      <p className="py-3 text-[11.5px] text-ink-water">
         Esta sub-bacia não tem componente de obra cadastrado na ficha — não é filtro, é ausência
         de dado.
       </p>
@@ -341,7 +339,7 @@ function ComponentesDaSubBacia({ no, runId }: { no: NoFluxo; runId: string | und
                     <span className="font-mono text-[11.5px]">{c.obraId}</span>
                   </CelulaLink>
                 ) : (
-                  <span className="text-[11px] text-ink-400">{VAZIO}</span>
+                  <span className="text-[11px] text-ink-water">{VAZIO}</span>
                 )}
               </td>
               <td>
@@ -404,13 +402,12 @@ interface NoGrafo extends NoFluxo {
 }
 
 /**
- * Monta o grafo com NÍVEL DE VERDADE — distância até a ETE — em vez das duas
- * colunas fixas (montante/miolo) da primeira versão.
+ * Monta o grafo com NÍVEL DE VERDADE — distância até a ETE — e não em duas
+ * colunas fixas (montante/miolo).
  *
- * A troca é a da validação de 18/08: Victor apontou que "se a bacia 3 vier
- * depois da B2, aqui não está sendo representada" — o achatamento em duas
- * colunas escondia a ORDEM do escoamento, que é a própria razão de existir do
- * diagrama. Com o nível calculado por distância, uma cadeia de N saltos abre N
+ * Achatar em duas colunas esconde a ORDEM do escoamento, que é a própria razão
+ * de existir do diagrama: uma sub-bacia que vem depois de outra aparece ao lado
+ * dela. Com o nível calculado por distância, uma cadeia de N saltos abre N
  * colunas, e a sequência real fica visível mesmo quando ela é mais funda que
  * "sub-bacia → transporte → ETE".
  */
@@ -464,11 +461,11 @@ const GAP_Y = 14
 const PAD = 18
 
 /**
- * O template da reunião de validação de 18/08: colunas por nível de
- * escoamento (sub-bacias → transporte → destino), espessura do traço
- * proporcional à vazão, e tracejado vermelho onde o plano não construiu o elo.
- * O rodapé de explicabilidade (o mesmo pedido de Wagner — "quantidade e motivo
- * da não escolha") sai calculado do próprio grafo: não precisa de um campo
+ * O TEMPLATE DO DIAGRAMA: colunas por nível de escoamento (sub-bacias →
+ * transporte → destino), espessura do traço proporcional à vazão, e tracejado
+ * vermelho onde o plano não construiu o elo.
+ * O rodapé de explicabilidade (quantidade e motivo da não escolha) sai calculado
+ * do próprio grafo: não precisa de um campo
  * novo no contrato, porque a razão do gargalo já está na situação de cada
  * componente de transporte.
  */
@@ -550,7 +547,7 @@ function Diagrama({ fluxo, runId }: { fluxo: Fluxo; runId: string | undefined })
 
   return (
     <Cartao titulo="Escoamento até a ETE">
-      <p className="-mt-1.5 mb-3 text-[11px] leading-snug text-ink-500">
+      <p className="-mt-1.5 mb-3 text-[11px] leading-snug text-ink-water">
         A espessura de cada fluxo é a vazão em L/s. A leitura é da esquerda para a direita,
         montante para jusante.
       </p>
@@ -635,7 +632,7 @@ function Diagrama({ fluxo, runId }: { fluxo: Fluxo; runId: string | undefined })
 
       <LegendaCaixas />
 
-      <p className="mt-3 text-[10.5px] leading-relaxed text-ink-400">
+      <p className="mt-3 text-[10.5px] leading-relaxed text-ink-water">
         Um transporte (Tronco, EEE ou Linha de recalque) não construído tira do plano tudo o que
         dependia dele — a aresta que chega e a que sai dele ficam tracejadas.
       </p>
@@ -646,16 +643,16 @@ function Diagrama({ fluxo, runId }: { fluxo: Fluxo; runId: string | undefined })
 /**
  * A LEGENDA DAS ARESTAS — o traço entre duas caixas.
  *
- * Era a única legenda do diagrama, e é metade da informação: as CAIXAS também
- * são coloridas, por um critério diferente (o papel do nó), e sem legenda quem
- * lê deduz. Foi exatamente o que aconteceu no item 18 do feedback de 26/08 —
- * "se o roxo é uma sub-bacia só com transporte, por que ela foi escolhida sem
- * rede a montante?". A dedução estava quase certa, e o "quase" é o que a
- * legenda abaixo resolve.
+ * Sozinha ela é METADE da informação: as CAIXAS também são coloridas, por um
+ * critério diferente (o papel do nó). Sem a legenda das caixas, quem lê deduz o
+ * critério a partir da cor das arestas e chega quase lá — e é o "quase" que
+ * produz a pergunta errada ("se o roxo é sub-bacia só de transporte, por que
+ * ela foi escolhida sem rede a montante?"). Por isso as duas legendas andam
+ * juntas.
  */
 function LegendaConstrucao() {
   return (
-    <ul className="viz-root flex items-center gap-3 text-[10.5px] text-ink-500">
+    <ul className="viz-root flex items-center gap-3 text-[10.5px] text-ink-water">
       <li className="flex items-center gap-1.5">
         <span aria-hidden="true" className="h-0 w-4 border-t-2" style={{ borderColor: 'var(--viz-good)' }} />
         Construído
@@ -721,7 +718,7 @@ function LegendaCaixas() {
         </AmostraCaixa>
         <AmostraCaixa cor="--viz-ete">ETE</AmostraCaixa>
       </ul>
-      <p className="mt-2 border-t border-ink-200 pt-2 text-[10.5px] leading-relaxed text-ink-500">
+      <p className="mt-2 border-t border-ink-200 pt-2 text-[10.5px] leading-relaxed text-ink-water">
         “Transporte” não é uma entidade à parte: é a própria sub-bacia, mostrada pelo componente
         dela que carrega a vazão de montante — tronco, EEE ou linha de recalque. O plano escolhe
         componente a componente, então uma sub-bacia pode ter só o tronco construído (ele serve às
@@ -764,7 +761,7 @@ function CaixaNo({
         : { fill: 'var(--viz-surface)', stroke: 'var(--viz-seq-2)' }
 
   /**
-   * TODO NÓ MOSTRA A VAZÃO — nenhum mostra nome de componente (27/08).
+   * TODO NÓ MOSTRA A VAZÃO — nenhum mostra nome de componente.
    *
    * O subtítulo alternava entre duas grandezas: sub-bacia comum mostrava vazão,
    * nó de transporte mostrava "Tronco"/"EEE"/"Não construída". Lado a lado no

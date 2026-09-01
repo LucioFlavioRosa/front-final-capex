@@ -77,7 +77,7 @@ export function AbasResultado({ ehVariacao = false }: { ehVariacao?: boolean }) 
           >
             {aba.rotulo}
             <span
-              className={`ml-2 font-normal ${ativa ? 'text-white/70' : 'text-ink-400'}`}
+              className={`ml-2 font-normal ${ativa ? 'text-white/70' : 'text-ink-water'}`}
             >
               {aba.descricao}
             </span>

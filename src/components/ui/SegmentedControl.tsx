@@ -19,7 +19,7 @@ interface SegmentedControlProps<T extends string> {
  * por ano.
  *
  * A pílula branca ESCORREGA até a opção nova (`useIndicador`, a mesma técnica
- * do Trilho) em vez de pular: o fundo/sombra saiu do botão e virou um `<span>`
+ * do Trilho) em vez de pular: o fundo/sombra não fica no botão, é um `<span>`
  * absoluto medido pelo hook; os botões ficam transparentes, com o texto por
  * cima (`z-10`).
  */

@@ -18,7 +18,7 @@ import { AbaGrid } from './AbaGrid'
 import { Unifilar } from './Unifilar'
 
 /**
- * A BARRA DE ESCOPO (20/08/2026) — e o teste que ela não podia estrear sem.
+ * A BARRA DE ESCOPO — e o teste sem o qual ela não pode existir.
  *
  * O risco desta feature não é a barra não filtrar: é ela filtrar e a ESCRITA cair
  * na linha errada. O reducer do `CadastroContext` escreve por POSIÇÃO no array
@@ -286,16 +286,81 @@ describe('a aba de representação foi absorvida pela do Fluxo', () => {
     expect(chaves).toContain('sistema-topologia')
   })
 
-  it('o bloco 01 passou de três abas para duas', () => {
-    expect(BLOCOS[0].abas.map((a) => a.key)).toEqual(['unidade-regional', 'sistema-topologia'])
+  it('o fluxo de escoamento vive no bloco do SISTEMA', () => {
+    // Escrito pelo SIGNIFICADO, e não por índice de bloco: prender `BLOCOS[0]` e
+    // `BLOCOS[2]` amarra o teste à ordem, que é incidental, e não ao invariante.
+    //
+    // A topologia é a MALHA DO SISTEMA: é chaveada por `sistema_id` e descreve
+    // como os componentes daquele sistema se ligam até a ETE. Desenha as
+    // sub-bacias, mas quem ela descreve é o sistema — e é aí que se procura por
+    // ela.
+    const bloco = BLOCOS.find((b) => b.abas.some((a) => a.key === 'sistema-topologia'))
+    expect(bloco?.nome).toBe('Sistema')
   })
 
-  it('o bloco 03 chama-se Sub-bacia', () => {
-    expect(BLOCOS[2].nome).toBe('Sub-bacia')
-  })
-
-  it('toda aba da navegação tem coluna — era o que `semDados` marcava', () => {
+  it('toda aba da navegação tem coluna', () => {
     for (const b of BLOCOS) for (const a of b.abas) expect(a.cols.length).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * O CADASTRO DESCE A HIERARQUIA, E NUNCA SOBE.
+ *
+ * A ordem das abas é pela HIERARQUIA, e não por assunto ("Operação", "Metas e
+ * fatores"): assunto não coincide com hierarquia, e uma sequência por assunto
+ * sobe e desce de nível, obrigando quem preenche a voltar a um nível que já
+ * tinha deixado para trás. Cada aba desce um nível ou fica no mesmo.
+ *
+ * Este teste é a trava. Uma aba nova posta no lugar errado do `SCHEMA` falha
+ * aqui, com o nome dela e o nível de onde ela regrediu — e não numa revisão de
+ * tela seis meses depois.
+ */
+describe('a sequência do cadastro desce a hierarquia', () => {
+  /** O nível de cada aba visível, do topo da organização até o coletor. */
+  const NIVEL: Record<string, number> = {
+    'unidade-regional': 1,
+    empresa: 2,
+    'cidade-operacional': 3,
+    'metas-cobertura': 3,
+    'fator-esgoto': 3,
+    'ete-capex': 4,
+    // A topologia é do sistema, e não da sub-bacia: ela descreve a malha de um
+    // `sistema_id`. Por isso 4, e por isso ela fecha o bloco do Sistema.
+    'sistema-topologia': 4,
+    'subbacia-operacional': 5,
+    'componentes-subbacias-capex': 5,
+    'cts-operacional': 6,
+    'componentes-cts-capex': 6,
+  }
+
+  it('nenhuma aba volta a um nível já preenchido', () => {
+    const ordem = BLOCOS.flatMap((b) => b.abas.map((a) => a.key))
+    const regressoes: string[] = []
+    let maximo = 0
+    for (const chave of ordem) {
+      const n = NIVEL[chave]
+      expect(n, `aba \`${chave}\` sem nível declarado neste teste`).toBeDefined()
+      if (n < maximo) regressoes.push(`${chave} (nível ${n}, depois de ${maximo})`)
+      maximo = Math.max(maximo, n)
+    }
+    expect(regressoes).toEqual([])
+  })
+
+  it('os cinco blocos são os níveis, na ordem', () => {
+    expect(BLOCOS.map((b) => b.nome)).toEqual([
+      'Organização',
+      'Município',
+      'Sistema',
+      'Sub-bacia',
+      'Coletor de tempo seco (CTS)',
+    ])
+  })
+
+  it('a aba de Empresas é navegável — é onde o fim da concessão se informa', () => {
+    // Ela era `ocultaNoWizard` de quando a superintendência era um nível de
+    // reserva. Voltar a ocultá-la deixaria a concessão sem lugar de entrada.
+    const chaves = BLOCOS.flatMap((b) => b.abas.map((a) => a.key))
+    expect(chaves).toContain('empresa')
   })
 })
 
@@ -352,12 +417,12 @@ describe('Unifilar — o desenho ao lado da tabela', () => {
 // ------------------------------------- o que o cadastro deixa de fato preencher
 
 /**
- * A AUDITORIA DE 20/08/2026, virada teste.
+ * O QUE O CADASTRO DEIXA DE FATO PREENCHER — a auditoria, virada teste.
  *
- * O relato foi "estou usando o super admin e mesmo assim não consigo editar vários
- * campos". O papel não era a causa: `super-admin` entrega `admin_holding`, e
- * `podeEditarCampoCadastro` libera tudo para administrador. Quem travava era
- * `celulaEditavel`, pela regra estrutural "coluna `origem: 'db'` ninguém digita" —
+ * O sintoma que ela pega é "sou administrador e mesmo assim não consigo editar
+ * vários campos". O papel não é a causa: `podeEditarCampoCadastro` libera tudo
+ * para administrador. Quem trava é `celulaEditavel`, pela regra estrutural
+ * "coluna `origem: 'db'` ninguém digita" —
  * e ela estava certa em quase toda ocorrência (nome espelhado do código ao lado,
  * dado real que se corrige na fonte, identidade gerada).
  *

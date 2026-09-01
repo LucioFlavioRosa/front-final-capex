@@ -97,7 +97,7 @@ export function FiltroEscopo({ opcoes, escopo, onEscopo }: Props) {
 function Campo({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
   return (
     <label className="block min-w-[220px]">
-      <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-ink-500">
+      <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-ink-water">
         {rotulo}
       </span>
       {children}

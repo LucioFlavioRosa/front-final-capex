@@ -83,8 +83,8 @@ export function Combobox({ options, value, onChange, placeholder = 'Buscar…', 
         onClick={() => (open ? setOpen(false) : openList())}
         className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border border-ink-200 bg-white text-left focus:border-water-500 focus:ring-2 focus:ring-water-500/30 outline-none transition duration-hover ease-saida"
       >
-        <span className={selected ? 'text-ink-900' : 'text-ink-400'}>{selected?.label ?? placeholder}</span>
-        <CaretUpDown className="text-ink-400 flex-shrink-0" />
+        <span className={selected ? 'text-ink-900' : 'text-ink-water'}>{selected?.label ?? placeholder}</span>
+        <CaretUpDown className="text-ink-water flex-shrink-0" />
       </button>
 
       {montado && (
@@ -96,7 +96,7 @@ export function Combobox({ options, value, onChange, placeholder = 'Buscar…', 
           }`}
         >
           <div className="flex items-center gap-2 px-3 py-2 border-b border-ink-100">
-            <MagnifyingGlass className="text-ink-400 flex-shrink-0" />
+            <MagnifyingGlass className="text-ink-water flex-shrink-0" />
             <input
               autoFocus
               value={query}
@@ -123,7 +123,7 @@ export function Combobox({ options, value, onChange, placeholder = 'Buscar…', 
                 </button>
               </li>
             ))}
-            {!filtered.length && <li className="px-3 py-2 text-sm text-ink-400">Nenhum resultado.</li>}
+            {!filtered.length && <li className="px-3 py-2 text-sm text-ink-water">Nenhum resultado.</li>}
           </ul>
         </div>
       )}

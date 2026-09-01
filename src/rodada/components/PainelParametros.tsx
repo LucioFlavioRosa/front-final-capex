@@ -2,15 +2,21 @@ import { useState } from 'react'
 import { SlidersHorizontal } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
-import { ordenarParametros, valorDoParametro, rotuloDoParametro } from '@/rodada/domain/pedido'
+import {
+  ordenarParametros,
+  rotuloDoParametro,
+  rotuloObjetivo,
+  segmentosDoParametro,
+} from '@/rodada/domain/pedido'
 import type { RunMeta } from '@/rodada/domain/resultado'
 import { idCurtoDaRodada } from '@/rodada/domain/rodadaId'
 
 /**
- * "TELA RESULTADOS: QUAIS SÃO OS PARÂMETROS?" — item 14 do feedback de
- * 26/08. Antes, os mais de vinte parâmetros com que a rodada foi PEDIDA só
- * apareciam no modal do Histórico (`DetalhesDaSimulacao`); no resultado, o
- * rodapé do nível 1 mostra sete campos tipados e os outros níveis nem isso.
+ * "QUAIS SÃO OS PARÂMETROS DESTA RODADA?" — respondido dentro do resultado.
+ *
+ * Sem este painel, os mais de vinte parâmetros com que a rodada foi PEDIDA só
+ * aparecem no modal do Histórico (`DetalhesDaSimulacao`); no resultado, o rodapé
+ * do nível 1 mostra sete campos tipados e os outros níveis nem isso.
  *
  * Este botão + painel abrem em QUALQUER nível — Global, Cidade, Sistema,
  * SubBacia — porque todos já carregam `RunMeta` via `useRunMeta`, e `meta.pedido`
@@ -61,17 +67,35 @@ export function BotaoParametros({ meta }: { meta: RunMeta | undefined }) {
                   <span className="text-[13px] font-medium text-ink-700">
                     {rotuloDoParametro(chave)}
                   </span>
-                  <code className="font-mono text-[10px] text-ink-400">{chave}</code>
+                  <code className="font-mono text-[10px] text-ink-water">{chave}</code>
                 </span>
-                <span className="shrink-0 text-right font-mono text-[13px] font-semibold text-ink-800">
-                  {valorDoParametro(chave, valor)}
-                </span>
+                <ValorDoParametro segmentos={segmentosDoParametro(chave, valor)} />
               </li>
             ))}
           </ul>
         )}
       </Modal>
     </>
+  )
+}
+
+function ValorDoParametro({ segmentos }: { segmentos: string[] }) {
+  if (segmentos.length === 1) {
+    return (
+      <span className="shrink-0 text-right font-mono text-[13px] font-semibold text-ink-800">
+        {segmentos[0]}
+      </span>
+    )
+  }
+
+  return (
+    <span className="flex max-w-full flex-wrap justify-end gap-x-2 gap-y-0.5 text-right font-mono text-[13px] font-semibold text-ink-800 tabular-nums">
+      {segmentos.map((seg, i) => (
+        <span key={`${i}:${seg}`} className="whitespace-nowrap">
+          {seg}
+        </span>
+      ))}
+    </span>
   )
 }
 
@@ -82,7 +106,7 @@ function TabelaParametrosTipados({ meta }: { meta: RunMeta }) {
     ['Orçamento', `R$ ${p.orcamento.toLocaleString('pt-BR')}`],
     ['Janela de CAPEX', `${p.janelaCapex} anos`],
     ['Base de receita', p.baseReceita],
-    ['Objetivo (foco em cobertura)', String(p.focoCobertura)],
+    ['Objetivo', rotuloObjetivo(p.focoCobertura)],
     ['CTS', p.usarCts ? 'sim' : 'não'],
     ['Cobertura só residencial', p.coberturaSoResidencial ? 'sim' : 'não'],
   ]

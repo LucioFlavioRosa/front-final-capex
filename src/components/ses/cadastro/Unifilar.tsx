@@ -1,22 +1,15 @@
 /**
  * O DESENHO DO FLUXO — a vista que fica AO LADO da tabela, na mesma aba.
  *
- * Nasceu como aba própria (item 34, pedido de 04/08/2026). Wagner perguntou onde o
- * unifilar tinha ido parar (13:27: *"sei que posso estar mudando aqui a tela um
- * pouco, mas aquele unifilar vai ficar onde?"*), Lúcio respondeu que ele era coisa
- * do resultado (13:40), e Wagner insistiu com o motivo (14:19): *"lembra que a
- * gente tinha uma validação [de topologia]? Então eu acho que essa demonstração
- * deveria estar aqui no cadastro também."* O formato saiu de Lúcio (16:50): *"criar
- * uma aba só para mostrar a representação… e daí vai lá na outra, você digita qual
- * cidade, qual sistema você quer mostrar."*
+ * O DESENHO FICA NA MESMA ABA DA GRADE, e não numa aba separada de
+ * "representação": numa aba própria, quem preenche não vê o efeito, e conferir é
+ * navegar. Lado a lado, o efeito de escolher um destino aparece na mesma tela em
+ * que ele é escolhido.
  *
- * AS DUAS ABAS VIRARAM UMA em 20/08/2026, e é a mudança que dá sentido ao resto
- * deste arquivo. O que a separação custava era exatamente o que ela prometia: quem
- * preenchia numa não via o efeito na outra, e conferir era navegar. Juntas, com o
- * desenho ao lado da grade, o efeito de escolher um destino aparece na mesma tela
- * em que ele é escolhido.
+ * É também o que sustenta a conferência de topologia dentro do cadastro — ver
+ * `PainelTopologia`.
  *
- * Daí as três decisões que sobraram, e a quarta que a fusão trouxe:
+ * Daí as quatro decisões deste arquivo:
  *
  *   SÓ LEITURA. Não há uma célula editável aqui. O que estiver errado se conserta
  *   na tabela ao lado — e o clique no nó leva o foco até a linha dele, o que é o
@@ -91,9 +84,9 @@ export const LARGURA_MINIMA = 460
  *
  * Ele fica ao lado de uma tabela de largura fixa, então a coluna dele é o que
  * sobra — e o que sobra raramente é a largura natural do grafo (um nível com 3
- * caixas já pede 600px). Até 20/08/2026 o SVG saía no tamanho natural dentro de
- * um `overflow-x-auto`: cabia, mas aparecia CORTADO na borda, e caixa cortada lê
- * como tela quebrada, não como "tem mais para o lado".
+ * caixas já pede 600px). O SVG no tamanho natural dentro de um `overflow-x-auto`
+ * cabe, mas aparece CORTADO na borda — e caixa cortada lê como tela quebrada,
+ * não como "tem mais para o lado".
  *
  * Encolher resolve porque o SVG tem `viewBox`: ele reescala inteiro, sem perder
  * nó nenhum. O limite existe porque encolher é reduzir a FONTE junto — a 0,75 o
@@ -292,7 +285,7 @@ export function Unifilar({ dados, sistemaId, destaque, onFocarOrigem }: Unifilar
       {/* O recado das CTS sem sistema fica FORA do bloco do sistema escolhido: ele
           não é sobre o desenho, é sobre o que nenhum desenho pode conter ainda. */}
       {semSistema > 0 && (
-        <p className="text-[11.5px] leading-snug text-ink-500">
+        <p className="text-[11.5px] leading-snug text-ink-water">
           <strong className="font-semibold text-ink-700">
             {semSistema} {semSistema === 1 ? 'origem ainda não aparece' : 'origens ainda não aparecem'} em
             desenho nenhum.
@@ -308,7 +301,7 @@ export function Unifilar({ dados, sistemaId, destaque, onFocarOrigem }: Unifilar
 function Vazio({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2.5 rounded-2xl border border-ink-200 bg-ink-50 p-4">
-      <Path weight="fill" className="mt-0.5 shrink-0 text-lg text-ink-400" />
+      <Path weight="fill" className="mt-0.5 shrink-0 text-lg text-ink-water" />
       <p className="text-[12.5px] leading-snug text-ink-600">{children}</p>
     </div>
   )
@@ -396,7 +389,7 @@ function Desenho({
           {/* A dica fica DENTRO da caixa, no canto de baixo: a coluna da direita é
               `overflow-y-auto` no layout de duas colunas, e qualquer coisa
               posicionada acima do topo do painel some recortada. */}
-          <span className="pointer-events-none absolute bottom-2.5 right-3 z-20 inline-flex items-center gap-1 rounded-full border border-ink-200 bg-white/90 px-2 py-0.5 text-[10.5px] font-medium text-ink-500 shadow-sm">
+          <span className="pointer-events-none absolute bottom-2.5 right-3 z-20 inline-flex items-center gap-1 rounded-full border border-ink-200 bg-white/90 px-2 py-0.5 text-[10.5px] font-medium text-ink-water shadow-sm">
             <ArrowsHorizontal weight="bold" className="text-[11px]" />
             arraste para ver o resto
           </span>
@@ -629,7 +622,7 @@ function Legenda() {
   return (
     <ul className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
       {itens.map((i) => (
-        <li key={i.texto} className="flex items-center gap-1.5 text-[11px] text-ink-500">
+        <li key={i.texto} className="flex items-center gap-1.5 text-[11px] text-ink-water">
           <span
             className="h-[11px] w-[16px] rounded-[3px]"
             style={{
@@ -645,7 +638,7 @@ function Legenda() {
           não sabe que o cano grosso e escuro quer dizer mais vazão lê o desenho
           como estilo. A amostra mostra a rampa inteira, do menor ao maior do
           SISTEMA — a escala é relativa a ele, não à unidade. */}
-      <li className="flex items-center gap-1.5 text-[11px] text-ink-500">
+      <li className="flex items-center gap-1.5 text-[11px] text-ink-water">
         <span className="inline-flex items-center gap-[2px]" aria-hidden="true">
           {RAMPA.map((c, i) => (
             <span
@@ -657,7 +650,7 @@ function Legenda() {
         </span>
         cano = vazão que passa (do menor ao maior do sistema)
       </li>
-      <li className="flex items-center gap-1.5 text-[11px] text-ink-500">
+      <li className="flex items-center gap-1.5 text-[11px] text-ink-water">
         <span
           className="rounded-full"
           style={{ background: COR_SEM_DADO, width: 16, height: 2.5 }}
@@ -711,14 +704,14 @@ function Soltos({
                   focado ? 'border-water-600 ring-2 ring-water-600/30' : 'border-warning/40'
                 }`}
               >
-                <span className="font-mono text-[10px] text-ink-500">{no.id}</span>{' '}
+                <span className="font-mono text-[10px] text-ink-water">{no.id}</span>{' '}
                 {cortar(no.nome || '', 18)}
               </button>
             </li>
           )
         })}
         {extras > 0 && (
-          <li className="self-center text-[11px] text-ink-500">e mais {extras}</li>
+          <li className="self-center text-[11px] text-ink-water">e mais {extras}</li>
         )}
       </ul>
     </div>

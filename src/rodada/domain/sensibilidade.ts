@@ -31,10 +31,9 @@
  * ## A linhagem vem do SERVIDOR
  *
  * Os pontos saem de `GET /runs/{id}/sensibilidade`, que os encontra por
- * `run_request.base_run_id`. A versão anterior escrevia o degrau no rótulo da
- * rodada e o lia de volta com uma expressão regular — o rótulo é livre, então
- * renomear desmanchava a curva em silêncio, e uma variação que o backend
- * deduplicou sob outro nome nunca era encontrada.
+ * `run_request.base_run_id`, e nunca do RÓTULO da rodada: o rótulo é livre, e
+ * lê-lo com expressão regular faz renomear desmanchar a curva em silêncio — além
+ * de nunca encontrar uma variação que o backend deduplicou sob outro nome.
  */
 
 /**
@@ -220,11 +219,10 @@ export function situacaoDaVarredura(
   // SÓ OS DEGRAUS PEDIDOS. A faixa é a pergunta, e ponto fora dela é resposta de
   // outra.
   //
-  // A versão anterior somava os degraus JÁ EXECUTADOS aos pedidos, com o
-  // argumento de que aquelas rodadas existem e custaram cluster. O argumento era
-  // verdadeiro e a conclusão errada: numa base que já tinha rodado +10% a +50%,
-  // pedir "de 5 a 20 em 4 pontos" devolvia +5% +10% +15% +20% +30% +40% +50% —
-  // o cenário antigo de volta, com o controle de faixa parecendo ignorado. Duas
+  // NÃO SOMAR os degraus já executados aos pedidos, mesmo que aquelas rodadas
+  // existam e tenham custado cluster: numa base que já rodou +10% a +50%, pedir
+  // "de 5 a 20 em 4 pontos" devolveria +5% +10% +15% +20% +30% +40% +50% — o
+  // cenário antigo de volta, com o controle de faixa parecendo ignorado. Duas
   // análises no mesmo gráfico não são uma análise mais completa; são duas
   // perguntas somadas.
   //
@@ -480,13 +478,12 @@ export function faltouTempoDeSolver(p: PontoDaCurva | null): boolean {
 /**
  * A FAIXA QUE A ANÁLISE EXISTENTE DESCREVE — o que a tela deve abrir mostrando.
  *
- * A faixa vive na tela, e por isso ela se perdia ao sair: quem rodava "de 5 a 20
- * em 4 pontos", saía e voltava, reencontrava o padrão de +10% a +50% — e como a
- * lista passou a ser exatamente a faixa pedida, os pontos rodados em +5% e +15%
- * ficavam fora dela. A tela abria como se nenhuma análise tivesse sido feita,
- * com o trabalho intacto no banco e invisível.
+ * A faixa vive na tela, e some ao sair: quem roda "de 5 a 20 em 4 pontos", sai e
+ * volta, reencontra o padrão de +10% a +50% — e como a lista é exatamente a faixa
+ * pedida, os pontos rodados em +5% e +15% ficam fora dela. A tela abriria como se
+ * nenhuma análise tivesse sido feita, com o trabalho intacto no banco e invisível.
  *
- * A correção não é guardar a escolha em algum lugar: é a tela abrir sobre O QUE
+ * A saída não é guardar a escolha em algum lugar: é a tela abrir sobre O QUE
  * EXISTE. A faixa não precisa ser lembrada porque ela pode ser LIDA — os degraus
  * que rodaram foram gerados por `pontosDaFaixa`, então eles descrevem o
  * intervalo e a quantidade que os produziu.

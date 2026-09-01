@@ -25,14 +25,12 @@ interface AbaCellProps {
    */
   cidades: Cidade[]
   /**
-   * O CADASTRO INTEIRO — o encanamento que os itens 21 e 22 exigiram.
+   * O CADASTRO INTEIRO — e não só a linha da célula.
    *
-   * Uma célula que só enxerga a própria linha bastava até 07/08/2026. Deixou de
-   * bastar em duas frentes ao mesmo tempo: o sistema da CTS é derivado de OUTRA
-   * ABA (item 21), e as opções do destino no Fluxo dependem de quem são as outras
-   * sub-bacias, as CTS e as ETEs (item 22). Como é o mesmo encanamento, os dois
-   * itens foram feitos juntos — separados, seria descer `dados` por
-   * `CadastroWizard` → `AbaGrid` → `AbaCell` duas vezes.
+   * Duas coisas desta célula dependem de OUTRAS ABAS: o sistema da CTS é
+   * derivado do destino dela no Fluxo, e as opções de destino no Fluxo dependem
+   * de quem são as outras sub-bacias, as CTS e as ETEs. Sem `dados`, as duas
+   * viram campo vazio.
    */
   dados: Dados
   onChange: (col: string, value: string) => void
@@ -45,14 +43,13 @@ interface AbaCellProps {
    */
   somenteLeitura?: boolean
   /**
-   * SEM PERMISSÃO DE EDITAR — e a razão de esta prop existir separada de
-   * `somenteLeitura` é um travamento real, achado em 20/08/2026.
+   * SEM PERMISSÃO DE EDITAR — separada de `somenteLeitura` de propósito, e
+   * misturar as duas trava a célula de vez.
    *
-   * As duas nasceram misturadas: o `<select>` usava `somenteLeitura` no
-   * `disabled`, com o comentário "escolher já É a edição" logo ao lado. Mas
-   * `somenteLeitura` é `!permitida || !(focada && editando)` — ele carrega
-   * PERMISSÃO **e** o estado de foco/edição da grade. Num `<select>`, misturar as
-   * duas produz um impasse fechado:
+   * `somenteLeitura` é `!permitida || !(focada && editando)`: carrega PERMISSÃO
+   * **e** o estado de foco/edição da grade. Usá-la no `disabled` de um `<select>`
+   * (com o argumento de que "escolher já É a edição") produz um impasse
+   * fechado:
    *
    *   o select está `disabled` porque a célula não está em edição
    *     → e um controle desabilitado NÃO deixa o clique borbulhar
@@ -84,14 +81,13 @@ interface AbaCellProps {
 const CAMPOS_SO_ETE_NOVA = ['capex_terreno', 'modulos']
 
 /**
- * O VOLUME DA COR BAIXOU (11/08/2026), e o mapa continua de pé.
+ * O MAPA DE COR POR ORIGEM — em volume baixo, e é o volume que importa.
  *
- * Os quatro fundos por origem — azul Databricks, cinza calculado, âmbar a
- * preencher, branco preenchido — são o mapa visual de "o que falta", e o
- * `DEPARA-REDESIGN-CADASTRO.md` os lista como item a PRESERVAR (§3.2, item 5).
- * Não saíram, e não devem sair.
+ * Os quatro fundos — azul Databricks, cinza calculado, âmbar a preencher, branco
+ * preenchido — são o mapa visual de "o que falta". São para PRESERVAR: não
+ * devem sair.
  *
- * O que estava errado era a INTENSIDADE. Preenchimento chapado em toda célula,
+ * O que não pode subir é a INTENSIDADE. Preenchimento chapado em toda célula,
  * numa aba de 22 colunas, satura a tela inteira: quando toda célula tem cor,
  * nenhuma cor chama atenção — e a célula em foco, que é a única que precisa ser
  * inconfundível, competia com 500 retângulos coloridos.
@@ -146,17 +142,15 @@ export function ehColunaDeCodigo(col: string): boolean {
 const TEXTO_BASE = 'px-2 py-1 text-sm border border-transparent'
 
 /**
- * TEXTO, E NÃO CAMPO, FORA DA EDIÇÃO (11/08/2026) — a mudança mais profunda da
- * grade, e a que motivou todas as outras.
+ * TEXTO, E NÃO CAMPO, FORA DA EDIÇÃO — é o que sustenta a grade inteira.
  *
- * Antes, cada célula era um `<input>`: as editáveis, as travadas do Databricks e
- * as calculadas. Numa aba de 22 colunas e 1.047 linhas isso são ~23 mil inputs
- * no DOM — caro de montar, caro de manter, e visualmente uma parede de
+ * Um `<input>` por célula, numa aba de 22 colunas e 1.047 linhas, são ~23 mil
+ * inputs no DOM: caro de montar, caro de manter, e visualmente uma parede de
  * retângulos onde nenhum deles significa nada. Um campo de formulário promete
  * "digite aqui"; em célula travada a promessa é falsa.
  *
- * Agora o campo só existe onde ele é verdade: na célula em edição. As outras são
- * um `<span>` com o mesmo alinhamento e o mesmo tamanho, dentro do mesmo `<td>`.
+ * O campo só existe onde ele é verdade: na célula em edição. As outras são um
+ * `<span>` com o mesmo alinhamento e o mesmo tamanho, dentro do mesmo `<td>`.
  *
  * O QUE ISSO QUASE QUEBROU, e como ficou resolvido: o teclado e o colar da grade
  * dependem de o evento borbulhar de um elemento FOCADO até o container. Sem
@@ -268,8 +262,8 @@ export function AbaCell({ abaKey, col, origem, row, cidades, dados, onChange, so
   /**
    * Coluna do Databricks é SOMENTE LEITURA no site.
    *
-   * Decisão da sessão de 30/07/2026 com a Aegea: esses campos se corrigem na
-   * origem, no Databricks, nunca aqui — um valor digitado na tela seria
+   * Esses campos se corrigem na ORIGEM, no Databricks, nunca aqui — um valor
+   * digitado na tela seria
    * sobrescrito na próxima carga, e nesse intervalo a unidade teria trabalhado
    * sobre um número que o motor não vai ler. Onde o dado ainda não chegou, a
    * célula fica VAZIA de propósito: o vazio é o recado de que falta integração,
@@ -291,7 +285,7 @@ export function AbaCell({ abaKey, col, origem, row, cidades, dados, onChange, so
               ? 'Vem do Databricks e ainda não foi carregado. Preenchimento é na origem, não aqui.'
               : 'Vem do Databricks — para corrigir, altere na origem'
         }
-        classe={`${TEXTO_BASE}${num} rounded-md bg-water-50/60 text-ink-500`}
+        classe={`${TEXTO_BASE}${num} rounded-md bg-water-50/60 text-ink-water`}
       />
     )
   }
@@ -342,7 +336,7 @@ export function AbaCell({ abaKey, col, origem, row, cidades, dados, onChange, so
             `<select>` em branco, e quem abrisse a aba concluiria que os dados se
             perderam.
 
-            O outro caso é o destino que deixou de ser válido depois de escolhido
+            O outro caso é o destino que perde a validade depois de escolhido
             (a origem mudou de sistema). Aí ele continua visível de propósito, e
             quem diz que está errado é a validação de topologia — esconder o valor
             seria apagar a evidência do problema. */}
@@ -407,12 +401,11 @@ export function AbaCell({ abaKey, col, origem, row, cidades, dados, onChange, so
   /**
    * O CAMINHO NORMAL da grade: fora de edição isto é texto, não campo.
    *
-   * A versão anterior mantinha o `<input>` sempre montado e apenas escondia o
-   * cursor, e a razão era mecânica: `readOnly` impede o navegador de disparar
-   * `paste`, e era do input focado que o evento subia até o container. Isso
-   * deixou de ser necessário — o `<td>` agora é focável (`tabIndex={-1}`) e o
-   * `focarNoDom` foca a célula quando não há campo dentro dela, então o colar
-   * sobre a seleção continua funcionando sem 23 mil inputs no DOM.
+   * O CUIDADO ao mexer aqui é o colar: `readOnly` impede o navegador de disparar
+   * `paste`, e manter um `<input>` montado só para captar o evento custa 23 mil
+   * inputs no DOM. Quem resolve isso é o `<td>` focável (`tabIndex={-1}`) mais o
+   * `focarNoDom`, que foca a célula quando não há campo dentro dela — o evento
+   * sobe daí até o container.
    */
   if (somenteLeitura) {
     return (

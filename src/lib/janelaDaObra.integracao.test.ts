@@ -31,11 +31,10 @@ let noAr = false
 /**
  * O BASELINE É CAPTURADO ANTES DE QUALQUER ESCRITA, e restaurado no fim.
  *
- * A primeira versão lia o "original" dentro do próprio teste que escreve. Quando
- * uma execução falhava no meio, ela deixava o valor alterado — e a execução
- * SEGUINTE tomava esse valor sujo como original, "restaurava" para ele e passava.
- * Verde, com o dado alterado no banco. Foi o que aconteceu: a ETE `d1e1` ficou
- * com 2028/2027/3 e o teste não acusou.
+ * Ler o "original" dentro do próprio teste que escreve não serve: se uma
+ * execução falha no meio, ela deixa o valor alterado — e a execução SEGUINTE
+ * toma esse valor sujo como original, "restaura" para ele e passa. Verde, com o
+ * dado alterado no banco.
  *
  * Capturar uma vez em `beforeAll` e devolver em `afterAll` fecha isso: o
  * `afterAll` roda mesmo com teste reprovado.

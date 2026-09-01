@@ -158,7 +158,7 @@ export function SubBacia() {
             {s.elementos.length === 0 ? (
               <div className="rounded-2xl border-[1.5px] border-dashed border-ink-300 bg-white p-8 text-center">
                 <p className="text-sm font-semibold text-ink-800">Nenhum componente nesta sub-bacia</p>
-                <p className="mt-1 text-[12.5px] text-ink-500">
+                <p className="mt-1 text-[12.5px] text-ink-water">
                   Não há obra associada — a rodada não previu construção aqui.
                 </p>
               </div>
@@ -241,7 +241,7 @@ function PainelExplicacao({
     <div className="min-w-0 rounded-2xl border border-ink-200 bg-white p-4 shadow-soft md:p-5">
       <div>
         <h2 className="text-[13px] font-bold text-ink-800">Por que este resultado</h2>
-        <p className="mt-0.5 text-[11.5px] text-ink-500">explicabilidade do otimizador</p>
+        <p className="mt-0.5 text-[11.5px] text-ink-water">explicabilidade do otimizador</p>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -249,7 +249,7 @@ function PainelExplicacao({
           {categoria}
         </Badge>
         {elo && (
-          <span className="text-[11.5px] text-ink-500">
+          <span className="text-[11.5px] text-ink-water">
             elo:{' '}
             <CelulaLink to={`/resultados/${runId}/obras/${elo}`}>
               <span className="font-mono text-[11.5px]">{elo}</span>
@@ -264,10 +264,10 @@ function PainelExplicacao({
 
       {seFosseLigada ? (
         <>
-          <div className="mt-4 text-[10.5px] font-semibold uppercase tracking-[.09em] text-ink-400">
+          <div className="mt-4 text-[10.5px] font-semibold uppercase tracking-[.09em] text-ink-water">
             Se fosse ligada sozinha
           </div>
-          <p className="mt-1 text-[11.5px] leading-snug text-ink-500">
+          <p className="mt-1 text-[11.5px] leading-snug text-ink-water">
             O contrafactual: a mesma sub-bacia, sem dividir o custo da estrutura compartilhada.
           </p>
           <dl className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-2">
@@ -316,7 +316,7 @@ function PainelExplicacao({
       ) : (
         /* Tracejado: esperando alguém. O contrafactual não se aplica a toda
            sub-bacia, e dizer isso é diferente de mostrar uma conta zerada. */
-        <p className="mt-4 rounded-xl border-[1.5px] border-dashed border-ink-300 p-3 text-[11.5px] leading-snug text-ink-500">
+        <p className="mt-4 rounded-xl border-[1.5px] border-dashed border-ink-300 p-3 text-[11.5px] leading-snug text-ink-water">
           Sem contrafactual para esta estrutura. O caso não é de rateio, então não há "se fosse
           ligada sozinha" a comparar.
         </p>
@@ -328,7 +328,7 @@ function PainelExplicacao({
 function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
   return (
     <div className="flex items-baseline justify-between gap-2 border-b border-ink-100 pb-1.5">
-      <dt className="text-[11.5px] text-ink-500">{rotulo}</dt>
+      <dt className="text-[11.5px] text-ink-water">{rotulo}</dt>
       <dd className="m-0 font-mono text-[12px] font-medium tabular-nums text-ink-800">{valor}</dd>
     </div>
   )

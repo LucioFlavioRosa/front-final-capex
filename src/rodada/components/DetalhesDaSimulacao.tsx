@@ -102,7 +102,7 @@ export function DetalhesDaSimulacao({ run, aoFechar }: { run: RunResumo; aoFecha
             <h2 id="detalhes-titulo" className="text-[19px] font-bold leading-snug text-ink-800">
               {run.nome || 'Simulação sem nome'}
             </h2>
-            <div className="mt-1 font-mono text-[11px] tabular-nums text-ink-400">{run.runId}</div>
+            <div className="mt-1 font-mono text-[11px] tabular-nums text-ink-water">{run.runId}</div>
           </div>
           <TagStatus status={run.status} />
         </div>
@@ -130,7 +130,7 @@ export function DetalhesDaSimulacao({ run, aoFechar }: { run: RunResumo; aoFecha
                 >
                   <dt className="text-[13px] text-ink-600">
                     {rotuloDoParametro(chave)}{' '}
-                    <code className="font-mono text-[10px] uppercase text-ink-400">{chave}</code>
+                    <code className="font-mono text-[10px] uppercase text-ink-water">{chave}</code>
                   </dt>
                   <dd className="text-right text-[13px] font-semibold tabular-nums text-ink-800">
                     {valorDoParametro(chave, valor)}
@@ -142,7 +142,7 @@ export function DetalhesDaSimulacao({ run, aoFechar }: { run: RunResumo; aoFecha
             /* Rodada publicada direto pelo pacote de produção não passou pela
                fila, e por isso não tem pedido gravado. Dizer isso é melhor que
                uma lista vazia, que se lê como "rodou sem parâmetro nenhum". */
-            <p className="mt-2 text-[13px] leading-relaxed text-ink-500">
+            <p className="mt-2 text-[13px] leading-relaxed text-ink-water">
               Esta rodada não tem o pedido registrado — ela foi publicada sem passar pela fila, e as
               variáveis não ficaram guardadas.
             </p>
@@ -213,7 +213,7 @@ function Comentario({ run }: { run: RunResumo }) {
       <h3 className="mt-6 text-[11.5px] font-semibold uppercase tracking-[.05em] text-ink-water">
         Comentário
       </h3>
-      <p id={`${id}-ajuda`} className="mt-1 text-[12px] leading-snug text-ink-500">
+      <p id={`${id}-ajuda`} className="mt-1 text-[12px] leading-snug text-ink-water">
         Anotação sobre esta rodada — o que ela mostrou, por que ela importa. Todo mundo que vê a
         rodada lê e pode editar.
       </p>
@@ -229,7 +229,7 @@ function Comentario({ run }: { run: RunResumo }) {
         className="mt-2 min-h-[74px] w-full resize-y rounded-[10px] border border-ink-200 bg-white p-3 text-[13px] leading-relaxed outline-none transition-colors duration-hover ease-saida focus:border-water-600 focus:ring-2 focus:ring-water-600/25"
       />
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-[12px] text-ink-500">
+        <span className="text-[12px] text-ink-water">
           {run.comentario?.autor
             ? `Última edição de ${run.comentario.autor}, ${dataHora(run.comentario.atualizadoEm)}`
             : 'Ninguém anotou esta rodada ainda.'}
@@ -259,7 +259,7 @@ function Comentario({ run }: { run: RunResumo }) {
 function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-      <dt className="text-[13px] text-ink-500">{rotulo}</dt>
+      <dt className="text-[13px] text-ink-water">{rotulo}</dt>
       <dd className="text-right text-[13px] font-semibold text-ink-800">{valor}</dd>
     </div>
   )

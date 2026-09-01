@@ -103,11 +103,9 @@ export function SecaoPorQue({
   dados: ExplicabilidadeGlobal
   runId: string | undefined
   /**
-   * Nível 2 (item 10 do feedback de 26/08) reaproveita este bloco COM RECORTE
-   * DE CIDADE — mesma consulta, mesmo componente, só o título muda para "sub-
-   * bacias fora do plano", que é como o pedido foi feito ("quais sistemas e
-   * sub-bacias estão sendo priorizados e quais ficaram de fora"). O padrão
-   * global fica "Por que nem tudo fatura".
+   * O nível 2 reaproveita este bloco COM RECORTE DE CIDADE — mesma consulta,
+   * mesmo componente, só o título muda para "sub-bacias fora do plano". O padrão
+   * global é "Por que nem tudo fatura".
    */
   titulo?: string
 }) {
@@ -125,7 +123,7 @@ export function SecaoPorQue({
           restante espremido em meia tela sem nada ao lado. */}
       <div className="grid gap-4">
         <Cartao titulo="Motivos, por sub-bacia">
-          <p className="-mt-1 mb-3 text-[11px] leading-snug text-ink-500">
+          <p className="-mt-1 mb-3 text-[11px] leading-snug text-ink-water">
             {inteiro(dados.naoFaturando)} de {inteiro(dados.totalSubbacias)} sub-bacias não
             faturam nesta rodada — agrupadas abaixo pelo motivo que o otimizador registrou
             para cada uma.
@@ -143,16 +141,16 @@ export function SecaoPorQue({
                       <span className="min-w-0 truncate text-[12.5px] font-medium text-ink-700">
                         {rotulo}
                       </span>
-                      <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11.5px] tabular-nums text-ink-500">
+                      <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11.5px] tabular-nums text-ink-water">
                         {inteiro(c.subbacias)} sub-bacia{c.subbacias === 1 ? '' : 's'} ·{' '}
                         {vazao(c.vazaoPresa)} presa
-                        <span className="text-ink-400 transition-transform duration-hover ease-saida group-open:rotate-180">
+                        <span className="text-ink-water transition-transform duration-hover ease-saida group-open:rotate-180">
                           ⌄
                         </span>
                       </span>
                     </summary>
                     {explicacao && (
-                      <p className="mt-1 text-[11px] leading-snug text-ink-500">{explicacao}</p>
+                      <p className="mt-1 text-[11px] leading-snug text-ink-water">{explicacao}</p>
                     )}
                     {c.itens.length > 0 && (
                       <ul className="mt-2 flex flex-col gap-1 border-t border-ink-200 pt-2">
@@ -165,11 +163,11 @@ export function SecaoPorQue({
                               <CelulaLink to={`/resultados/${runId}/sub-bacias/${i.subBaciaId}`}>
                                 <span className="font-mono">{i.subBaciaId}</span>
                               </CelulaLink>{' '}
-                              <span className="text-ink-500">
+                              <span className="text-ink-water">
                                 · {i.cidadeId} · sistema {i.sistemaId}
                               </span>
                             </span>
-                            <span className="shrink-0 font-mono tabular-nums text-ink-500">
+                            <span className="shrink-0 font-mono tabular-nums text-ink-water">
                               {vazao(i.vazaoPresa)}
                             </span>
                           </li>
@@ -190,10 +188,10 @@ export function SecaoPorQue({
 }
 
 /**
- * "SÃO CLASSIFICAÇÕES OU INTERPRETAÇÃO DE IA?" — a pergunta da Aegea em 26/08
- * (item 24), respondida na própria tela.
+ * "SÃO CLASSIFICAÇÕES OU INTERPRETAÇÃO DE IA?" — respondido na própria tela.
  *
- * Ela vai voltar: um bloco que escreve frases em português sobre o porquê de
+ * A pergunta é inevitável: um bloco que escreve frases em português sobre o
+ * porquê de
  * cada decisão parece saída de modelo de linguagem, e num app que sustenta
  * decisão de investimento a diferença entre "uma regra decidiu" e "um modelo
  * achou" é a diferença entre auditável e não auditável. Responder no e-mail
@@ -210,7 +208,7 @@ function ComoIstoECalculado() {
         Como isto é calculado
         <span
           aria-hidden="true"
-          className="text-ink-400 transition-transform duration-hover ease-saida group-open:rotate-180"
+          className="text-ink-water transition-transform duration-hover ease-saida group-open:rotate-180"
         >
           ⌄
         </span>

@@ -289,8 +289,8 @@ export function livroXlsx(p: Planilha): Uint8Array {
  * ano exporta várias vezes na mesma visita.
  */
 export function baixarXlsx(p: Planilha, nomeDoArquivo: string): void {
-  // `.buffer` e nao o Uint8Array: o TS 5.7 tipou os arrays por buffer, e um
-  // `Uint8Array<ArrayBufferLike>` deixou de valer como `BlobPart` porque
+  // `.buffer` e nao o Uint8Array: a partir do TS 5.7 os arrays sao tipados por
+  // buffer, e um `Uint8Array<ArrayBufferLike>` nao vale como `BlobPart` porque
   // poderia, em tese, estar sobre um SharedArrayBuffer. O nosso nunca esta —
   // `zipar` devolve um array recem-criado, do tamanho exato do conteudo.
   const blob = new Blob([livroXlsx(p).buffer as ArrayBuffer], { type: TIPO_XLSX })

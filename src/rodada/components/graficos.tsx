@@ -33,12 +33,11 @@ import type {
 /**
  * Os gráficos do painel global, em recharts.
  *
- * Substituem 1.077 LOC de SVG à mão do repo de origem. O requisito da decisão
- * de 17/08 é "mesma INFORMAÇÃO, nossa identidade" — e "mesma informação" só é
- * verificável contra uma lista, que é a tabela de gráficos do
- * `INVENTARIO-TELAS-SIMULACAO-RESULTADOS.md`. A contagem deixou de ser fixa em
- * "oito" na reunião de validação de 18/08: elementos por ano e preço unitário
- * médio agora abrem um quadro por unidade física (ver `agruparPorUnidade`).
+ * O requisito é "mesma INFORMAÇÃO, nossa identidade" em relação aos gráficos de
+ * origem — e "mesma informação" só é verificável contra uma lista, que é a
+ * tabela de gráficos do `INVENTARIO-TELAS-SIMULACAO-RESULTADOS.md`. A contagem
+ * de quadros não é fixa: elementos por ano e preço unitário médio abrem um
+ * quadro por unidade física (ver `agruparPorUnidade`).
  *
  * As quatro armadilhas daquela lista, e onde cada uma é tratada aqui:
  *
@@ -51,8 +50,9 @@ import type {
  *   3. Unidade física ausente vira `'—'`, nunca 0.
  *   4. `indireta` só existe no ano da conexão — segmento ausente, não zerado.
  *
- * E a decisão de desenho da fase 8: o EBITDA virou DOIS painéis empilhados com
- * o eixo X compartilhado, porque no original ele tinha dois eixos Y.
+ * O EBITDA são DOIS painéis empilhados com o eixo X compartilhado, e não um
+ * quadro com dois eixos Y: escala dupla faz o cruzamento entre as séries
+ * parecer um evento, quando ele só reflete onde cada eixo foi ancorado.
  */
 
 const ALTURA = 200
@@ -106,7 +106,7 @@ function Dica({
                 style={{ background: l.cor }}
               />
             )}
-            <span className="text-ink-500">{l.rotulo}</span>
+            <span className="text-ink-water">{l.rotulo}</span>
             <span className="ml-auto font-mono font-semibold tabular-nums text-ink-800">
               {l.valor}
             </span>
@@ -122,7 +122,7 @@ function Legenda({ itens }: { itens: { rotulo: string; cor: string; traco?: bool
   return (
     <ul className="m-0 mt-2 flex list-none flex-wrap gap-x-3.5 gap-y-1 p-0">
       {itens.map((i) => (
-        <li key={i.rotulo} className="flex items-center gap-1.5 text-[10px] text-ink-500">
+        <li key={i.rotulo} className="flex items-center gap-1.5 text-[10px] text-ink-water">
           <span
             aria-hidden="true"
             className={i.traco ? 'h-0 w-3 border-t-[1.5px] border-dashed' : 'h-2 w-2 rounded-sm'}
@@ -158,8 +158,8 @@ export function GraficoFluxoEscoamento({
   /**
    * "arrecadada" | "faturada" — a régua da parcela de receita deste quadro.
    *
-   * Vem junto com o rótulo do KPI de Receita (item 16 do feedback de 26/08):
-   * arrecadada já desconta inadimplência, faturada não, e um quadro que
+   * Vem junto com o rótulo do KPI de Receita: arrecadada já desconta
+   * inadimplência, faturada não, e um quadro que
    * decompõe o VPL sem dizer qual das duas entrou deixa a maior barra sem
    * unidade. Ausente em servidor antigo — aí a nota simplesmente não menciona
    * a base, em vez de afirmar uma das duas.
@@ -342,12 +342,11 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
    * do gráfico. Passando `null` e sem `connectNulls`, a linha simplesmente
    * PARA onde a janela acaba — que é a verdade.
    *
-   * O CAPEX ACUMULADO SAIU DAQUI. Ele era a antiga Curva S, trazida para este
-   * quadro em 18/08, e vivia num segundo eixo Y à direita — a única escala
-   * dupla que tinha sobrado nos gráficos. Duas escalas no mesmo desenho fazem o
-   * cruzamento entre a linha e as barras parecer um evento, quando ele só
-   * reflete onde cada eixo foi ancorado. Com ela fora, o quadro tem um eixo só
-   * e as três barras voltam a ser comparáveis entre si sem ressalva.
+   * O CAPEX ACUMULADO NÃO ENTRA NESTE QUADRO. Ele precisaria de um segundo eixo
+   * Y à direita, e duas escalas no mesmo desenho fazem o cruzamento entre a
+   * linha e as barras parecer um evento, quando ele só reflete onde cada eixo
+   * foi ancorado. Com um eixo só, as três barras são comparáveis entre si sem
+   * ressalva.
    */
   const dados = anos.map((a) => ({
     ano: a.ano,
@@ -852,8 +851,8 @@ export function GraficoReceitaSubBacia({ anos }: { anos: ReceitaAno[] }) {
 }
 
 /**
- * A CURVA DE COBERTURA DA UNIDADE — item 4 do feedback de 26/08, no nível 1
- * ("a curva de cobertura que aquela simulação atinge").
+ * A CURVA DE COBERTURA DA UNIDADE — a cobertura que a simulação atinge, no
+ * nível 1.
  *
  * É uma LINHA, e não barras como `GraficoCobertura` (nível 2): lá o eixo X são
  * os ANOS DE META, um punhado de pontos onde faz sentido comparar alvo ×

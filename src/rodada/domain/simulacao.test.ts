@@ -12,7 +12,6 @@ import {
   MILHAO,
   num,
   numOuNulo,
-  rotuloFoco,
   validar,
   resumirFaltando,
   type Prontidao,
@@ -104,19 +103,43 @@ describe('derivarOrcamento', () => {
     expect(derivarOrcamento(e).pico).toBe(60)
   })
 
-  it('no modo valor único, divide o TOTAL igualmente pelo horizonte', () => {
+  it('no modo valor único, o campo É a verba ANUAL — o total é derivado', () => {
     const e = {
       ...estadoInicial(),
       modoOrcamento: 'unico' as const,
-      orcamentoValor: '400',
+      capexAnual: '50',
       horizonte: '8',
     }
     const d = derivarOrcamento(e)
-    // orcamentoValor e o TOTAL do plano — a soma dos anos tem de bater com ele,
-    // e nao com ele multiplicado pelo horizonte.
-    expect(d.total).toBe(400)
+    // O SENTIDO DO CAMPO e o que este teste prende, e ele ja se inverteu antes:
+    // `capexAnual` e verba POR ANO. 50 por ano durante 8 anos sao 400 no total,
+    // e nao 6,25 por ano.
     expect(d.valores[0]).toBe(50)
-    expect(d.anosComVerba.length).toBe(8)
+    expect(d.total).toBe(400)
+    expect(d.quantosAnos).toBe(8)
+  })
+
+  it('no modo valor único os anos NÃO ganham nome — e a janela diz só a duração', () => {
+    // A tela pergunta QUANTOS anos, nunca QUAIS: o ano de início vem do
+    // cadastro, não daqui. Nomear anos aqui já produziu duas mentiras — herdar
+    // o primeiro ano do cronograma escondido, e cair no ano corrente com a
+    // tabela vazia, fazendo o texto mudar conforme o dia em que a tela abria.
+    const e = { ...estadoInicial(), modoOrcamento: 'unico' as const, horizonte: '8' }
+    const d = derivarOrcamento(e)
+    expect(d.anosComVerba).toEqual([])
+    expect(d.janelaTexto).toBe('8 anos')
+    expect(d.janelaTexto).not.toMatch(/\d{4}/)
+  })
+
+  it('mudar a janela mexe no TOTAL, e nunca no teto de cada ano', () => {
+    // A diferenca pratica de o campo ser anual: com o total, esticar a janela
+    // baixava calado o teto de todo ano. Agora esticar a janela adiciona anos
+    // com a MESMA verba, que e o que quem digita espera.
+    const base = { ...estadoInicial(), modoOrcamento: 'unico' as const, capexAnual: '50' }
+    const curta = derivarOrcamento({ ...base, horizonte: '4' })
+    const longa = derivarOrcamento({ ...base, horizonte: '8' })
+    expect(curta.valores[0]).toBe(longa.valores[0])
+    expect(longa.total).toBe(curta.total * 2)
   })
 
   it('cronograma zerado não inventa janela', () => {
@@ -266,9 +289,9 @@ describe('corpoDaRodada', () => {
     const e = { ...estadoInicial(), unidadeId: 'u1', modoOrcamento: 'unico' as const }
     const corpo = corpoDaRodada(e)
     expect(corpo.orcamento).toBeUndefined()
-    // orcamentoValor (default '50') e o TOTAL; o motor quer verba ANUAL — a
-    // divisao pelo horizonte (default 8) acontece antes do payload sair.
-    expect(corpo.orcamento_anual).toBe((50 * MILHAO) / 8)
+    // `capexAnual` (default '50') JA e a verba anual: o payload leva o valor
+    // digitado, sem divisao no meio. O horizonte so diz por quantos anos.
+    expect(corpo.orcamento_anual).toBe(50 * MILHAO)
     expect(corpo.horizonte_capex).toBe(8)
   })
 
@@ -286,19 +309,6 @@ describe('corpoDaRodada', () => {
 })
 
 describe('rótulos', () => {
-  it('o foco ganha um rótulo legível nas três escolhas da tela', () => {
-    expect(rotuloFoco(0)).toBe('só VPL')
-    expect(rotuloFoco(0.5)).toBe('equilíbrio')
-    expect(rotuloFoco(1)).toBe('cobertura em 1º lugar')
-  })
-
-  it('valor fora das três ainda responde — o payload aceita a faixa toda', () => {
-    // A tela so produz 0, 0,5 e 1, mas um pedido montado fora dela pode trazer
-    // qualquer valor entre 0 e 1. O resumo nao pode ficar sem rotulo por isso.
-    expect(rotuloFoco(0.2)).toBe('equilíbrio')
-    expect(rotuloFoco(0.8)).toBe('equilíbrio')
-  })
-
   it('as etapas do progresso seguem a ordem do job', () => {
     expect(etapaDe(0)).toContain('Lendo dados')
     expect(etapaDe(30)).toContain('modelo')

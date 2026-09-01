@@ -20,8 +20,8 @@
  * têm os mesmos nomes das colunas do banco. O que difere é o RECORTE das rotas,
  * que agrupam por ficha em vez de por tabela:
  *
- *   GET /unidades/{u}/hierarquia   unidade-regional, regional-superintendencia,
- *                                  superintendencia-cidade, cidade-sistema,
+ *   GET /unidades/{u}/hierarquia   unidade-regional, empresa,
+ *                                  cidade-empresa, cidade-sistema,
  *                                  sistema-topologia
  *   GET /unidades/{u}/contrato     cidade-operacional, metas-cobertura, fator-esgoto
  *   GET /unidades/{u}/sub-bacias   subbacia-operacional, componentes-subbacias-capex
@@ -30,7 +30,7 @@
  *
  * ## O que este módulo NÃO grava, e por quê
  *
- * O backend não expõe escrita para NOME — de regional, superintendência, cidade
+ * O backend não expõe escrita para NOME — de regional, empresa, cidade
  * ou sistema —, nem para `regional-operacional` (ano-base). Eles vêm do
  * Databricks. As abas correspondentes continuam sendo LIDAS e exibidas; o que
  * elas não fazem é voltar para o banco. `ABAS_SEM_ESCRITA` lista todas, e
@@ -77,8 +77,8 @@ export interface CadastroLido {
 
 interface Hierarquia {
   unidReg: { rid: string; rnome: string; uid: string; unome: string; waccMedio: string }
-  superintendencias: { id: string; nome: string }[]
-  cidades: { id: string; nome: string; supId: string }[]
+  empresas: { id: string; nome: string; fimConcessao: string }[]
+  cidades: { id: string; nome: string; empId: string }[]
   sistemas: { id: string; nome: string; cidId: string; usaCts?: string }[]
   topo: { sis: string; id: string; nome: string; jus: string; tipo?: string }[]
   /** Componentes fora de qualquer sistema — hoje, as CTS ainda não colocadas. */
@@ -86,7 +86,7 @@ interface Hierarquia {
 }
 
 interface Contrato {
-  cidades: { id: string; nome: string; fim: string; cob: string }[]
+  cidades: { id: string; nome: string; empId: string; empNome: string; fim: string; cob: string }[]
   metas: { cid: string; ano: string; pct: string }[]
   fator: { cid: string; cob: string; par: string }[]
 }
@@ -198,11 +198,13 @@ const ETE: Record<string, string> = {
 const inverso = (m: Record<string, string>): Record<string, string> =>
   Object.fromEntries(Object.entries(m).map(([k, v]) => [v, k]))
 
+// `empresa` NAO ENTRA AQUI: a aba grava, por `PUT /empresas/{emp_codigo}` — e o
+// unico campo dela, o fim da concessao, e justamente o que a tela existe para
+// informar. Ver `salvarCadastro`.
 export const ABAS_SEM_ESCRITA = [
   'unidade-regional',
   'regional-operacional',
-  'regional-superintendencia',
-  'superintendencia-cidade',
+  'cidade-empresa',
   'subbacia-cts',
 ] as const
 
@@ -322,6 +324,19 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
   const nomeSistema = new Map(hier.sistemas.map((s) => [s.id, s.nome]))
   const nomeComponente = new Map(hier.topo.map((t) => [t.id, t.nome]))
   const nomeCidade = new Map(contrato.cidades.map((c) => [c.id, c.nome]))
+  /**
+   * A EMPRESA DE CADA MUNICÍPIO — para as abas que são por cidade mas mostram o
+   * nível acima dela.
+   *
+   * As três abas do bloco Município (régua, metas, paridade) declaram
+   * `emp_codigo` e `empresa`, e as três montavam a linha com string vazia fixa:
+   * a coluna existia na tela e nunca teve dado. O servidor sempre soube — a
+   * cidade tem uma empresa por definição (`cidade_empresa`) —, faltava trazer e
+   * ligar aqui.
+   */
+  const empresaDaCidade = new Map(
+    contrato.cidades.map((c) => [c.id, { cod: c.empId ?? '', nome: c.empNome ?? '' }]),
+  )
 
   const dados: UnidadeState['data'] = {
     'unidade-regional': [
@@ -338,16 +353,20 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
     // expõe. A linha existe para a aba não sumir; o campo fica em branco.
     'regional-operacional': [{ regional_id: hier.unidReg.rid, ano_base: '' }],
 
-    'regional-superintendencia': hier.superintendencias.map((s) => ({
+    'empresa': hier.empresas.map((s) => ({
       unidade_id: hier.unidReg.uid,
-      superintendencia_id: s.id,
-      superintendencia_name: s.nome,
+      emp_codigo: s.id,
+      empresa: s.nome,
+      data_fim_concessao: s.fimConcessao,
     })),
 
-    'superintendencia-cidade': hier.cidades.map((c) => ({
-      emp_codigo: '',
-      empresa: '',
-      superintendencia_id: c.supId,
+    // O NOME DA EMPRESA VEM POR BUSCA, e não vazio como antes: a hierarquia
+    // manda as empresas numa lista e as cidades noutra, ligadas pelo código.
+    // Deixar a coluna em branco obrigava quem lê a aba a cruzar as duas de
+    // cabeça — e era o que acontecia enquanto o nível era só um reservado.
+    'cidade-empresa': hier.cidades.map((c) => ({
+      emp_codigo: c.empId,
+      empresa: hier.empresas.find((e) => e.id === c.empId)?.nome ?? '',
       cidade_id: c.id,
       cidade_name: c.nome,
     })),
@@ -388,18 +407,23 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
       })),
     ],
 
+    // `emp_codigo`/`empresa` vinham vazios FIXOS aqui — a coluna existia na aba e
+    // nunca teve dado. Agora vêm do servidor, que sempre soube (a cidade tem uma
+    // empresa por definição, é o elo `cidade_empresa`).
+    //
+    // `data_fim_concessao` saiu: a coluna não está mais nesta aba, e mandá-la
+    // faria a linha carregar um campo que a tela não mostra.
     'cidade-operacional': contrato.cidades.map((c) => ({
-      emp_codigo: '',
-      empresa: '',
+      emp_codigo: c.empId ?? '',
+      empresa: c.empNome ?? '',
       cidade_id: c.id,
       cidade_name: c.nome,
-      data_fim_concessao: c.fim,
       unidade_cobertura: c.cob ?? '',
     })),
 
     'metas-cobertura': contrato.metas.map((m) => ({
-      emp_codigo: '',
-      empresa: '',
+      emp_codigo: empresaDaCidade.get(m.cid)?.cod ?? '',
+      empresa: empresaDaCidade.get(m.cid)?.nome ?? '',
       cidade_id: m.cid,
       cidade_name: nomeCidade.get(m.cid) ?? '',
       ano: m.ano,
@@ -407,8 +431,8 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
     })),
 
     'fator-esgoto': contrato.fator.map((f) => ({
-      emp_codigo: '',
-      empresa: '',
+      emp_codigo: empresaDaCidade.get(f.cid)?.cod ?? '',
+      empresa: empresaDaCidade.get(f.cid)?.nome ?? '',
       cidade_id: f.cid,
       cidade_name: nomeCidade.get(f.cid) ?? '',
       cobertura_pct: f.cob,
@@ -599,6 +623,16 @@ export async function salvarCadastro(
   const paramsInv = inverso(PARAMS)
   const obraInv = inverso(OBRA)
 
+  // ---- empresa: o fim da concessao, que desce para as cidades dela ----
+  const empresaBase = porChave(base.dados['empresa'], 'emp_codigo')
+  for (const e of d['empresa'] ?? []) {
+    if (!e.emp_codigo) continue
+    if (igual(e, empresaBase.get(e.emp_codigo))) continue
+    await api.put(`/api/unidades/${u}/empresas/${encodeURIComponent(e.emp_codigo)}`, {
+      empresa: { fim: e.data_fim_concessao ?? '' },
+    })
+  }
+
   // ---- contrato: a cidade e as metas/faixas dela formam UMA ficha ----
   const metasPorCidade = agrupar(d['metas-cobertura'] ?? [], (r) => r.cidade_id)
   const fatorPorCidade = agrupar(d['fator-esgoto'] ?? [], (r) => r.cidade_id)
@@ -616,14 +650,15 @@ export async function salvarCadastro(
     if (mesmaCidade && mesmasMetas && mesmasFaixas) continue
     await api.put(`/api/unidades/${u}/contrato/${encodeURIComponent(c.cidade_id)}`, {
       // `cob` VAI SEMPRE, mesmo vazio. O PUT substitui a ficha inteira e lê
-      // `cidade.get("cob")` sem default: a chave ausente vira NULL no banco. Foi
-      // exatamente isso que apagou a régua de 21 cidades em 20/08 — a tela não
-      // tinha a coluna, então não mandava o campo, e cada gravação de concessão
-      // zerava um dado que ninguém tinha tocado.
+      // `cidade.get("cob")` sem default: a chave ausente vira NULL no banco.
+      // Omitir o campo aqui APAGA a régua de todas as cidades gravadas — sem
+      // erro, e sem ninguém ter tocado nela.
+      // `fim` NAO VAI: a concessao e da empresa, e tem PUT proprio. O backend
+      // ignora a chave se ela vier, e o upsert preserva o valor que a cidade ja
+      // tem.
       cidade: {
         id: c.cidade_id,
         nome: c.cidade_name,
-        fim: c.data_fim_concessao ?? '',
         cob: vazioEhAusencia(c.unidade_cobertura),
       },
       metas: (metasPorCidade.get(c.cidade_id) ?? []).map((m) => ({

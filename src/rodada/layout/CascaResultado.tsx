@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Outlet, useNavigate, useParams } from 'react-router-dom'
 import { CrumbsProvider, useCrumbsAtuais } from '@/rodada/state/Crumbs'
-import { ArvoreEscopo } from '@/rodada/layout/ArvoreEscopo'
 import { AbasResultado } from '@/rodada/layout/AbasResultado'
 import { ProvedorContextoTrilho } from '@/components/layout/ContextoCabecalho'
 import { Modal } from '@/components/ui/Modal'
@@ -37,12 +36,13 @@ const VERBETES = { ...DICIONARIO_RESULTADO, ...DICIONARIO_RODADA }
  *      botão de troca.
  *   3. Guarda o seletor de rodada, que é o que aquele botão abre.
  *
- * Desde o redesign de 19/08 ela também monta a ÁRVORE DE ESCOPO à esquerda, e
- * é o único lugar de onde isso pode sair: a árvore precisa sobreviver à
- * navegação entre níveis (senão perde o estado de expansão a cada clique), e a
- * casca é o que não desmonta. Ela só aparece quando há `runId` — o índice de
- * `/resultados` é o histórico, que não é de rodada nenhuma e ocupa a largura
- * inteira.
+ * SEM ÁRVORE DE ESCOPO À ESQUERDA: a coluna de conteúdo ocupa a largura inteira.
+ *
+ * CONSEQUÊNCIA A CONHECER: a árvore era o único lugar que linkava para o nível de
+ * CIDADE. As rotas estão de pé e o resto da descida também (cidade -> sistema,
+ * obra pelo cronograma), mas não há como CHEGAR à cidade clicando — só por URL
+ * direta. Se a descida voltar a ser necessária, o caminho natural é uma lista de
+ * cidades no nível 1.
  */
 export function CascaResultado() {
   return (
@@ -99,8 +99,7 @@ function Interna() {
       */}
       <ProvedorDicionario>
         {runId ? (
-          <div className="max-w-content mx-auto grid items-start gap-6 px-4 py-8 md:px-6 lg:grid-cols-[286px_minmax(0,1fr)]">
-            <ArvoreEscopo runId={runId} />
+          <div className="max-w-content mx-auto grid items-start gap-6 px-4 py-8 md:px-6">
             <div className="min-w-0">
               {/* As abas ficam ACIMA do `Outlet`, dentro da coluna de conteúdo:
                   são da rodada inteira, mas não da árvore de escopo ao lado —
@@ -172,12 +171,12 @@ function SeletorDeRodada({
       subtitle="Só rodadas desta unidade — números de unidades diferentes não se comparam."
       size="sm"
     >
-      {runs.isPending && <p className="text-sm text-ink-500">Carregando rodadas…</p>}
+      {runs.isPending && <p className="text-sm text-ink-water">Carregando rodadas…</p>}
       {runs.isError && (
         <p className="text-sm text-danger">Não foi possível carregar a lista de rodadas.</p>
       )}
       {runs.data && runs.data.length === 0 && (
-        <p className="text-sm text-ink-500">Esta unidade não tem outras rodadas.</p>
+        <p className="text-sm text-ink-water">Esta unidade não tem outras rodadas.</p>
       )}
       {runs.data && runs.data.length > 0 && (
         <ul className="m-0 flex max-h-[50vh] list-none flex-col gap-1.5 overflow-y-auto p-0">
@@ -202,11 +201,11 @@ function SeletorDeRodada({
                     <span className="truncate text-[13px] font-semibold text-ink-800">
                       {r.nome || idCurtoDaRodada(r.runId)}
                     </span>
-                    <span className="shrink-0 font-mono text-[10.5px] text-ink-400">
+                    <span className="shrink-0 font-mono text-[10.5px] text-ink-water">
                       {dataCurta(r.dataHora)}
                     </span>
                   </span>
-                  <span className="mt-0.5 block font-mono text-[10.5px] text-ink-400">
+                  <span className="mt-0.5 block font-mono text-[10.5px] text-ink-water">
                     {idCurtoDaRodada(r.runId)}
                     {atual && ' · você está aqui'}
                   </span>

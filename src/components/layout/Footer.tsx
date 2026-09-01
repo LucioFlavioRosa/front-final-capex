@@ -58,7 +58,10 @@ export function Footer() {
                 <NavLink
                   key={item.texto}
                   to={item.to}
-                  className="w-fit text-[15px] text-white/90 transition-colors duration-hover ease-saida hover:text-aegea-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-aegea-400"
+                  /* `inline-flex min-h-6`: os links do rodape tinham 23px de altura, um pixel
+                    abaixo do alvo de ponteiro de 24 CSS px. A coluna ja tem `gap`, entao
+                    o minimo nao aproxima um link do outro. */
+                  className="inline-flex min-h-6 w-fit items-center text-[15px] text-white/90 transition-colors duration-hover ease-saida hover:text-aegea-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-aegea-400"
                 >
                   {item.texto}
                 </NavLink>
