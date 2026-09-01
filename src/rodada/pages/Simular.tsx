@@ -28,6 +28,7 @@ import {
   type DerivadoOrcamento,
   type EstadoSimulacao,
   type ItemChecklist,
+  type LinhaOrcamento,
   type ModoOrcamento,
   type Penalidade,
 } from '@/rodada/domain/simulacao'
@@ -93,6 +94,41 @@ export function Simular() {
   const navegar = useNavigate()
   const { toast } = useToast()
   const [estado, despachar] = useReducer(redutor, undefined, estadoInicial)
+
+  /**
+   * O MAIOR TETO DO CRONOGRAMA — a régua da barrinha de cada card.
+   *
+   * A barra é relativa ao maior ano, e não a um valor fixo: o que ela mostra é a
+   * FORMA do cronograma (a rampa que desce de 60 para 10), que numa lista de
+   * quinze números só aparece se alguém comparar de cabeça. Zero desliga as
+   * barras — sem verba nenhuma, régua não existe.
+   */
+  const tetoDoCronograma = useMemo(
+    () => Math.max(0, ...estado.orcamento.map((l) => numOuNulo(l.valor) ?? 0)),
+    [estado.orcamento],
+  )
+
+  /**
+   * OS ANOS REPETIDOS, para marcar os cards culpados.
+   *
+   * MESMA REGRA de `validar()`, e é ela que bloqueia — aqui só se aponta ONDE.
+   * Numa lista rolável o ano repetido era invisível; numa grade de quinze cards
+   * seria pior, porque tudo cabe na tela e o erro continua igual aos vizinhos.
+   *
+   * Só ano VÁLIDO entra: o card de ano em branco já se anuncia tracejado, e
+   * pintá-lo de vermelho por "repetido" nomearia o problema errado.
+   */
+  const anosRepetidos = useMemo(() => {
+    const vistos = new Set<number>()
+    const repetidos = new Set<number>()
+    for (const l of estado.orcamento) {
+      const ano = numOuNulo(l.ano)
+      if (ano === null) continue
+      if (vistos.has(ano)) repetidos.add(ano)
+      vistos.add(ano)
+    }
+    return repetidos
+  }, [estado.orcamento])
   /**
    * NASCE ABERTO, e antes do Orçamento na coluna.
    *
@@ -440,70 +476,42 @@ export function Simular() {
               </div>
             ) : (
               <div className="mt-4">
-                <div className="mb-2 flex items-center justify-between">
+                <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
                   <span className="text-[12px] font-bold text-ink-800">Cronograma anual</span>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => despachar({ tipo: 'addLinha' })}
-                  >
-                    <Plus weight="bold" /> Ano
-                  </Button>
+                  <span className="text-[10.5px] text-ink-water">
+                    Teto de CAPEX por ano, em R$ Mi
+                  </span>
                 </div>
-                <div className="max-h-[320px] overflow-y-auto rounded-xl border border-ink-200">
-                  <table>
-                    <caption className="sr-only">Cronograma de verba por ano</caption>
-                    <thead>
-                      <tr>
-                        <th scope="col">Ano</th>
-                        <th scope="col" data-r>
-                          Teto de CAPEX (R$ Mi)
-                        </th>
-                        <th scope="col" className="w-10">
-                          <span className="sr-only">Remover</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {estado.orcamento.map((l, i) => (
-                        <tr key={i}>
-                          <td>
-                            <CelulaNumero
-                              rotulo={`Ano da linha ${i + 1}`}
-                              valor={l.ano}
-                              aoMudar={(v) =>
-                                despachar({ tipo: 'linha', i, chave: 'ano', valor: v })
-                              }
-                              largura="w-24"
-                            />
-                          </td>
-                          <td className="text-right">
-                            <CelulaNumero
-                              rotulo={`Verba do ano ${l.ano || i + 1}`}
-                              valor={l.valor}
-                              aoMudar={(v) =>
-                                despachar({ tipo: 'linha', i, chave: 'valor', valor: v })
-                              }
-                              largura="w-32"
-                            />
-                          </td>
-                          <td className="text-right">
-                            <button
-                              type="button"
-                              aria-label={`Remover o ano ${l.ano || i + 1}`}
-                              onClick={() => despachar({ tipo: 'delLinha', i })}
-                              className="rounded-md p-1 text-ink-water transition-colors duration-hover ease-saida hover:bg-ink-100 hover:text-danger"
-                            >
-                              <X weight="bold" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="mt-1.5 text-[10.5px] leading-snug text-ink-water">
-                  Campo tracejado está esperando valor. Vírgula é decimal
+                <ul role="list" className="grid list-none grid-cols-[repeat(auto-fill,minmax(108px,1fr))] gap-2">
+                  {estado.orcamento.map((l, i) => (
+                    <CardDoAno
+                      key={i}
+                      indice={i}
+                      linha={l}
+                      teto={tetoDoCronograma}
+                      repetido={anosRepetidos.has(numOuNulo(l.ano) ?? NaN)}
+                      aoMudar={(chave, valor) => despachar({ tipo: 'linha', i, chave, valor })}
+                      aoRemover={() => despachar({ tipo: 'delLinha', i })}
+                    />
+                  ))}
+                  <li>
+                    {/* O BOTÃO DE ACRESCENTAR É UM CARD, no fim da grade: é onde o
+                        ano novo aparece, e é para onde o olho já foi depois do
+                        último. Num cabeçalho ele fica longe do efeito que
+                        produz. */}
+                    <button
+                      type="button"
+                      aria-label="Acrescentar ano ao cronograma"
+                      onClick={() => despachar({ tipo: 'addLinha' })}
+                      className="flex h-full min-h-[74px] w-full flex-col items-center justify-center gap-1 rounded-xl border-[1.5px] border-dashed border-ink-300 text-ink-water transition-colors duration-hover ease-saida hover:border-water-600 hover:bg-water-50 hover:text-water-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-water-600/40"
+                    >
+                      <Plus weight="bold" />
+                      <span className="text-[11px] font-semibold">Ano</span>
+                    </button>
+                  </li>
+                </ul>
+                <p className="mt-2 text-[10.5px] leading-snug text-ink-water">
+                  Card tracejado está esperando valor. Vírgula é decimal
                   (<code className="font-mono">1.234,5</code> = 1234,5); sem vírgula, o ponto é
                   decimal (<code className="font-mono">0.35</code>).
                 </p>
@@ -793,28 +801,90 @@ function CampoNumero({
   )
 }
 
-function CelulaNumero({
-  rotulo,
-  valor,
+/**
+ * UM ANO DO CRONOGRAMA — o card que substituiu a linha da tabela.
+ *
+ * A tabela cabia em quinze linhas e a caixa cabia em sete: ver o cronograma
+ * inteiro exigia rolar, e rolar dentro de um formulário esconde metade do que se
+ * está decidindo. Em grade, os quinze anos cabem em três fileiras.
+ *
+ * O QUE CADA CARD CARREGA, e por que os três:
+ *
+ *   O ANO É EDITÁVEL, e não um título fixo: o cronograma pode começar em
+ *     qualquer ano, e sem isso mudar o início exigiria apagar e recriar quinze
+ *     cards. O campo fica sem moldura até receber foco — dentro do card ele já
+ *     lê como o título, e uma segunda caixa competiria com a da verba, que é o
+ *     campo que se preenche.
+ *   A VERBA usa a mesma gramática de estado do resto da tela (`classeCampo`):
+ *     tracejado âmbar enquanto vazio, vermelho quando não é número.
+ *   A BARRA é a única coisa que a tabela não dava: a proporção entre um ano e o
+ *     maior deles. É redundante com o número ao lado, de propósito — quem lê o
+ *     número não perde nada, e quem varre a grade vê a rampa.
+ */
+function CardDoAno({
+  indice,
+  linha,
+  teto,
+  repetido,
   aoMudar,
-  largura,
+  aoRemover,
 }: {
-  rotulo: string
-  valor: string
-  aoMudar: (v: string) => void
-  largura: string
+  indice: number
+  linha: LinhaOrcamento
+  teto: number
+  repetido: boolean
+  aoMudar: (chave: 'ano' | 'valor', valor: string) => void
+  aoRemover: () => void
 }) {
+  const valor = numOuNulo(linha.valor)
+  const nome = linha.ano || indice + 1
+
   return (
-    <>
-      <span className="sr-only">{rotulo}</span>
+    <li
+      className={`rounded-xl border bg-white p-2 transition-colors duration-hover ease-saida ${
+        repetido ? 'border-danger/60 bg-red-50/40' : 'border-ink-200'
+      }`}
+    >
+      <div className="flex items-center gap-1">
+        <input
+          aria-label={`Ano da linha ${indice + 1}`}
+          aria-invalid={repetido || undefined}
+          title={repetido ? 'Ano repetido no cronograma' : undefined}
+          value={linha.ano}
+          onChange={(e) => aoMudar('ano', e.target.value)}
+          inputMode="numeric"
+          className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 font-mono text-[12.5px] font-bold tabular-nums text-ink-900 outline-none transition-colors duration-hover ease-saida hover:border-ink-200 focus:border-water-600 focus:bg-white focus:ring-2 focus:ring-water-600/25"
+        />
+        {/* 24x24 E SEMPRE VISÍVEL: um botão que só aparece no hover não existe
+            para o toque nem para quem navega por teclado.
+            O GLIFO é menor que a área — 12px repetidos quinze vezes já pesam o
+            bastante na grade, e encolher o alvo junto seria trocar ruído visual
+            por um botão que ninguém acerta. */}
+        <button
+          type="button"
+          aria-label={`Remover o ano ${nome}`}
+          onClick={aoRemover}
+          className="grid h-6 w-6 flex-none place-items-center rounded-md text-ink-water transition-colors duration-hover ease-saida hover:bg-ink-100 hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-water-600/40"
+        >
+          <X weight="bold" size={12} />
+        </button>
+      </div>
       <input
-        aria-label={rotulo}
-        value={valor}
-        onChange={(e) => aoMudar(e.target.value)}
+        aria-label={`Verba do ano ${nome}`}
+        value={linha.valor}
+        onChange={(e) => aoMudar('valor', e.target.value)}
         inputMode="decimal"
-        className={`${classeCampo(valor)} ${largura} text-right`}
+        className={`${classeCampo(linha.valor)} mt-1 text-right`}
       />
-    </>
+      {teto > 0 && (
+        <div aria-hidden="true" className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-ink-100">
+          <div
+            className="h-full rounded-full bg-water-500"
+            style={{ width: `${Math.min(100, Math.max(0, ((valor ?? 0) / teto) * 100))}%` }}
+          />
+        </div>
+      )}
+    </li>
   )
 }
 
