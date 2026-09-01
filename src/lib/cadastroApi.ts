@@ -707,12 +707,6 @@ export async function salvarCadastro(
     await api.put(`/api/unidades/${u}/etes/${encodeURIComponent(e.ete_id)}`, { ete: ficha })
   }
 
-  // ---- o que o SISTEMA declara sobre si ----
-  //
-  // ANTES da topologia, e por uma razão de ordem: DESMARCAR precisa valer antes
-  // de a segunda CTS entrar, senão o servidor recusa a CTS por causa de uma
-  // marca que a tela já tirou. Marcar, ao contrário, só pode valer depois de as
-  // CTS excedentes saírem — por isso a marcação vai no fim, depois da topologia.
   // ---- a unidade: WACC médio e a macrorregião de CTS ----
   //
   // Os dois campos que a unidade informa, na mesma rota. SÓ VAI O QUE MUDOU, e

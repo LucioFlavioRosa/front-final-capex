@@ -68,14 +68,15 @@ describe('adicionar CTS ao sistema', () => {
   it('a CTS escolhida entra no sistema e sai da lista de disponíveis', async () => {
     if (!noAr) return console.log('backend fora do ar — pulado')
 
+    await api.put(`/api/unidades/${UNIDADE}`, { usaCts: false })
     const estado = await abrir()
     const soltas = estado.data['sistema-topologia'].filter(
       (t) => !t.sistema_id && t.componente_tipo === 'cts',
     )
     expect(soltas.length).toBeGreaterThan(0)
 
-    // Um sistema DESMARCADO, para o limite de uma CTS não interferir.
-    const semLimite = estado.data['cidade-sistema'].find((r) => r.usa_sistema_cts !== 'Sim')!
+    // Unidade desmarcada: o limite de uma CTS por sistema não interfere.
+    const semLimite = estado.data['cidade-sistema'][0]
     expect(semLimite).toBeDefined()
 
     const alvo = soltas[0]
