@@ -27,7 +27,7 @@
  * O ponto de 0% é a rodada que a pessoa está olhando. Ele ancora a leitura: sem
  * ele a curva começaria no ar, e "quanto sobe" não teria de onde subir.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -44,26 +44,23 @@ import { QuadroGrafico } from '@/rodada/components/QuadroGrafico'
 import { useDispararVariacao, useSensibilidade, useStatusDaRodada } from '@/rodada/api/queries'
 import type { ModoDaVariacao } from '@/rodada/api/endpoints'
 import {
+  DEGRAU_PADRAO,
   FAIXA_PADRAO,
   MAIOR_DEGRAU,
-  MAXIMO_DE_PONTOS,
-  MINIMO_DE_PONTOS,
   comparativoDeObras,
   curvaPronta,
   dinheiroDoDegrau,
   emVooDaBase,
   faltouTempoDeSolver,
   fatorDoDegrau,
-  faixaDosPontos,
+  faixaDeUmPonto,
   faixaValida,
   melhorPorDegrau,
   pontosDaFaixa,
-  proximoDegrau,
   situacaoDaVarredura,
   vezesOOrcamento,
   type ComparativoDeObras,
   type EstadoDoDegrau,
-  type Faixa,
   type PontoDaCurva,
   type TetoDeSensibilidade,
 } from '@/rodada/domain/sensibilidade'
@@ -142,46 +139,26 @@ const MEDIDAS: Medida[] = [
 
 export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
   /**
-   * A FAIXA VIVE NA TELA, e a tela ABRE SOBRE O QUE EXISTE.
+   * UM ACRÉSCIMO DE CADA VEZ, e é isso que a tela pergunta.
    *
-   * Ela é uma pergunta em aberto — "e se fosse de 5 a 15?" —, não uma
-   * propriedade da rodada, e guardá-la no servidor obrigaria a decidir de quem
-   * ela é quando duas pessoas olham a mesma rodada com intervalos diferentes.
+   * A pessoa escolhe quanto CAPEX a mais quer testar, roda, e lê o resultado nos
+   * gráficos abaixo. Quer outro ponto? Troca o número e roda de novo — a curva se
+   * forma ponto a ponto, e cada ponto é uma execução de solver de verdade.
    *
-   * Mas viver na tela não pode significar perder-se ao sair dela. Quem rodava
-   * "de 5 a 20 em 4 pontos", saía e voltava, reencontrava o padrão de +10% a
-   * +50% — e como a lista é exatamente a faixa pedida, os pontos rodados em +5%
-   * e +15% ficavam fora. A tela abria como se nenhuma análise tivesse sido
-   * feita, com o trabalho intacto no banco e invisível.
+   * O ACRÉSCIMO VIVE NA TELA, e não no servidor: é uma pergunta em aberto ("e se
+   * fosse +15%?"), não uma propriedade da rodada. Guardá-lo obrigaria a decidir de
+   * quem ele é quando duas pessoas olham a mesma rodada com números diferentes.
    *
-   * A saída não é guardar a escolha: é LER a faixa de volta dos degraus que
-   * rodaram, porque foi ela que os gerou. Ver `faixaDosPontos`.
+   * Sair da tela perde o número digitado, e não perde nada além disso: os pontos
+   * que rodaram estão no banco e voltam TODOS na consulta, independentemente do
+   * que estiver no campo. Quem volta encontra a curva inteira — é o gráfico que
+   * guarda a análise, não o formulário.
    */
-  const [faixa, setFaixa] = useState<Faixa>({ ...FAIXA_PADRAO })
-
-  /**
-   * Quem escolheu a faixa: a pessoa, ou a leitura do que existe.
-   *
-   * O efeito abaixo só adota a faixa da análise ANTES de a pessoa mexer nos
-   * controles. Sem esta trava, cada refetch — e a curva refaz a consulta a cada
-   * oito segundos enquanto há rodada em voo — desfaria a escolha dela no meio
-   * da configuração.
-   */
-  const faixaEscolhida = useRef(false)
+  const [degrau, setDegrau] = useState<number>(DEGRAU_PADRAO)
+  const faixa = faixaDeUmPonto(degrau)
+  const degrauValido = faixaValida(faixa)
   const degrausPedidos = pontosDaFaixa(faixa)
-  const consulta = useSensibilidade(meta.runId, faixaValida(faixa) ? faixa : FAIXA_PADRAO)
-
-  // A ANÁLISE QUE EXISTE DEFINE A FAIXA, na primeira vez que os pontos chegam.
-  // O payload traz TODAS as variações da base independentemente da faixa pedida
-  // (só o teto é calculado para ela), então uma consulta basta para descobrir o
-  // que rodar mostrar.
-  const pontosDoServidor = consulta.data?.pontos
-  useEffect(() => {
-    if (faixaEscolhida.current || !pontosDoServidor) return
-    const daAnalise = faixaDosPontos(pontosDoServidor)
-    if (daAnalise) setFaixa(daAnalise)
-    faixaEscolhida.current = true
-  }, [pontosDoServidor])
+  const consulta = useSensibilidade(meta.runId, degrauValido ? faixa : FAIXA_PADRAO)
   const disparar = useDispararVariacao()
 
   /**
@@ -239,8 +216,18 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
   // PELA BASE, e não pela faixa: o bloqueio é regra da FILA, e a fila não sabe
   // qual faixa está na tela. Ver `emVooDaBase`.
   const emExecucao = emVooDaBase(todos)
-  const proximo = proximoDegrau(situacao)
-  const falhou = situacao.find((s) => s.estado === 'erro' && s.degrau === proximo) ?? null
+  /**
+   * O ALVO É O NÚMERO DIGITADO, sempre — e não "o próximo que falta".
+   *
+   * Com um ponto por vez a pergunta é direta: rode ESTE acréscimo. Se ele já
+   * rodou, o botão diz "de novo" em vez de sumir — repetir é legítimo (o plano
+   * mudou, o modo mudou de estimativa para completo), e um botão que desaparece
+   * porque o ponto existe deixaria a pessoa sem saber o que fazer.
+   */
+  const alvo = degrau
+  const situacaoDoAlvo = situacao.find((s) => s.degrau === alvo) ?? null
+  const jaRodou = situacaoDoAlvo?.estado === 'pronto'
+  const falhou = situacaoDoAlvo?.estado === 'erro' ? situacaoDoAlvo : null
   const jaFalhou = !!falhou
   /**
    * A falha foi de TEMPO DE SOLVER numa estimativa? Então repetir em 60s
@@ -249,7 +236,6 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
    */
   const escalar = faltouTempoDeSolver(falhou?.ponto ?? null)
   const modoDoPedido: ModoDaVariacao = escalar ? 'completo' : modo
-  const faltam = situacao.filter((s) => s.estado === 'ausente' || s.estado === 'erro').length
 
   const pedir = (degrau: number, forcado?: ModoDaVariacao) => {
     const m = forcado ?? modo
@@ -259,93 +245,6 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
       nome: `${m === 'rapido' ? 'estimativa' : 'simulação'} +${degrau}% de CAPEX`,
       modo: m,
     })
-  }
-
-  /**
-   * A VARREDURA COMPLETA, UMA DE CADA VEZ.
-   *
-   * A rodada que a pessoa mandou rodar é uma simulação normal, com o tempo de
-   * solver de sempre. A ANÁLISE dela é outra coisa: cinco variações de +10% a
-   * +50%, em modo rápido, que existem para mostrar a inclinação e não para
-   * decidir um plano. Pedir os cinco degraus é o uso esperado — e é justamente
-   * por isso que ele não pode virar cinco `POST` de uma vez.
-   *
-   * A primeira tentativa real fez exatamente isso e mostrou por que é errado por
-   * construção: o executor tem CAPACIDADE 1, as cinco viraram uma fila, e uma
-   * delas voltou 503 do Service Bus porque cinco pedidos juntos saturaram a
-   * fila. Quem olhava a tela via quatro paradas e uma com erro.
-   *
-   * Então a varredura é um ESTADO, não um lote: com ela ligada, o painel pede o
-   * próximo degrau assim que o anterior sai de voo. A fila nunca vê mais de um
-   * pedido, e a tela continua podendo ser fechada — ao voltar, a varredura
-   * mostra o que já publicou (o estado local se perde; os resultados, não).
-   */
-  const [varrendo, setVarrendo] = useState(false)
-
-  /** O último degrau que ESTA sessão pediu. Sem ele o efeito abaixo repetiria o
-   *  mesmo pedido a cada render enquanto o servidor não confirmasse. */
-  const ultimoPedido = useRef<number | null>(null)
-
-  useEffect(() => {
-    if (!varrendo) return
-    // Terminou: nada mais a pedir.
-    if (proximo === null) {
-      setVarrendo(false)
-      return
-    }
-    // O PEDIDO em si falhou (rede, 503 da fila): parar é a única saída — repetir
-    // sozinho reproduziria o mesmo erro sem fim.
-    if (disparar.isError) {
-      setVarrendo(false)
-      return
-    }
-    // O SERVIDOR DEVOLVEU UMA RODADA QUE NÃO ENTRA NESTA CURVA.
-    //
-    // Acontece quando a dedupe por parâmetros encontra uma variação idêntica já
-    // ligada a OUTRA base. O ponto nunca vai aparecer, então `proximo` não
-    // avança — e sem esta parada a varredura ficaria ligada para sempre,
-    // esperando em silêncio por algo que não vem. Uma trava muda é pior que um
-    // erro: não há o que ler na tela nem o que tentar de novo.
-    if (disparar.data?.naCurva === false) {
-      setVarrendo(false)
-      return
-    }
-    if (emExecucao || disparar.isPending) return
-    if (ultimoPedido.current === proximo) {
-      // NÃO INSISTE NUM DEGRAU QUE ESTA VARREDURA JÁ PEDIU E QUE FALHOU.
-      // Repetir automaticamente uma execução que acabou de morrer gasta cluster
-      // para reproduzir o mesmo erro, e o laço não teria fim. Um degrau que
-      // falhou ANTES da varredura é outro caso: ele é tentado uma vez, porque
-      // pedir a análise é justamente pedir que ela se complete.
-      if (jaFalhou) setVarrendo(false)
-      return
-    }
-    ultimoPedido.current = proximo
-    pedir(proximo)
-    // `pedir` e `disparar` mudam de identidade a cada render; a guarda de
-    // repetição é `ultimoPedido`, e não a lista de dependências.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    varrendo,
-    proximo,
-    jaFalhou,
-    emExecucao,
-    disparar.isPending,
-    disparar.isError,
-    // `data` ENTRA na lista: é dele que vem `naCurva`, e sem esta dependência a
-    // parada por "rodada de outra curva" só aconteceria se algum outro valor
-    // mudasse junto — ou seja, nunca, no caso em que ela é necessária.
-    disparar.data,
-  ])
-
-  const comecarVarredura = () => {
-    // TRAVA A ADOÇÃO ANTES DE COMEÇAR. Os controles de faixa ficam desabilitados
-    // durante a varredura, então uma primeira resposta atrasada — a que lê a
-    // faixa do que já rodou — trocaria o alvo com a corrente andando, e sem
-    // ninguém poder desfazer.
-    faixaEscolhida.current = true
-    ultimoPedido.current = null
-    setVarrendo(true)
   }
 
   return (
@@ -382,74 +281,37 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
             )}
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
-            <SeletorDeFaixa
-              faixa={faixa}
-              aoTrocar={(f) => {
-                // A partir daqui a faixa é DELA, e nenhuma leitura a desfaz.
-                faixaEscolhida.current = true
-                setFaixa(f)
-              }}
-              /* Trocar a faixa no meio de uma varredura mudaria o alvo com a
-                 corrente andando: o próximo degrau seria de outro intervalo, e
-                 quem pediu "de 10 a 50" receberia metade de cada. */
-              desabilitado={varrendo}
+<SeletorDeAcrescimo
+              degrau={degrau}
+              aoTrocar={setDegrau}
+              valido={degrauValido}
+              /* Trocar o número com uma rodada em voo mudaria o alvo com a
+                 corrente andando: o chip abaixo passaria a falar de um degrau
+                 diferente do que está sendo calculado. */
+              desabilitado={!!emExecucao}
             />
-            <SeletorDeModo modo={modo} aoTrocar={setModo} desabilitado={!!emExecucao || varrendo} />
-            {proximo !== null &&
-              (varrendo ? (
-                <button
-                  type="button"
-                  onClick={() => setVarrendo(false)}
-                  className="rounded-full border border-ink-300 px-4 py-2 text-[13px] font-bold text-ink-600 transition-colors duration-hover ease-saida hover:bg-ink-50"
-                >
-                  Parar depois desta
-                </button>
-              ) : (
-                <div className="flex items-center gap-2">
-                  {faltam > 1 && (
-                    <button
-                      type="button"
-                      onClick={comecarVarredura}
-                      /* NÃO se desabilita por haver uma rodada em voo, ao
-                         contrário do botão de um degrau só. Pedir a análise é
-                         justamente dizer "faça o resto por mim": se um degrau já
-                         está rodando, a varredura espera e continua a partir
-                         dele. Bloquear aqui obrigaria a pessoa a ficar de
-                         guarda até a execução terminar para poder pedir. */
-                      disabled={disparar.isPending}
-                      className="rounded-full bg-water-600 px-4 py-2 text-[13px] font-bold text-white transition-colors duration-hover ease-saida hover:bg-water-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Rodar a análise · {faltam}{' '}
-                      {modo === 'rapido' ? 'estimativas' : 'simulações'}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => pedir(proximo, modoDoPedido)}
-                    /* Enquanto uma está em voo, não se pede outra: a fila tem
-                       capacidade 1, e enfileirar a segunda só faria a espera
-                       parecer maior sem chegar antes. */
-                    disabled={disparar.isPending || !!emExecucao}
-                    className={
-                      faltam > 1
-                        ? 'rounded-full border border-ink-300 px-3.5 py-2 text-[12.5px] font-semibold text-ink-600 transition-colors duration-hover ease-saida hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50'
-                        : 'rounded-full bg-water-600 px-4 py-2 text-[13px] font-bold text-white transition-colors duration-hover ease-saida hover:bg-water-700 disabled:cursor-not-allowed disabled:opacity-50'
-                    }
-                  >
-                    {disparar.isPending
-                      ? 'Disparando…'
-                      : emExecucao
-                        ? 'Aguardando a rodada em curso'
-                        : escalar
-                          ? `Rodar +${proximo}% completo`
-                          : `${jaFalhou ? 'Tentar de novo' : faltam > 1 ? 'Só' : 'Rodar'} +${proximo}%${
-                            emReais(proximo)
-                              ? ` · +${brlMi(emReais(proximo)!.aMais)} no plano`
-                              : ''
-                            }`}
-                  </button>
-                </div>
-              ))}
+            <SeletorDeModo modo={modo} aoTrocar={setModo} desabilitado={!!emExecucao} />
+            <button
+              type="button"
+              onClick={() => pedir(alvo, modoDoPedido)}
+              /* Enquanto uma está em voo, não se pede outra: a fila tem capacidade
+                 1, e enfileirar a segunda só faria a espera parecer maior sem
+                 chegar antes. */
+              disabled={!degrauValido || disparar.isPending || !!emExecucao}
+              className="rounded-full bg-water-600 px-4 py-2 text-[13px] font-bold text-white transition-colors duration-hover ease-saida hover:bg-water-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {disparar.isPending
+                ? 'Disparando…'
+                : emExecucao
+                  ? 'Aguardando a rodada em curso'
+                  : jaRodou
+                    ? `Rodar +${alvo}% de novo`
+                    : escalar
+                      ? `Rodar +${alvo}% completo`
+                      : `${jaFalhou ? 'Tentar de novo ' : 'Rodar '}+${alvo}%${
+                        emReais(alvo) ? ` · +${brlMi(emReais(alvo)!.aMais)} no plano` : ''
+                        }`}
+            </button>
           </div>
         </div>
 
@@ -540,12 +402,6 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
           </div>
         )}
 
-        {varrendo && !emExecucao && (
-          <p className="mt-3 text-[12px] text-ink-water">
-            Varredura ligada — pedindo o próximo degrau…
-          </p>
-        )}
-
         {/* A VARIAÇÃO EXISTIA, MAS NÃO É DESTA CURVA.
             O servidor deduplica por PARÂMETROS: se o mesmo orçamento escalado já
             tinha sido rodado e já pertence à curva de outra rodada, ele devolve
@@ -614,95 +470,53 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
 }
 
 /**
- * A FAIXA DA ANÁLISE — de quanto a quanto, em quantos pontos.
+ * QUANTO CAPEX A MAIS — um número, e só.
  *
- * Era fixa em +10% a +50% de dez em dez. "Quanto a mais é plausível" é decisão
- * de negócio e muda por unidade: uma concessão em fim de ciclo discute +5% a
- * +15%, e a faixa fixa gastava cinco execuções para responder fora do intervalo
- * que importa.
+ * A tela pede UM acréscimo por vez: escolhe, roda, lê o gráfico, repete se quiser.
+ * A alternativa — pedir uma faixa e varrer vários pontos de uma vez — respondia a
+ * mesma pergunta cobrando mais três controles (início, fim, quantos pontos) e uma
+ * varredura que precisava de botão para parar.
  *
- * O CONTADOR DIZ QUANTOS VÃO RODAR DE VERDADE, e não quantos foram pedidos. Os
- * degraus são inteiros — a identidade do ponto na curva depende disso —, então
- * uma faixa estreita rende menos: de 10 a 12 em cinco sobram três. Mostrar "5"
- * ali prometeria duas execuções que não vão acontecer.
+ * A CURVA NÃO SE PERDE com isso: os pontos que já rodaram voltam TODOS do
+ * servidor, independentemente do que estiver neste campo, e o gráfico abaixo os
+ * acumula. É ele que guarda a análise; este campo é só a próxima pergunta.
+ *
+ * A RECUSA ACONTECE ANTES DO SERVIDOR: número fora de 1% a 200% não vira
+ * requisição, e a frase diz o que consertar em vez de devolver um 422.
  */
-function SeletorDeFaixa({
-  faixa,
+function SeletorDeAcrescimo({
+  degrau,
   aoTrocar,
+  valido,
   desabilitado,
 }: {
-  faixa: Faixa
-  aoTrocar: (f: Faixa) => void
+  degrau: number
+  aoTrocar: (d: number) => void
+  valido: boolean
   desabilitado: boolean
 }) {
-  const degraus = pontosDaFaixa(faixa)
-  const valida = degraus.length >= MINIMO_DE_PONTOS
-  const menosQuePedidos = valida && degraus.length < faixa.pontos
-
-  const campo =
-    'w-[4.5rem] rounded-lg border border-ink-200 bg-white px-2 py-1 text-right font-mono text-[12.5px] tabular-nums text-ink-800 focus:border-water-500 focus:outline-none disabled:opacity-50'
-
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px] text-ink-600">
+    <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1.5 text-[12.5px] text-ink-600">
       <label className="flex items-center gap-1.5">
-        <span>De</span>
+        <span>CAPEX anual</span>
+        <span className="font-mono text-ink-800">+</span>
         <input
           type="number"
           min={1}
           max={MAIOR_DEGRAU}
-          value={faixa.de}
+          value={degrau}
           disabled={desabilitado}
-          onChange={(e) => aoTrocar({ ...faixa, de: Number(e.target.value) })}
-          className={campo}
-          aria-label="Menor acréscimo de CAPEX, em %"
+          onChange={(e) => aoTrocar(Number(e.target.value))}
+          className="w-[4.5rem] rounded-lg border border-ink-200 bg-white px-2 py-1 text-right font-mono text-[12.5px] tabular-nums text-ink-800 focus:border-water-500 focus:outline-none disabled:opacity-50"
+          aria-label="Acréscimo de CAPEX por ano, em %"
         />
         <span>%</span>
       </label>
-      <label className="flex items-center gap-1.5">
-        <span>a</span>
-        <input
-          type="number"
-          min={1}
-          max={MAIOR_DEGRAU}
-          value={faixa.ate}
-          disabled={desabilitado}
-          onChange={(e) => aoTrocar({ ...faixa, ate: Number(e.target.value) })}
-          className={campo}
-          aria-label="Maior acréscimo de CAPEX, em %"
-        />
-        <span>%</span>
-      </label>
-      <label className="flex items-center gap-1.5">
-        <span>em</span>
-        <select
-          value={faixa.pontos}
-          disabled={desabilitado}
-          onChange={(e) => aoTrocar({ ...faixa, pontos: Number(e.target.value) })}
-          className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-[12.5px] text-ink-800 focus:border-water-500 focus:outline-none disabled:opacity-50"
-          aria-label="Quantos pontos a análise tem"
-        >
-          {Array.from(
-            { length: MAXIMO_DE_PONTOS - MINIMO_DE_PONTOS + 1 },
-            (_, i) => MINIMO_DE_PONTOS + i,
-          ).map((n) => (
-            <option key={n} value={n}>
-              {n} pontos
-            </option>
-          ))}
-        </select>
-      </label>
-
-      {!valida ? (
-        /* A recusa acontece ANTES do servidor: a faixa inválida não vira
-           requisição, e a frase diz o que consertar em vez de um 422. */
+      {!valido && (
         <span className="text-[12px] font-semibold text-amber-700">
-          o fim precisa ser maior que o início, e ambos entre 1% e {MAIOR_DEGRAU}%
+          entre 1% e {MAIOR_DEGRAU}%
         </span>
-      ) : menosQuePedidos ? (
-        <span className="text-[12px] text-ink-water">
-          faixa estreita: {degraus.length} pontos distintos ({degraus.map((d) => `+${d}%`).join(', ')})
-        </span>
-      ) : null}
+      )}
     </div>
   )
 }

@@ -11,7 +11,7 @@
  * - a aba de obras só abre quando há o que comparar.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { renderizar } from '@/testes/render'
@@ -125,7 +125,7 @@ describe('o teto vem antes de qualquer execução', () => {
     // qualificador "no plano", porque o valor é a soma dos anos e não a verba
     // anual.
     expect(
-      screen.getByRole('button', { name: /Só \+10% · \+R\$ 11,0 Mi no plano/ }),
+      screen.getByRole('button', { name: /Rodar \+10% · \+R\$ 11,0 Mi no plano/ }),
     ).toBeInTheDocument()
   })
 
@@ -133,7 +133,7 @@ describe('o teto vem antes de qualquer execução', () => {
     servirSensibilidade({ teto: null, pontos: [BASE_PONTO] })
     abrir()
 
-    expect(await screen.findByRole('button', { name: /Só \+10%/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Rodar \+10%/ })).toBeInTheDocument()
     expect(screen.queryByText('Antes de simular: o teto')).not.toBeInTheDocument()
     // O botão fica sem a parte do dinheiro, em vez de mostrar "R$ 0,0 Mi".
     expect(screen.queryByText(/R\$ 0,0 Mi/)).not.toBeInTheDocument()
@@ -152,7 +152,7 @@ describe('o disparo manda o modo', () => {
     )
 
     abrir()
-    await userEvent.click(await screen.findByRole('button', { name: /Só \+10%/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Rodar \+10%/ }))
 
     expect(corpo).toMatchObject({ modo: 'rapido', fator: 1.1 })
   })
@@ -169,7 +169,7 @@ describe('o disparo manda o modo', () => {
 
     abrir()
     await userEvent.click(await screen.findByRole('radio', { name: 'Simulação' }))
-    await userEvent.click(screen.getByRole('button', { name: /Só \+10%/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Rodar \+10%/ }))
 
     expect(corpo).toMatchObject({ modo: 'completo' })
   })
@@ -346,120 +346,6 @@ describe('quando um degrau falha, a tela diz por quê', () => {
   })
 })
 
-describe('sair da tela e voltar não apaga a análise', () => {
-  it('a faixa abre sobre os degraus que JÁ rodaram', async () => {
-    // O defeito: a faixa vivia só no estado do componente. Quem rodava "de 5 a
-    // 20 em 4 pontos", saía e voltava, reencontrava o padrão +10% a +50% — e
-    // como a lista é exatamente a faixa pedida, os pontos em +5% e +15% ficavam
-    // fora dela. A tela abria como se nada tivesse sido feito.
-    servirSensibilidade({
-      teto: TETO,
-      pontos: [
-        BASE_PONTO,
-        ...[5, 10, 15, 20].map((degrau) => ({
-          ...BASE_PONTO,
-          degrau,
-          runId: `r${degrau}`,
-          estimativa: true,
-        })),
-      ],
-    })
-    abrir()
-
-    // Sem a leitura, isto seria 10 / 50 / 5.
-    expect(await screen.findByDisplayValue('5')).toBeInTheDocument()
-    expect(screen.getByLabelText('Menor acréscimo de CAPEX, em %')).toHaveValue(5)
-    expect(screen.getByLabelText('Maior acréscimo de CAPEX, em %')).toHaveValue(20)
-    expect(screen.getByLabelText('Quantos pontos a análise tem')).toHaveValue('4')
-  })
-
-  it('a escolha da pessoa vence a leitura, e nenhum refetch a desfaz', async () => {
-    servirSensibilidade({
-      teto: TETO,
-      pontos: [
-        BASE_PONTO,
-        ...[10, 20, 30, 40, 50].map((degrau) => ({
-          ...BASE_PONTO,
-          degrau,
-          runId: `r${degrau}`,
-        })),
-      ],
-    })
-    abrir()
-    await screen.findByText('Cobertura ao fim')
-
-    const ate = screen.getByLabelText('Maior acréscimo de CAPEX, em %')
-    await userEvent.clear(ate)
-    await userEvent.type(ate, '30')
-    await new Promise((r) => setTimeout(r, 250))
-    expect(ate).toHaveValue(30)
-  })
-})
-
-describe('a faixa é escolhida na tela', () => {
-  it('sem análise nenhuma, o padrão é de 10% a 50% em cinco pontos', async () => {
-    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
-    abrir()
-    await screen.findByText('Antes de simular: o teto')
-    expect(screen.getByLabelText('Menor acréscimo de CAPEX, em %')).toHaveValue(10)
-    expect(screen.getByLabelText('Maior acréscimo de CAPEX, em %')).toHaveValue(50)
-    expect(screen.getByLabelText('Quantos pontos a análise tem')).toHaveValue('5')
-  })
-
-  it('estreitar a faixa muda os degraus oferecidos', async () => {
-    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
-    abrir()
-    await screen.findByText('Antes de simular: o teto')
-
-    const ate = screen.getByLabelText('Maior acréscimo de CAPEX, em %')
-    await userEvent.clear(ate)
-    await userEvent.type(ate, '20')
-    await userEvent.selectOptions(screen.getByLabelText('Quantos pontos a análise tem'), '3')
-
-    // 10 a 20 em três pontos: 10, 15, 20.
-    expect(
-      await screen.findByRole('button', { name: /Rodar a análise · 3 estimativas/ }),
-    ).toBeInTheDocument()
-    // A lista de degraus é a régua: o +15% entra e o +30% sai. (`+15%` também
-    // aparece na tabela do teto, por isso o recorte pela lista.)
-    const chips = screen.getByRole('list')
-    expect(within(chips).getByText('+15%')).toBeInTheDocument()
-    expect(within(chips).queryByText('+30%')).not.toBeInTheDocument()
-    expect(within(chips).getAllByText(/^\+\d+%$/).map((e) => e.textContent)).toEqual([
-      '+10%',
-      '+15%',
-      '+20%',
-    ])
-  })
-
-  it('faixa estreita avisa quantos pontos distintos vão rodar', async () => {
-    // Os degraus são inteiros — a identidade do ponto na curva depende disso —,
-    // então de 10 a 12 em cinco sobram três. Mostrar "5" prometeria duas
-    // execuções que não vão acontecer.
-    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
-    abrir()
-    await screen.findByText('Antes de simular: o teto')
-
-    const ate = screen.getByLabelText('Maior acréscimo de CAPEX, em %')
-    await userEvent.clear(ate)
-    await userEvent.type(ate, '12')
-
-    expect(await screen.findByText(/faixa estreita: 3 pontos distintos/)).toBeInTheDocument()
-  })
-
-  it('faixa que não sobe é recusada ANTES de virar requisição', async () => {
-    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
-    abrir()
-    await screen.findByText('Antes de simular: o teto')
-
-    const ate = screen.getByLabelText('Maior acréscimo de CAPEX, em %')
-    await userEvent.clear(ate)
-    await userEvent.type(ate, '5')
-
-    expect(await screen.findByText(/o fim precisa ser maior que o início/)).toBeInTheDocument()
-  })
-})
-
 describe('a curva mostra tudo o que rodou, mesmo fora da faixa', () => {
   it('um degrau fora da faixa continua no gráfico e na tabela', async () => {
     // Ponto que rodou foi execução paga. Escondê-lo porque um filtro de tela
@@ -476,16 +362,10 @@ describe('a curva mostra tudo o que rodou, mesmo fora da faixa', () => {
     })
     abrir()
 
-    // A faixa lida não descreve 10/60/90, então a tela fica no padrão…
-    expect(await screen.findByText('Cobertura ao fim')).toBeInTheDocument()
-    const chips = screen.getByRole('list')
-    expect(within(chips).getAllByText(/^\+\d+%$/).map((e) => e.textContent)).toEqual([
-      '+10%',
-      '+20%',
-      '+30%',
-      '+40%',
-      '+50%',
-    ])
+      // O chip fala do ALVO — o que o campo pede agora —, e não da análise inteira.
+      expect(await screen.findByText('Cobertura ao fim')).toBeInTheDocument()
+      const chips = screen.getByRole('list')
+      expect(within(chips).getAllByText(/^\+\d+%$/).map((e) => e.textContent)).toEqual(['+10%'])
 
     // …e a curva mostra os três, inclusive os de fora.
     const quadro = screen.getByRole('figure', { name: 'Cobertura ao fim' })
@@ -527,154 +407,6 @@ describe('a estimativa é nomeada, e não só colorida', () => {
 
     expect(await screen.findByText('· estimativa')).toBeInTheDocument()
     expect(screen.getByText(/estimativas rápidas/)).toBeInTheDocument()
-  })
-})
-
-describe('a varredura completa — pedir a análise inteira', () => {
-  /** Um servidor que muda de resposta a cada busca, como o de verdade. */
-  function servirEmEtapas(etapas: Record<string, unknown>[]) {
-    let i = 0
-    servidor.use(
-      http.get('/api/runs/:runId/sensibilidade', () => {
-        const corpo = etapas[Math.min(i, etapas.length - 1)]
-        i += 1
-        return HttpResponse.json(corpo)
-      }),
-    )
-  }
-
-  const RODANDO_10 = {
-    ...BASE_PONTO,
-    degrau: 10,
-    runId: 'run_10',
-    status: 'RODANDO',
-    estimativa: true,
-    vpl: null,
-    coberturaFimPct: null,
-    obras: [],
-  }
-
-  it('UM PEDIDO DE CADA VEZ, e não os cinco de uma vez', async () => {
-    // É o defeito que a primeira tentativa real produziu: cinco `POST` juntos
-    // saturaram uma fila de capacidade 1 e um deles voltou 503. A varredura é um
-    // estado que pede o próximo quando o anterior sai de voo, e não um lote.
-    const pedidos: Record<string, unknown>[] = []
-    servidor.use(
-      http.post('/api/runs/:runId/variacao', async ({ request }) => {
-        pedidos.push((await request.json()) as Record<string, unknown>)
-        return HttpResponse.json({
-          runId: 'run_10',
-          status: 'PENDENTE',
-          jaExistia: false,
-          naCurva: true,
-        })
-      }),
-    )
-    // A primeira busca não tem variação; a partir da segunda, +10% está em voo.
-    servirEmEtapas([
-      { teto: TETO, pontos: [BASE_PONTO] },
-      { teto: TETO, pontos: [BASE_PONTO, RODANDO_10] },
-    ])
-
-    abrir()
-    await userEvent.click(
-      await screen.findByRole('button', { name: /Rodar a análise · 5 estimativas/ }),
-    )
-
-    // Uma em voo trava o resto: o botão vira "Parar depois desta" e mais nenhum
-    // pedido sai enquanto o executor não liberar.
-    expect(await screen.findByRole('button', { name: 'Parar depois desta' })).toBeInTheDocument()
-    await new Promise((r) => setTimeout(r, 250))
-    expect(pedidos).toHaveLength(1)
-    expect(pedidos[0]).toMatchObject({ fator: 1.1, modo: 'rapido' })
-  })
-
-  it('a varredura para quando o degrau que ELA pediu falha', async () => {
-    // Repetir sozinho uma execução que acabou de morrer gasta cluster para
-    // reproduzir o mesmo erro, e o laço não teria fim.
-    const pedidos: unknown[] = []
-    servidor.use(
-      http.post('/api/runs/:runId/variacao', async ({ request }) => {
-        pedidos.push(await request.json())
-        return HttpResponse.json({
-          runId: 'run_10',
-          status: 'PENDENTE',
-          jaExistia: false,
-          naCurva: true,
-        })
-      }),
-    )
-    servirEmEtapas([
-      { teto: TETO, pontos: [BASE_PONTO] },
-      { teto: TETO, pontos: [BASE_PONTO, { ...RODANDO_10, status: 'ERRO' }] },
-    ])
-
-    abrir()
-    await userEvent.click(
-      await screen.findByRole('button', { name: /Rodar a análise · 5 estimativas/ }),
-    )
-
-    expect(await screen.findByRole('button', { name: /Tentar de novo \+10%/ })).toBeInTheDocument()
-    await new Promise((r) => setTimeout(r, 250))
-    expect(pedidos).toHaveLength(1)
-  })
-
-  it('a varredura PARA quando o servidor devolve uma rodada de outra curva', async () => {
-    // A dedupe por parâmetros pode encontrar uma variação idêntica já ligada a
-    // OUTRA base. O ponto nunca vai aparecer nesta curva, então `proximo` não
-    // avança — e sem a parada a varredura ficaria ligada para sempre esperando
-    // em silêncio. Uma trava muda é pior que um erro: não há o que ler na tela.
-    const pedidos: unknown[] = []
-    servidor.use(
-      http.post('/api/runs/:runId/variacao', async ({ request }) => {
-        pedidos.push(await request.json())
-        return HttpResponse.json({
-          runId: 'run_de_outra_base',
-          status: 'SUCESSO',
-          jaExistia: true,
-          naCurva: false,
-        })
-      }),
-    )
-    servirEmEtapas([{ teto: TETO, pontos: [BASE_PONTO] }])
-
-    abrir()
-    await userEvent.click(
-      await screen.findByRole('button', { name: /Rodar a análise · 5 estimativas/ }),
-    )
-
-    // Volta ao estado de repouso, com a explicação na tela…
-    expect(
-      await screen.findByRole('button', { name: /Rodar a análise · 5 estimativas/ }),
-    ).toBeInTheDocument()
-    expect(screen.getByText(/é ponto da curva de outra rodada/)).toBeInTheDocument()
-    // …e não fica pedindo o mesmo degrau em laço.
-    await new Promise((r) => setTimeout(r, 250))
-    expect(pedidos).toHaveLength(1)
-  })
-
-  it('parar interrompe a corrente sem cancelar o que está em voo', async () => {
-    servidor.use(
-      http.post('/api/runs/:runId/variacao', () =>
-        HttpResponse.json({
-          runId: 'run_10',
-          status: 'PENDENTE',
-          jaExistia: false,
-          naCurva: true,
-        }),
-      ),
-    )
-    servirEmEtapas([{ teto: TETO, pontos: [BASE_PONTO] }])
-
-    abrir()
-    await userEvent.click(
-      await screen.findByRole('button', { name: /Rodar a análise · 5 estimativas/ }),
-    )
-    await userEvent.click(await screen.findByRole('button', { name: 'Parar depois desta' }))
-
-    expect(
-      await screen.findByRole('button', { name: /Rodar a análise · 5 estimativas/ }),
-    ).toBeInTheDocument()
   })
 })
 
@@ -734,12 +466,97 @@ describe('a variação que pertence a outra curva', () => {
     )
 
     abrir()
-    await userEvent.click(await screen.findByRole('button', { name: /Só \+10%/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Rodar \+10%/ }))
 
     expect(await screen.findByText(/é ponto da curva de outra rodada/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'o resultado dela' })).toHaveAttribute(
       'href',
       '/resultados/run_de_outra_base',
     )
+  })
+})
+
+/**
+ * UM PONTO DE CADA VEZ — o contrato da tela depois que a faixa saiu.
+ *
+ * O que se perde ao trocar faixa por ponto é a varredura automática; o que NÃO se
+ * pode perder é a curva. Estes testes prendem as duas metades: o pedido leva o
+ * número digitado, e o gráfico continua mostrando tudo o que já rodou, venha de
+ * onde vier.
+ */
+describe('um acréscimo de cada vez', () => {
+  it('o pedido leva o número que está no campo', async () => {
+    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
+    let corpo: Record<string, unknown> | null = null
+    servidor.use(
+      http.post('/api/runs/:runId/variacao', async ({ request }) => {
+        corpo = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json({ runId: 'novo', status: 'PENDENTE', jaExistia: false })
+      }),
+    )
+    abrir()
+
+    const campo = await screen.findByLabelText(/Acréscimo de CAPEX por ano/i)
+    await userEvent.clear(campo)
+    await userEvent.type(campo, '35')
+
+    await userEvent.click(await screen.findByRole('button', { name: /Rodar \+35%/ }))
+
+    // 1,35 = +35% sobre o orçamento de cada ano.
+    await waitFor(() => expect(corpo).toMatchObject({ fator: 1.35 }))
+    expect(String((corpo as unknown as Record<string, unknown>).nome)).toContain('+35%')
+  })
+
+  it('acréscimo fora dos limites não vira requisição', async () => {
+    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
+    let pediu = false
+    servidor.use(
+      http.post('/api/runs/:runId/variacao', () => {
+        pediu = true
+        return HttpResponse.json({ runId: 'x', status: 'PENDENTE', jaExistia: false })
+      }),
+    )
+    abrir()
+
+    const campo = await screen.findByLabelText(/Acréscimo de CAPEX por ano/i)
+    await userEvent.clear(campo)
+    await userEvent.type(campo, '0')
+
+    // A recusa é da tela, e diz o que consertar em vez de devolver um 422.
+    expect(await screen.findByText(/entre 1% e 200%/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Rodar/ })).toBeDisabled()
+    expect(pediu).toBe(false)
+  })
+
+  it('um ponto que já rodou pode ser rodado de novo', async () => {
+    // Repetir é legítimo: o modo pode ter mudado de estimativa para completo. Um
+    // botão que sumisse porque o ponto existe deixaria a pessoa sem saída.
+    servirSensibilidade({
+      teto: TETO,
+      pontos: [BASE_PONTO, { ...BASE_PONTO, degrau: 10, runId: 'v10', coberturaFimPct: 44 }],
+    })
+    abrir()
+
+    expect(await screen.findByRole('button', { name: /Rodar \+10% de novo/ })).toBeInTheDocument()
+  })
+
+  it('a curva mostra os pontos que já rodaram, mesmo os que o campo não pede', async () => {
+    // O campo é a PRÓXIMA pergunta; o gráfico é a análise acumulada. Um ponto de
+    // +60% que alguém pagou para executar não some porque o campo diz 10.
+    servirSensibilidade({
+      teto: TETO,
+      pontos: [
+        BASE_PONTO,
+        { ...BASE_PONTO, degrau: 10, runId: 'a', coberturaFimPct: 44 },
+        { ...BASE_PONTO, degrau: 60, runId: 'b', coberturaFimPct: 51 },
+      ],
+    })
+    abrir()
+
+    expect(await screen.findByText('Cobertura ao fim')).toBeInTheDocument()
+    const quadro = screen.getByRole('figure', { name: 'Cobertura ao fim' })
+    await userEvent.click(within(quadro).getByRole('tab', { name: 'Tabela' }))
+    const linhas = within(quadro).getAllByRole('row').map((r) => r.textContent ?? '')
+    expect(linhas.some((l) => l.includes('+60%'))).toBe(true)
   })
 })
