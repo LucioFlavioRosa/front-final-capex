@@ -83,6 +83,9 @@ interface Hierarquia {
   unidReg: {
     rid: string
     rnome: string
+    /** A diretoria, entre a regional e a unidade. `''` até a carga trazê-la. */
+    did: string
+    dnome: string
     uid: string
     unome: string
     waccMedio: string
@@ -356,6 +359,8 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
         regional_name: hier.unidReg.rnome,
         unidade_id: hier.unidReg.uid,
         unidade_name: hier.unidReg.unome,
+        diretoria_id: hier.unidReg.did,
+        diretoria_name: hier.unidReg.dnome,
         wacc_medio: hier.unidReg.waccMedio,
         // `usaCts` chega como `'true'`/`'false'` e vira `Sim`/`Nao` — o
         // vocabulário que o wizard usa nas outras colunas de sim/não.

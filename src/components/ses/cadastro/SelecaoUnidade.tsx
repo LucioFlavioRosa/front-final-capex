@@ -5,10 +5,20 @@ import { useCadastro } from './CadastroContext'
 import { Button } from '../../ui/Button'
 import { Band } from '../../ui/Band'
 import { useToast } from '../../ui/Toaster'
-import { useRegionais, useUnidade, useUnidades } from '../../../lib/organizacaoApi'
+import { useDiretorias, useRegionais, useUnidade, useUnidades } from '../../../lib/organizacaoApi'
+
+/**
+ * O GRUPO DAS UNIDADES SEM DIRETORIA.
+ *
+ * Não é um id do banco: `diretoria_id` é nulável, e um `null` não serve de chave
+ * de seleção. O prefixo `(` garante que ele não colida com id nenhum que a carga
+ * possa trazer — ids do de-para não começam com pontuação.
+ */
+const SEM_DIRETORIA = '(sem-diretoria)'
 
 export function SelecaoUnidade() {
-  const { state, selecionarRegional, selecionarUnidade, iniciarCadastro } = useCadastro()
+  const { state, selecionarRegional, selecionarDiretoria, selecionarUnidade, iniciarCadastro } =
+    useCadastro()
   const { user } = useAuth()
   const { toast } = useToast()
 
@@ -47,6 +57,7 @@ export function SelecaoUnidade() {
   const restrito = unidadeRestritaId
     ? { unidadeId: unidadeRestritaId, regionalId: unidadeRestrita.data?.regionalId }
     : undefined
+  const diretorias = useDiretorias(restrito ? restrito.regionalId : regional || undefined)
   const unidades = useUnidades(restrito ? restrito.regionalId : regional || undefined)
 
   const REGIONAIS = restrito
@@ -55,14 +66,45 @@ export function SelecaoUnidade() {
       : []
     : (regionais.data ?? []).map((r) => r.id)
   const nomeRegional = Object.fromEntries((regionais.data ?? []).map((r) => [r.id, r.nome]))
-  const listaUnidades = restrito
+  const todasUnidades = restrito
     ? unidadeRestrita.data
       ? [unidadeRestrita.data]
       : []
     : (unidades.data ?? [])
 
+  /**
+   * A LISTA DE DIRETORIAS INCLUI "Sem diretoria" QUANDO ALGUMA UNIDADE ESTÁ SEM.
+   *
+   * `/regionais/{id}/diretorias` só devolve diretorias que existem, e a coluna é
+   * nulável de propósito — a carga pode trazer a unidade antes do nível acima.
+   * Sem esta entrada, essa unidade não apareceria em diretoria nenhuma e sumiria
+   * da tela: existiria no banco, seria acessível pela URL, e não teria como ser
+   * escolhida. Um grupo a mais é melhor que uma unidade invisível.
+   */
+  const LISTA_DIRETORIAS = (() => {
+    const daApi = (diretorias.data ?? []).map((d) => ({ id: d.id, nome: d.nome ?? d.id }))
+    const orfas = todasUnidades.some((u) => !u.diretoriaId)
+    return orfas ? [...daApi, { id: SEM_DIRETORIA, nome: 'Sem diretoria' }] : daApi
+  })()
+
+  const diretoriaAtual = state.diretoriaId
+
+  /**
+   * AS UNIDADES DA DIRETORIA ESCOLHIDA. Sem diretoria escolhida a lista é vazia,
+   * e não "todas": a tela é uma cascata, e mostrar tudo no passo do meio faria a
+   * escolha da diretoria parecer decorativa.
+   *
+   * Quem está restrito a uma unidade não passa por filtro nenhum — ele não
+   * escolhe, e o efeito abaixo já seleciona a diretoria dela.
+   */
+  const listaUnidades = restrito
+    ? todasUnidades
+    : todasUnidades.filter((u) => (u.diretoriaId ?? SEM_DIRETORIA) === diretoriaAtual)
+
   const regionalAtual = REGIONAIS.find((r) => r === state.regionalId) ?? ''
   const unidadeId = state.unidade?.id ?? ''
+  const nomeDiretoria =
+    LISTA_DIRETORIAS.find((d) => d.id === diretoriaAtual)?.nome ?? diretoriaAtual
 
   function pickRegional(r: string) {
     selecionarRegional(r)
@@ -75,17 +117,33 @@ export function SelecaoUnidade() {
    * o efeito reagir a `unidades.data` em vez de calcular a lista na hora do
    * clique.
    */
+  /**
+   * Escolhida a regional, a PRIMEIRA DIRETORIA dela entra sozinha — o mesmo que
+   * já acontecia com a unidade, um nível acima. Sem isto, trocar de regional
+   * deixava a tela com duas listas vazias e nada indicando o próximo passo.
+   */
   useEffect(() => {
-    if (restrito || !state.regionalId || state.unidade) return
-    const primeira = unidades.data?.[0]
+    if (restrito || !state.regionalId || state.diretoriaId) return
+    const primeira = LISTA_DIRETORIAS[0]
+    if (primeira) selecionarDiretoria(primeira.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.regionalId, state.diretoriaId, diretorias.data, unidades.data])
+
+  useEffect(() => {
+    if (restrito || !state.diretoriaId || state.unidade) return
+    const primeira = listaUnidades[0]
     if (primeira) selecionarUnidade(primeira.id, primeira.nome, primeira.regionalId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.regionalId, unidades.data])
+  }, [state.diretoriaId, unidades.data])
 
   useEffect(() => {
     if (!restrito || !unidadeRestrita.data) return
-    const { id, nome, regionalId } = unidadeRestrita.data
+    const { id, nome, regionalId, diretoriaId } = unidadeRestrita.data
     selecionarRegional(regionalId)
+    // A DIRETORIA VEM DA UNIDADE, e não de uma escolha: quem está restrito não
+    // escolhe nenhum dos três níveis, e o cartão do recorte precisa dizer em
+    // qual diretoria ela está.
+    selecionarDiretoria(diretoriaId ?? SEM_DIRETORIA)
     selecionarUnidade(id, nome, regionalId)
     // roda quando o dado da unidade fixa chega (ou o perfil dev muda) — não a cada render
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -110,10 +168,14 @@ export function SelecaoUnidade() {
       <p className="mt-2 max-w-[620px] text-water-600/80">
         {restrito
           ? 'Seu acesso é restrito a esta unidade — para editar outra, peça a um administrador.'
-          : 'A análise é feita por unidade operacional. Escolha a regional e a unidade para abrir as abas da base.'}
+          : 'A análise é feita por unidade operacional. Escolha a regional, a diretoria e a unidade para abrir as abas da base.'}
       </p>
 
-      <div className="mt-6 grid max-w-[900px] gap-3.5 [grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]">
+      {/* 1180px CABEM OS QUATRO CARTÕES numa linha: 4x260 de mínimo mais os três
+          vãos. Eram três até a diretoria entrar, e 900px deixava o cartão do
+          recorte sozinho numa segunda linha, com um vão à direita do tamanho de
+          dois cartões. O `auto-fit` continua quebrando sozinho em tela estreita. */}
+      <div className="mt-6 grid max-w-[1180px] gap-3.5 [grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]">
         <div className="min-w-0 rounded-2xl border border-ink-200 bg-white p-[18px]">
           <div className="mb-2.5 text-[10.5px] font-semibold uppercase tracking-[.09em] text-ink-water">Regional</div>
           {!restrito && regionais.isPending && (
@@ -151,6 +213,43 @@ export function SelecaoUnidade() {
         </div>
 
         <div className="min-w-0 rounded-2xl border border-ink-200 bg-white p-[18px]">
+          <div className="mb-2.5 text-[10.5px] font-semibold uppercase tracking-[.09em] text-ink-water">Diretoria</div>
+          {!restrito && diretorias.isPending && regionalAtual && (
+            <p className="text-[12.5px] text-ink-water">Carregando…</p>
+          )}
+          {!restrito && diretorias.isError && (
+            <p className="text-[12.5px] text-danger">
+              Não foi possível carregar as diretorias.{' '}
+              <button
+                type="button"
+                onClick={() => diretorias.refetch()}
+                className="font-semibold underline"
+              >
+                Tentar de novo
+              </button>
+            </p>
+          )}
+          {!restrito && regionalAtual && !diretorias.isPending && LISTA_DIRETORIAS.length === 0 && (
+            <p className="text-[12.5px] text-ink-water">Nenhuma diretoria nesta regional.</p>
+          )}
+          <div className="flex max-h-[340px] flex-col gap-1.5 overflow-y-auto">
+            {LISTA_DIRETORIAS.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                disabled={!!restrito}
+                onClick={() => selecionarDiretoria(d.id)}
+                className={`rounded-[9px] border px-3 py-2.5 text-left text-[13px] transition-colors duration-hover ease-saida hover:border-water-200 disabled:cursor-default ${
+                  d.id === diretoriaAtual ? 'border-water-600 bg-water-50 font-semibold text-water-700' : 'border-ink-200 bg-white'
+                }`}
+              >
+                {d.nome}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="min-w-0 rounded-2xl border border-ink-200 bg-white p-[18px]">
           <div className="mb-2.5 text-[10.5px] font-semibold uppercase tracking-[.09em] text-ink-water">Unidade</div>
           {!restrito && unidades.isPending && regionalAtual && (
             <p className="text-[12.5px] text-ink-water">Carregando…</p>
@@ -167,8 +266,8 @@ export function SelecaoUnidade() {
               </button>
             </p>
           )}
-          {!restrito && regionalAtual && unidades.data?.length === 0 && (
-            <p className="text-[12.5px] text-ink-water">Nenhuma unidade nesta regional.</p>
+          {!restrito && diretoriaAtual && !unidades.isPending && listaUnidades.length === 0 && (
+            <p className="text-[12.5px] text-ink-water">Nenhuma unidade nesta diretoria.</p>
           )}
           {/* Lista alta: rola dentro do cartão em vez de esticar a página. */}
           <div className="flex max-h-[340px] flex-col gap-1.5 overflow-y-auto">
@@ -212,6 +311,11 @@ export function SelecaoUnidade() {
               label="Regional"
               value={regionalAtual ? nomeRegional[regionalAtual] ?? regionalAtual : '—'}
               codigo={regionalAtual}
+            />
+            <Resumo
+              label="Diretoria"
+              value={diretoriaAtual ? nomeDiretoria : '—'}
+              codigo={diretoriaAtual === SEM_DIRETORIA ? '' : diretoriaAtual}
             />
             <Resumo
               label="Unidade"

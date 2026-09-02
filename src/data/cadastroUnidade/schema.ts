@@ -570,12 +570,21 @@ export const SCHEMA: AbaDef[] = [
     // A descrição NÃO menciona o WACC: ele tem cartão próprio acima da tabela,
     // com a explicação inteira. Repetir a regra da herança aqui, a 3cm de
     // distância do cartão, é a poluição que o cartão evita.
-    desc: 'Topo da hierarquia da unidade: regional e empresa operadora, como vêm do de-para oficial da Aegea.',
+    desc: 'Topo da hierarquia da unidade: regional, diretoria e unidade, como vêm do de-para oficial da Aegea.',
     cols: [
       { coluna: 'regional_id', origem: 'db', procedencia: 'depara', oque: 'Código da regional a que esta unidade pertence (R1 a R5), vindo do de-para oficial Regional × Empresa × Cidade.', exemplo: 'R4' },
       // o de-para só traz o CÓDIGO da regional (R1…R5), não um nome descritivo:
       // esta coluna repete o código em vez de inventar um nome
       { coluna: 'regional_name', origem: 'db', procedencia: 'depara', oque: 'Nome da regional. Hoje repete o próprio código (R1…R5) porque a fonte de dados não traz um nome descritivo — pendência a confirmar com a Aegea.', exemplo: 'R4' },
+      // A DIRETORIA É O NÍVEL ENTRE A REGIONAL E A UNIDADE, e as colunas ficam
+      // NESTA ORDEM porque a grade é lida da esquerda para a direita: fora de
+      // ordem, a tabela desenharia uma hierarquia que não é a da empresa.
+      //
+      // A hierarquia inteira é regional → diretoria → unidade → empresa →
+      // cidade → sistema. Os três primeiros níveis estão nesta aba; os outros
+      // três têm abas próprias.
+      { coluna: 'diretoria_id', origem: 'db', procedencia: 'depara', oque: 'Código da diretoria a que esta unidade pertence, dentro da regional.', exemplo: 'dir-57' },
+      { coluna: 'diretoria_name', origem: 'db', procedencia: 'depara', oque: 'Nome da diretoria — o nível entre a regional e a unidade (coluna DIRETORIA do extrato de portfólio).', exemplo: 'Águas do Rio' },
       { coluna: 'unidade_id', origem: 'db', procedencia: 'depara', oque: 'Código da empresa operadora (EMP_CODIGO) que identifica esta unidade no de-para da Aegea.', exemplo: '57' }, { coluna: 'unidade_name', origem: 'db', procedencia: 'depara', oque: 'Nome da empresa operadora responsável por esta unidade.', exemplo: 'Águas do Rio 04' },
       { coluna: 'wacc_medio', origem: 'un', procedencia: 'mock', oque: 'Custo médio de capital (WACC) da unidade como um todo — preenchido por Operações Financeiras.', porque: 'Toda obra de CAPEX que não tiver um WACC próprio preenchido herda este valor no cálculo do retorno — nenhuma obra fica sem taxa de desconto.', exemplo: '0,0945' },
       // As DUAS colunas que a Regional preenche nesta aba, e as duas que voltam
