@@ -33,8 +33,8 @@ const ROTULOS: Record<string, string> = {
   DATA_INICIO: 'Data de início',
   CURVA_ADOCAO: 'Curva de adoção',
   BASE_RECEITA: 'Base de receita',
-  USAR_CTS: 'Usar CTS',
-  COBERTURA_SO_RESIDENCIAL: 'Cobertura só residencial',
+  USAR_CTS: 'Coletores de tempo seco',
+  COBERTURA_SO_RESIDENCIAL: 'Recorte da cobertura',
   ANOS_EXTRA_CONCLUSAO: 'Anos extras para concluir',
   INCLUIR_INDUSTRIAL: 'Incluir indústria',
   MAX_TIME_S: 'Tempo máximo do solver',
@@ -108,6 +108,12 @@ export function valorDoParametro(chave: string, v: unknown): string {
  */
 export function segmentosDoParametro(chave: string, v: unknown): string[] {
   if (v === null || v === undefined || v === '') return ['—']
+  if (chave === 'USAR_CTS' && typeof v === 'boolean') {
+    return [v ? 'orçar à parte' : 'somar à sub-bacia']
+  }
+  if (chave === 'COBERTURA_SO_RESIDENCIAL' && typeof v === 'boolean') {
+    return [v ? 'só residenciais' : 'todas as ligações']
+  }
   if (typeof v === 'boolean') return [v ? 'sim' : 'não']
 
   if (chave === 'ORCAMENTO' && typeof v === 'object') {

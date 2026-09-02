@@ -11,7 +11,6 @@ import { Cartao } from '@/rodada/components/pecas'
 import { useCriarRodada, useProntidao } from '@/rodada/api/queries'
 import { useRegionais, useUnidade, useUnidades, type UnidadeResumo } from '@/lib/organizacaoApi'
 import {
-  BotaoAjuda,
   PainelDicionario,
   ProvedorDicionario,
   RotuloParametro,
@@ -24,6 +23,7 @@ import {
   numOuNulo,
   validar,
   type BaseReceita,
+  type UnidadeCobertura,
   type CurvaAdocao,
   type DerivadoOrcamento,
   type EstadoSimulacao,
@@ -145,6 +145,20 @@ export function Simular() {
   const [avancado, setAvancado] = useState(true)
 
   const prontidao = useProntidao(estado.unidadeId || undefined)
+  /**
+   * QUANTOS ELEMENTOS FICARIAM SEM A RÉGUA DE POPULAÇÃO.
+   *
+   * `null` quando não dá para afirmar nada: sem unidade escolhida, com a
+   * prontidão ainda carregando, ou contra um servidor que não manda o campo. A
+   * tela então não diz NADA — melhor calar do que anunciar um número que ela não
+   * tem, ou repetir um aviso genérico que não distingue "falta em todas" de
+   * "falta em três".
+   */
+  const semPopulacao = (() => {
+    const p = prontidao.data?.populacao
+    if (!p || p.elementos === 0) return null
+    return p.elementos - p.completos
+  })()
   const criar = useCriarRodada()
   const regionais = useRegionais()
   const unidades = useUnidades(estado.regionalId || undefined)
@@ -362,6 +376,50 @@ export function Simular() {
                   />
                 </div>
                 <div>
+                  <RotuloParametro texto="Cobertura medida em" tecnico="UNIDADE_COBERTURA" />
+                  <SegmentedControl
+                    aria-label="Cobertura medida em"
+                    value={estado.unidadeCobertura}
+                    onChange={(v) =>
+                      despachar({ tipo: 'set', patch: { unidadeCobertura: v as UnidadeCobertura } })
+                    }
+                    options={[
+                      { value: 'ligacoes', label: 'Ligações' },
+                      { value: 'economias', label: 'Economias' },
+                      { value: 'populacao', label: 'População' },
+                    ]}
+                  />
+                  {/* A ADVERTÊNCIA É DE DADO, e por isso é MEDIDA — não um aviso
+                      genérico que aparece sempre que se escolhe população.
+                      `/prontidao` conta quantas sub-bacias e CTS da unidade têm
+                      universo e população informados; sem os dois, o motor
+                      converte pela densidade 1,0 e mede em ligações, avisando só
+                      no log do job.
+                      O NÚMERO É O QUE FAZ A FRASE VALER: "faltam em 142 de 142"
+                      diz que a régua não vale nada aqui; "em 3 de 751" diz que
+                      vale, com três buracos. Um texto fixo confundiria os dois. */}
+                  {estado.unidadeCobertura === 'populacao' && semPopulacao !== null && (
+                    <p className="mt-2 text-[12px] leading-snug text-amber-700">
+                      {semPopulacao === 0 ? (
+                        <>
+                          Todas as sub-bacias e CTS têm universo e população atual
+                          informados.
+                        </>
+                      ) : (
+                        <>
+                          <strong>
+                            {semPopulacao} de {prontidao.data?.populacao?.elementos}
+                          </strong>{' '}
+                          sub-bacias e CTS não têm <strong>universo</strong> e{' '}
+                          <strong>população atual</strong> informados. Nesses, a cobertura cai
+                          para <strong>ligações</strong> — o plano roda, mas a régua não é a
+                          que você pediu.
+                        </>
+                      )}
+                    </p>
+                  )}
+                </div>
+                <div>
                   <RotuloParametro texto="Curva de adesão" tecnico="CURVA_ADOCAO" />
                   <SegmentedControl
                     aria-label="Curva de adoção"
@@ -397,43 +455,57 @@ export function Simular() {
                     ]}
                   />
                 </div>
-                <div className="flex items-center gap-2 sm:col-span-2">
-                <label className="flex items-center gap-2.5">
-                  <input
-                    type="checkbox"
-                    checked={estado.usarCts}
-                    onChange={(e) => despachar({ tipo: 'set', patch: { usarCts: e.target.checked } })}
-                    className="h-4 w-4 rounded border-ink-300 text-water-600 focus:ring-water-600/25"
+                {/* OS DOIS BOOLEANOS ENTRAM NA MESMA GRAMÁTICA DOS OUTROS.
+                    Eram caixas de marcar em linha inteira, no fim da seção: um
+                    controle diferente, num lugar diferente, para decisões do
+                    mesmo tipo. Quem lia a seção via cinco parâmetros com rótulo
+                    técnico e pílulas, e depois duas frases com caixinha — e uma
+                    caixa desmarcada não diz o que acontece quando ela está
+                    desmarcada. "Ignorar" e "Todas as ligações" dizem.
+
+                    O RÓTULO NOMEIA A COISA e as pílulas nomeiam a escolha, como
+                    em "Base de receita: Arrecadada | Faturada". O default é a
+                    primeira pílula, que é onde se espera encontrá-lo. */}
+                <div>
+                  <RotuloParametro
+                    texto="Coletores de tempo seco (CTS)"
+                    tecnico="USAR_CTS"
                   />
-                  <span className="text-[12.5px] text-ink-700">
-                    Considerar coletores de tempo seco (CTS)
-                  </span>
-                </label>
-                {/* O "?" fica FORA do `<label>` do checkbox pelo mesmo motivo
-                    de sempre: dentro, ele entraria no nome do campo. */}
-                <BotaoAjuda chave="USAR_CTS" texto="Usar CTS" />
+                  <SegmentedControl
+                    aria-label="Coletores de tempo seco (CTS)"
+                    value={estado.usarCts ? 'orcar' : 'somar'}
+                    onChange={(v) => despachar({ tipo: 'set', patch: { usarCts: v === 'orcar' } })}
+                    /* "IGNORAR" MENTIA, e o próprio verbete do dicionário
+                       entregava a mentira: desligado, o coletor não é ignorado —
+                       ligações, economias, população, receita e vazão dele são
+                       SOMADAS à sub-bacia irmã. A demanda continua no plano; o
+                       que muda é quem a atende, e portanto se há obra de CTS
+                       para orçar. As duas pílulas nomeiam esse par. */
+                    options={[
+                      { value: 'orcar', label: 'Orçar à parte' },
+                      { value: 'somar', label: 'Somar à sub-bacia' },
+                    ]}
+                  />
                 </div>
-                <div className="flex items-center gap-2 sm:col-span-2">
-                <label className="flex items-center gap-2.5">
-                  <input
-                    type="checkbox"
-                    checked={estado.coberturaSoResidencial}
-                    onChange={(e) =>
+                <div>
+                  <RotuloParametro
+                    texto="Recorte da cobertura"
+                    tecnico="COBERTURA_SO_RESIDENCIAL"
+                  />
+                  <SegmentedControl
+                    aria-label="Recorte da cobertura"
+                    value={estado.coberturaSoResidencial ? 'residenciais' : 'todas'}
+                    onChange={(v) =>
                       despachar({
                         tipo: 'set',
-                        patch: { coberturaSoResidencial: e.target.checked },
+                        patch: { coberturaSoResidencial: v === 'residenciais' },
                       })
                     }
-                    className="h-4 w-4 rounded border-ink-300 text-water-600 focus:ring-water-600/25"
+                    options={[
+                      { value: 'todas', label: 'Todas as ligações' },
+                      { value: 'residenciais', label: 'Só residenciais' },
+                    ]}
                   />
-                  <span className="text-[12.5px] text-ink-700">
-                    Contar cobertura só sobre ligações residenciais
-                  </span>
-                </label>
-                <BotaoAjuda
-                  chave="COBERTURA_SO_RESIDENCIAL"
-                  texto="Medir a meta só em ligações residenciais"
-                />
                 </div>
               </div>
             )}
@@ -636,12 +708,32 @@ function ResumoDaRodada({
         />
         <Item rotulo="Estratégia de cobertura" valor={estado.penalidade} />
         <Item rotulo="Base de receita" valor={estado.baseReceita} />
+        {/* A RÉGUA ENTRA NO RESUMO como qualquer outro parâmetro do motor: é ele
+            que a pessoa confere antes de disparar, e "cobertura 62%" não quer
+            dizer a mesma coisa em ligações e em economias. */}
+        <Item
+          rotulo="Cobertura medida em"
+          valor={
+            { ligacoes: 'ligações', economias: 'economias', populacao: 'população' }[
+              estado.unidadeCobertura
+            ]
+          }
+        />
         <Item
           rotulo="Curva de adesão"
           valor={estado.curvaAdocao === 'scurve' ? 'curva S' : 'linear'}
         />
-        <Item rotulo="Usar CTS" valor={estado.usarCts ? 'sim' : 'não'} />
-        <Item rotulo="Meta só residencial" valor={estado.coberturaSoResidencial ? 'sim' : 'não'} />
+        {/* AS MESMAS PALAVRAS DO CONTROLE. O resumo existe para conferir a
+            escolha que se acabou de fazer ao lado; "sim" e "não" obrigavam a
+            traduzir de volta para as opções que aparecem nas pílulas. */}
+        <Item
+          rotulo="Coletores de tempo seco"
+          valor={estado.usarCts ? 'orçar à parte' : 'somar à sub-bacia'}
+        />
+        <Item
+          rotulo="Recorte da cobertura"
+          valor={estado.coberturaSoResidencial ? 'só residenciais' : 'todas as ligações'}
+        />
       </dl>
     </Cartao>
   )

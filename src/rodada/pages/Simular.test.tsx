@@ -210,3 +210,47 @@ describe('Simular — o estado avisa é inalcançável e não foi desenhado', ()
     expect(screen.queryByText(/as metas serão ignoradas/i)).not.toBeInTheDocument()
   })
 })
+
+/**
+ * O AVISO DA RÉGUA DE POPULAÇÃO É MEDIDO, e não um texto fixo.
+ *
+ * A régua saiu do cadastro e virou parâmetro de rodada. Escolher POPULAÇÃO só
+ * mede o que promete se as sub-bacias e CTS tiverem universo e população
+ * informados — sem os dois, o motor converte pela densidade 1,0, mede em
+ * ligações e segue, avisando apenas no log do job. Quem escolhe precisa saber
+ * disso ANTES de rodar.
+ *
+ * O NÚMERO É O QUE FAZ A FRASE VALER. "faltam em 200 de 200" diz que a régua não
+ * vale nada naquela unidade; "em 40 de 200" diz que vale, com buracos. Um aviso
+ * fixo — que era como isto nasceu — confundiria os dois casos, e um aviso que
+ * aparece sempre acaba ignorado justamente quando importa.
+ */
+describe('Simular — a régua de população avisa com número', () => {
+  it('sem escolher população, não diz nada sobre o assunto', async () => {
+    renderizar(<Simular />)
+    await escolherUnidade('56')
+    expect(screen.queryByText(/população atual/)).not.toBeInTheDocument()
+  })
+
+  it('com população faltando em parte, diz em quantos de quantos', async () => {
+    renderizar(<Simular />)
+    await escolherUnidade('56') // 160 de 200 completos no mock
+    await userEvent.click(screen.getByRole('radio', { name: 'População' }))
+
+    // 200 - 160 = 40. O texto tem de trazer os dois números, não só o alerta.
+    expect(await screen.findByText(/40 de 200/)).toBeInTheDocument()
+    expect(screen.getByText(/cai para/)).toBeInTheDocument()
+  })
+
+  it('com tudo preenchido, confirma em vez de alarmar', async () => {
+    renderizar(<Simular />)
+    await escolherUnidade('57') // 200 de 200 no mock
+    await userEvent.click(screen.getByRole('radio', { name: 'População' }))
+
+    expect(
+      await screen.findByText(/todas as sub-bacias e CTS têm universo e população atual/i),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/régua vale/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/cai para/)).not.toBeInTheDocument()
+  })
+})

@@ -159,16 +159,6 @@ export const DICT: Record<string, Verbete> = {
     porque: 'Define até quando a receita entra no VPL. Depois disso, nada é contado.',
     exemplo: '2045',
   },
-  unidade_cobertura: {
-    rotulo: 'Cobertura medida em',
-    tec: 'unidade_cobertura',
-    origem: 'você preenche · default ligações',
-    tipo: 'ligações | economias | população',
-    oque: 'A régua em que a cobertura da cidade é medida.',
-    porque:
-      'Vale para a verificação da META e para a faixa de PARIDADE. A receita continua sempre por ligação.',
-    exemplo: 'ligações',
-  },
   // ─── Recorte industrial ───────────────────────────────────────────────────
   // Os quatro verbetes repetem a mesma regra de propósito: ela é a fonte do
   // erro clássico (somar industrial ao total) e quem abre um deles pode não
@@ -217,17 +207,17 @@ export const DICT: Record<string, Verbete> = {
   universo_populacao: {
     rotulo: 'População — universo',
     tec: 'universo_populacao',
-    origem: 'você preenche · só quando a cidade mede por população',
+    origem: 'você preenche · só quando a rodada mede por população',
     tipo: 'habitantes',
     oque: 'Toda a população da área da sub-bacia, atendida ou não por esgoto.',
     porque:
-      'É o denominador da meta quando a cidade mede cobertura por população. Sem ele não dá para verificar o percentual contratado.',
+      'É o denominador da meta quando a rodada mede cobertura por população. Sem ele não dá para verificar o percentual contratado.',
     exemplo: '1.267',
   },
   populacao_atual: {
     rotulo: 'População atendida hoje',
     tec: 'populacao_atual',
-    origem: 'você preenche · só quando a cidade mede por população',
+    origem: 'você preenche · só quando a rodada mede por população',
     tipo: 'habitantes',
     oque: 'População que já tem coleta de esgoto, antes das obras deste plano.',
     porque:

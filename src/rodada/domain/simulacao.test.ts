@@ -14,6 +14,7 @@ import {
   numOuNulo,
   validar,
   resumirFaltando,
+  type UnidadeCobertura,
   type Prontidao,
 } from '@/rodada/domain/simulacao'
 
@@ -236,6 +237,34 @@ describe('validar — o que bloqueia e o que só avisa', () => {
 })
 
 describe('corpoDaRodada', () => {
+  it('as três opções da régua são os literais do motor, sem acento', () => {
+    // O RÓTULO É EM PORTUGUÊS; O VALOR é o literal que o motor compara. Este
+    // teste vem de `reguaDaCobertura.integracao.test.ts`, que morreu junto com o
+    // campo de cadastro — mas a armadilha que ele guardava é a mesma e não
+    // mudou de lugar: quando isto era coluna do cadastro, o RÓTULO acentuado foi
+    // gravado no lugar do valor em uma cidade da base, e ficou anos ali sem que
+    // nada acusasse (o motor compara por prefixo, então 'ligações' caía em
+    // 'ligacoes' e o número nunca mudou).
+    const opcoes: UnidadeCobertura[] = ['ligacoes', 'economias', 'populacao']
+    for (const o of opcoes) {
+      expect(o).toBe(o.normalize('NFD').replace(/[̀-ͯ]/g, ''))
+    }
+  })
+
+  it('leva a régua da cobertura, e por padrão em ligações', () => {
+    // A RÉGUA ERA DADO DE CADASTRO, uma coluna por cidade. Virou parâmetro de
+    // rodada e vale para a unidade inteira — duas cidades medidas em moedas
+    // diferentes davam uma cobertura que não soma.
+    //
+    // O PADRÃO É `ligacoes` porque é o do motor, e era o que 140 das 141 cidades
+    // da base usavam: quem não tocar no controle roda como sempre rodou.
+    const e = { ...estadoInicial(), unidadeId: 'u1' }
+    expect(corpoDaRodada(e).unidade_cobertura).toBe('ligacoes')
+    expect(corpoDaRodada({ ...e, unidadeCobertura: 'populacao' }).unidade_cobertura).toBe(
+      'populacao',
+    )
+  })
+
   it('converte milhões para reais', () => {
     const e = { ...estadoInicial(), unidadeId: 'u1' }
     const corpo = corpoDaRodada(e)

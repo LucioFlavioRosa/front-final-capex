@@ -101,7 +101,10 @@ interface Hierarquia {
 }
 
 interface Contrato {
-  cidades: { id: string; nome: string; empId: string; empNome: string; fim: string; cob: string }[]
+  // `cob` saiu da cidade na migração 019 — a régua da cobertura virou parâmetro
+  // de rodada. O `cob` que sobrou em `fator` é outra coisa: o percentual da
+  // faixa de paridade.
+  cidades: { id: string; nome: string; empId: string; empNome: string; fim: string }[]
   metas: { cid: string; ano: string; pct: string }[]
   fator: { cid: string; cob: string; par: string }[]
 }
@@ -283,27 +286,6 @@ function igual(a: Row | undefined, b: Row | undefined): boolean {
   return true
 }
 
-/**
- * CAMPO EM BRANCO É AUSÊNCIA — vai como `null`, e não como `""`.
- *
- * A grade trata toda célula como texto, então "não preenchido" chega aqui como
- * string vazia. Para alguns campos isso é indiferente; para os que o servidor
- * conta como pendência com `IS NULL`, não é: gravar `""` cria um valor, e o
- * campo passa a parecer preenchido.
- *
- * O caso concreto é `unidade_cobertura` (a régua da cobertura). A conta de
- * completude é `(o.unidade_cobertura IS NULL)::int` — um `""` faria a cidade
- * contar como pronta e liberaria a simulação sem ninguém ter escolhido a régua.
- *
- * A conversão mora AQUI, e não no servidor, porque quem inventou o `""` foi esta
- * camada: é a grade que transforma ausência em texto vazio. Desfazer isso na
- * borda de saída é devolver o dado à forma em que ele chegou.
- */
-function vazioEhAusencia(v: string | undefined): string | null {
-  const s = (v ?? '').trim()
-  return s || null
-}
-
 /** Indexa as linhas de uma aba por uma coluna-chave, para o de/para da gravação. */
 function porChave(linhas: Row[] | undefined, col: string): Map<string, Row> {
   const m = new Map<string, Row>()
@@ -440,7 +422,6 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
       empresa: c.empNome ?? '',
       cidade_id: c.id,
       cidade_name: c.nome,
-      unidade_cobertura: c.cob ?? '',
     })),
 
     'metas-cobertura': contrato.metas.map((m) => ({
@@ -672,17 +653,13 @@ export async function salvarCadastro(
     const mesmasFaixas = listasIguais(fatorPorCidade.get(c.cidade_id), fatorBase.get(c.cidade_id))
     if (mesmaCidade && mesmasMetas && mesmasFaixas) continue
     await api.put(`/api/unidades/${u}/contrato/${encodeURIComponent(c.cidade_id)}`, {
-      // `cob` VAI SEMPRE, mesmo vazio. O PUT substitui a ficha inteira e lê
-      // `cidade.get("cob")` sem default: a chave ausente vira NULL no banco.
-      // Omitir o campo aqui APAGA a régua de todas as cidades gravadas — sem
-      // erro, e sem ninguém ter tocado nela.
       // `fim` NAO VAI: a concessao e da empresa, e tem PUT proprio. O backend
       // ignora a chave se ela vier, e o upsert preserva o valor que a cidade ja
-      // tem.
+      // tem. `cob` (a régua da cobertura) também saiu — virou parâmetro de
+      // rodada, e a ficha da cidade ficou só com nome e id.
       cidade: {
         id: c.cidade_id,
         nome: c.cidade_name,
-        cob: vazioEhAusencia(c.unidade_cobertura),
       },
       metas: (metasPorCidade.get(c.cidade_id) ?? []).map((m) => ({
         cid: m.cidade_id,
