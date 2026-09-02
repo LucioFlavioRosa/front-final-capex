@@ -12,6 +12,8 @@ export type Fase = 'selecao' | 'wizard' | 'revisao' | 'sucesso'
 interface CadastroState {
   fase: Fase
   regionalId: string
+  /** Vazio até a regional ser escolhida; some junto com ela. */
+  diretoriaId: string
   unidadeId: string
   unidade: UnidadeState | null
   passo: number
@@ -34,6 +36,7 @@ interface CadastroState {
 const initialState: CadastroState = {
   fase: 'selecao',
   regionalId: '',
+  diretoriaId: '',
   unidadeId: '',
   unidade: null,
   passo: 0,
@@ -41,6 +44,7 @@ const initialState: CadastroState = {
 
 type Action =
   | { type: 'SELECT_REGIONAL'; regionalId: string }
+  | { type: 'SELECT_DIRETORIA'; diretoriaId: string }
   | { type: 'SELECT_UNIDADE'; unidadeId: string; nome: string; regionalId: string }
   | { type: 'INICIAR_CADASTRO' }
   | { type: 'SET_CELL'; abaKey: string; ri: number; col: string; value: string }
@@ -85,7 +89,20 @@ function colunasAcompanhantes(
 function reducer(state: CadastroState, action: Action): CadastroState {
   switch (action.type) {
     case 'SELECT_REGIONAL':
-      return { ...state, regionalId: action.regionalId, unidadeId: '', unidade: null }
+      // TROCAR A REGIONAL DERRUBA OS DOIS NÍVEIS ABAIXO. A diretoria pertence a
+      // uma regional só: mantê-la escolhida deixaria a tela com uma diretoria de
+      // outra regional selecionada, filtrando a lista de unidades para vazio.
+      return {
+        ...state,
+        regionalId: action.regionalId,
+        diretoriaId: '',
+        unidadeId: '',
+        unidade: null,
+      }
+
+    case 'SELECT_DIRETORIA':
+      // Mesma regra um nível abaixo: a unidade escolhida some com a diretoria.
+      return { ...state, diretoriaId: action.diretoriaId, unidadeId: '', unidade: null }
 
     case 'SELECT_UNIDADE':
       /**
@@ -269,6 +286,19 @@ function reducer(state: CadastroState, action: Action): CadastroState {
      */
     case 'IMPORTAR_PLANILHA': {
       if (!state.unidade) return state
+      /*
+       * A MESCLA TROCA A ABA INTEIRA, e para `sistema-topologia` isso teria um
+       * custo escondido: as linhas SEM SISTEMA carregam `cidade_id`, que não é
+       * coluna da planilha e é o que recorta o seletor de CTS pela cidade. Uma
+       * aba importada sem ela jogaria todas as CTS livres em "sem cidade
+       * cadastrada" — o seletor voltaria a ofertar as de qualquer município,
+       * só que com um rótulo dizendo que não sabe onde elas estão.
+       *
+       * NÃO ACONTECE HOJE: a v8 não tem aba de fluxo (ver o cabeçalho de
+       * `schema.ts`), e as rotas de template/importar ainda respondem 404. Fica
+       * escrito aqui para quem for implementá-las: ou a planilha passa a trazer
+       * `cidade_id`, ou esta mescla preserva o das linhas sem sistema.
+       */
       const data = { ...state.unidade.data, ...action.dados }
       return {
         ...state,
@@ -290,6 +320,7 @@ function reducer(state: CadastroState, action: Action): CadastroState {
 interface CadastroContextValue {
   state: CadastroState
   selecionarRegional: (regionalId: string) => void
+  selecionarDiretoria: (diretoriaId: string) => void
   selecionarUnidade: (unidadeId: string, nome: string, regionalId: string) => void
   iniciarCadastro: () => void
   setCell: (abaKey: string, ri: number, col: string, value: string) => void
@@ -458,6 +489,7 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
   const value = useMemo<CadastroContextValue>(() => ({
     state,
     selecionarRegional: (regionalId) => dispatch({ type: 'SELECT_REGIONAL', regionalId }),
+    selecionarDiretoria: (diretoriaId) => dispatch({ type: 'SELECT_DIRETORIA', diretoriaId }),
     selecionarUnidade: (unidadeId, nome, regionalId) =>
       dispatch({ type: 'SELECT_UNIDADE', unidadeId, nome, regionalId }),
     iniciarCadastro: () => dispatch({ type: 'INICIAR_CADASTRO' }),

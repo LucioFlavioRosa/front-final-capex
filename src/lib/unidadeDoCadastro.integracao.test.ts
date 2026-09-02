@@ -27,14 +27,19 @@ import type { UnidadeState } from '../data/cadastroUnidade/types'
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 /**
- * UMA UNIDADE SEM SISTEMA DE DUAS CTS, e é por isso que não é a uB1 de antes.
+ * A UNIDADE PRECISA DE DUAS COISAS AO MESMO TEMPO: nenhum sistema com duas CTS
+ * (senão marcar é recusado) e CTS SOLTAS de sobra (senão não há o que colocar).
  *
- * Marcar a unidade é recusado enquanto algum sistema dela tiver duas CTS — e a
- * uB1 tem um. Com a regra no nível da unidade, o estado de um único sistema
- * passou a decidir se a unidade inteira pode ser marcada, e o teste do caminho
- * feliz precisa de uma unidade onde ele exista.
+ * Era a uA1 porque a uB1 tinha um sistema com duas CTS. As duas eram as que
+ * estavam num sistema da cidade errada, e saíram dele — hoje a uB1 tem zero
+ * sistemas cheios.
+ *
+ * E a uA1 deixou de servir pelo outro lado: desde que a lista de CTS soltas
+ * passou a ser recortada pela unidade (migração 018), a uA1 tem ZERO soltas —
+ * as 151 da base são todas da uB1. Antes ela via as 151 como se fossem suas, que
+ * é justamente o defeito corrigido.
  */
-const UNIDADE = 'uA1'
+const UNIDADE = 'uB1'
 
 let noAr = false
 

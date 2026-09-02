@@ -156,14 +156,27 @@ export const PRONTIDAO_LIMPA: Prontidao = {
 }
 
 /**
- * Organização — mesma forma de `/api/regionais` e `/api/regionais/{id}/unidades`
- * (`app/api/organizacao.py`, lidos de `input.unidade_regional`). As duas
- * unidades espelham o banco local real: 56 e 57, ambas na R4.
+ * Organização — mesma forma de `/api/regionais`, `/api/regionais/{id}/diretorias`
+ * e `/api/regionais/{id}/unidades` (`app/api/cadastro.py`, lidos de
+ * `input.unidade_regional`). As duas unidades espelham o banco local real: 56 e
+ * 57, ambas na R4.
+ *
+ * A DIRETORIA é o nível entre a regional e a unidade. No extrato de portfólio a
+ * 57 está na diretoria 'Águas do Rio'; a 56 fica SEM diretoria de propósito, e
+ * essa assimetria é o ponto: `diretoria_id` é nulável, e uma unidade sem o nível
+ * acima precisa continuar escolhível na tela.
  */
 export const REGIONAIS = [{ id: 'R4', nome: 'R4' }]
+export const DIRETORIAS_R4 = [{ id: 'dir-57', nome: 'Águas do Rio' }]
 export const UNIDADES_R4 = [
-  { id: '56', nome: 'ÁGUAS DO RIO 01', regionalId: 'R4' },
-  { id: '57', nome: 'ÁGUAS DO RIO 04', regionalId: 'R4' },
+  { id: '56', nome: 'ÁGUAS DO RIO 01', regionalId: 'R4', diretoriaId: null, diretoriaNome: null },
+  {
+    id: '57',
+    nome: 'ÁGUAS DO RIO 04',
+    regionalId: 'R4',
+    diretoriaId: 'dir-57',
+    diretoriaNome: 'Águas do Rio',
+  },
 ]
 
 /**
@@ -189,6 +202,9 @@ export const RESUMO_56 = {
 
 export const handlers = [
   http.get('/api/regionais', () => HttpResponse.json(REGIONAIS)),
+  http.get('/api/regionais/:regionalId/diretorias', ({ params }) =>
+    HttpResponse.json(params.regionalId === 'R4' ? DIRETORIAS_R4 : []),
+  ),
   http.get('/api/regionais/:regionalId/unidades', ({ params }) =>
     HttpResponse.json(params.regionalId === 'R4' ? UNIDADES_R4 : []),
   ),

@@ -83,6 +83,9 @@ interface Hierarquia {
   unidReg: {
     rid: string
     rnome: string
+    /** A diretoria, entre a regional e a unidade. `''` até a carga trazê-la. */
+    did: string
+    dnome: string
     uid: string
     unome: string
     waccMedio: string
@@ -94,7 +97,7 @@ interface Hierarquia {
   sistemas: { id: string; nome: string; cidId: string; usaCts?: string }[]
   topo: { sis: string; id: string; nome: string; jus: string; tipo?: string }[]
   /** Componentes fora de qualquer sistema — hoje, as CTS ainda não colocadas. */
-  semSistema?: { id: string; nome: string; tipo?: string }[]
+  semSistema?: { id: string; nome: string; tipo?: string; cidId?: string }[]
 }
 
 interface Contrato {
@@ -356,6 +359,8 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
         regional_name: hier.unidReg.rnome,
         unidade_id: hier.unidReg.uid,
         unidade_name: hier.unidReg.unome,
+        diretoria_id: hier.unidReg.did,
+        diretoria_name: hier.unidReg.dnome,
         wacc_medio: hier.unidReg.waccMedio,
         // `usaCts` chega como `'true'`/`'false'` e vira `Sim`/`Nao` — o
         // vocabulário que o wizard usa nas outras colunas de sim/não.
@@ -396,7 +401,9 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
     // A topologia traz TAMBÉM o que está fora de sistema (`semSistema`), com
     // `sistema_id` em branco: é o estado normal de uma CTS antes de a Regional
     // decidir em que sistema ela entra, e escondê-la faria a tela dizer que ela
-    // não existe.
+    // não existe. A lista já vem recortada PELA UNIDADE (o servidor sabe onde
+    // cada CTS está desde a migração 018); o seletor do Fluxo estreita mais uma
+    // vez, para a cidade do sistema.
     'sistema-topologia': [
       ...hier.topo.map((t) => ({
         sistema_id: t.sis,
@@ -413,6 +420,10 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
         componente_sistema_id: t.id,
         componente_sistema_nome: t.nome,
         componente_tipo: t.tipo ?? '',
+        // ONDE A CTS ESTÁ — é por aqui que o seletor do Fluxo recorta a lista
+        // para a cidade do sistema. Vazio = a carga não trouxe a cidade, e
+        // essas vão para um grupo à parte em vez de sumir.
+        cidade_id: t.cidId ?? '',
         componente_sistema_id_jusante: '',
         componente_sistema_nome_jusante: '',
       })),
