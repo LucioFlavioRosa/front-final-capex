@@ -373,6 +373,20 @@ export function CadastroWizard() {
     ).length
   }, [topoDoCadastro, dadosDoCadastro, escopo.sistemaId])
 
+  /**
+   * O NOME DA CIDADE DO SISTEMA ESCOLHIDO — o recorte do seletor de CTS.
+   *
+   * A CTS só pode entrar num sistema da MESMA cidade, e o seletor diz de qual
+   * cidade a lista é. Cai no id quando o nome não veio: um recorte sem rótulo
+   * seria uma lista curta sem explicação.
+   */
+  const cidadeDoSistemaEscolhido = useMemo(() => {
+    const cid = sistemaEscolhido?.cidade_id
+    if (!cid) return '—'
+    const linha = (dadosDoCadastro?.['cidade-operacional'] ?? []).find((r) => r.cidade_id === cid)
+    return linha?.cidade_name || cid
+  }, [sistemaEscolhido, dadosDoCadastro])
+
   /** A linha de `unidade-regional` — onde moram o WACC e a macrorregião de CTS. */
   const linhaDaUnidade = unidade?.data['unidade-regional']?.[0]
   const unidadeUsaCts = linhaDaUnidade?.usa_macrorregiao_cts === 'Sim'
@@ -997,6 +1011,8 @@ export function CadastroWizard() {
                   <AdicionarCts
                     sistemaId={escopo.sistemaId}
                     sistemaNome={sistemaEscolhido?.sistema_name ?? ''}
+                    cidadeDoSistema={sistemaEscolhido?.cidade_id ?? ''}
+                    cidadeNome={cidadeDoSistemaEscolhido}
                     topo={topoDoCadastro ?? []}
                     dados={unidade.data}
                     limitada={unidadeUsaCts && ctsDoSistema > 0}
