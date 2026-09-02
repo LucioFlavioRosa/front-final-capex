@@ -146,6 +146,20 @@ export function Simular() {
   const [avancado, setAvancado] = useState(true)
 
   const prontidao = useProntidao(estado.unidadeId || undefined)
+  /**
+   * QUANTOS ELEMENTOS FICARIAM SEM A RÉGUA DE POPULAÇÃO.
+   *
+   * `null` quando não dá para afirmar nada: sem unidade escolhida, com a
+   * prontidão ainda carregando, ou contra um servidor que não manda o campo. A
+   * tela então não diz NADA — melhor calar do que anunciar um número que ela não
+   * tem, ou repetir um aviso genérico que não distingue "falta em todas" de
+   * "falta em três".
+   */
+  const semPopulacao = (() => {
+    const p = prontidao.data?.populacao
+    if (!p || p.elementos === 0) return null
+    return p.elementos - p.completos
+  })()
   const criar = useCriarRodada()
   const regionais = useRegionais()
   const unidades = useUnidades(estado.regionalId || undefined)
@@ -376,19 +390,33 @@ export function Simular() {
                       { value: 'populacao', label: 'População' },
                     ]}
                   />
-                  {/* A NOTA SÓ APARECE EM POPULAÇÃO, e é uma advertência de dado,
-                      não de conceito: nenhuma sub-bacia e nenhuma CTS da base tem
-                      universo e população informados. Sem eles o motor converte
-                      pela densidade 1,0 — ou seja, mede em ligações e segue em
-                      frente, avisando só no log do job. Quem escolhe aqui precisa
-                      saber disso ANTES de rodar, senão compara dois planos
-                      achando que estão em moedas diferentes. */}
-                  {estado.unidadeCobertura === 'populacao' && (
+                  {/* A ADVERTÊNCIA É DE DADO, e por isso é MEDIDA — não um aviso
+                      genérico que aparece sempre que se escolhe população.
+                      `/prontidao` conta quantas sub-bacias e CTS da unidade têm
+                      universo e população informados; sem os dois, o motor
+                      converte pela densidade 1,0 e mede em ligações, avisando só
+                      no log do job.
+                      O NÚMERO É O QUE FAZ A FRASE VALER: "faltam em 142 de 142"
+                      diz que a régua não vale nada aqui; "em 3 de 751" diz que
+                      vale, com três buracos. Um texto fixo confundiria os dois. */}
+                  {estado.unidadeCobertura === 'populacao' && semPopulacao !== null && (
                     <p className="mt-2 text-[12px] leading-snug text-amber-700">
-                      População exige <strong>universo</strong> e{' '}
-                      <strong>população atual</strong> por sub-bacia e CTS. Onde faltarem, a
-                      cobertura daquele elemento cai para <strong>ligações</strong> — o plano
-                      roda, mas a régua não é a que você pediu.
+                      {semPopulacao === 0 ? (
+                        <>
+                          Todas as sub-bacias e CTS têm população informada — a régua vale
+                          para a unidade inteira.
+                        </>
+                      ) : (
+                        <>
+                          <strong>
+                            {semPopulacao} de {prontidao.data?.populacao?.elementos}
+                          </strong>{' '}
+                          sub-bacias e CTS não têm <strong>universo</strong> e{' '}
+                          <strong>população atual</strong> informados. Nesses, a cobertura cai
+                          para <strong>ligações</strong> — o plano roda, mas a régua não é a
+                          que você pediu.
+                        </>
+                      )}
                     </p>
                   )}
                 </div>

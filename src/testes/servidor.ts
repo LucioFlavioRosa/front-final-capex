@@ -138,6 +138,9 @@ export const PRONTIDAO_COM_PENDENCIA: Prontidao = {
   unidadeId: '56',
   unidadeNome: 'ÁGUAS DO RIO 01',
   pendencias: 38,
+  // POPULAÇÃO FALTANDO EM PARTE: 40 de 200. É o caso que distingue "a régua não
+  // vale nada aqui" de "vale, com buracos" — um aviso fixo confundiria os dois.
+  populacao: { elementos: 200, completos: 160 },
   faltando: [
     {
       tipo: 'sub-bacia',
@@ -152,6 +155,8 @@ export const PRONTIDAO_LIMPA: Prontidao = {
   unidadeId: '57',
   unidadeNome: 'ÁGUAS DO RIO 02',
   pendencias: 0,
+  // Cadastro limpo TAMBÉM na população: a régua vale para a unidade inteira.
+  populacao: { elementos: 200, completos: 200 },
   faltando: [],
 }
 

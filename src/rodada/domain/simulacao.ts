@@ -281,6 +281,17 @@ export interface Prontidao {
   pendencias: number
   /** Opcional: servidor antigo nao manda, e a tela nao pode quebrar por isso. */
   faltando?: ComponenteFaltando[]
+  /**
+   * QUANTOS ELEMENTOS TEM POPULACAO INFORMADA — e quantos existem.
+   *
+   * Nao e pendencia: desde que a regua da cobertura virou parametro de rodada,
+   * nada no cadastro obriga a preencher populacao. Serve para a tela dizer se
+   * escolher POPULACAO mede o que promete — sem os dois campos o motor converte
+   * pela densidade 1,0, mede em ligacoes e segue, avisando so no log do job.
+   *
+   * Opcional pela mesma razao de `faltando`: servidor antigo nao manda.
+   */
+  populacao?: { elementos: number; completos: number }
 }
 
 /**
