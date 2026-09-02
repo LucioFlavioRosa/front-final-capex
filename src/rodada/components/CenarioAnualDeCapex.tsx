@@ -12,7 +12,7 @@ import {
 } from 'recharts'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { QuadroGrafico } from '@/rodada/components/QuadroGrafico'
-import { COR } from '@/rodada/components/cores'
+import { COR, corDoComponente } from '@/rodada/components/cores'
 import { brlMi, inteiro } from '@/rodada/lib/formato'
 import type { CenarioAnual } from '@/rodada/domain/resultado'
 
@@ -58,11 +58,21 @@ export function CenarioAnualDeCapex({ dados }: { dados: CenarioAnual }) {
   //:
   //: O plano não some da tela: ele vira a LINHA de referência. Assim a barra diz
   //: uma coisa só, e a distância até a linha continua legível.
-  const series = dados.anos.map((a) => ({
-    ano: String(a.ano),
-    'Faltaria investir': (escopo === 'paga' ? a.faltaQueSePaga : a.faltaTodas) / 1e6,
-    'Teto do ano': a.orcado / 1e6,
-  }))
+  //: OS TIPOS SAIEM DO PRIMEIRO ANO, e não de um `Set` sobre todos: o backend
+  //: manda a mesma lista em todos os anos, na mesma ordem (CAPEX decrescente),
+  //: justamente para a pilha não trocar de ordem entre uma barra e outra.
+  const tipos = (dados.anos[0]?.porComponente ?? []).map((c) => c.componente)
+
+  const series = dados.anos.map((a) => {
+    const linha: Record<string, string | number> = {
+      ano: String(a.ano),
+      'Teto do ano': a.orcado / 1e6,
+    }
+    for (const c of a.porComponente) {
+      linha[c.componente] = (escopo === 'paga' ? c.queSePaga : c.todas) / 1e6
+    }
+    return linha
+  })
 
   return (
     <QuadroGrafico
@@ -80,11 +90,12 @@ export function CenarioAnualDeCapex({ dados }: { dados: CenarioAnual }) {
         />
       }
       tabela={{
-        colunas: ['Ano', 'Teto do ano', 'Faltaria investir', 'CAPEX do plano'],
+        colunas: ['Ano', 'Teto do ano', 'Faltaria investir', ...tipos, 'CAPEX do plano'],
         linhas: dados.anos.map((a) => [
           String(a.ano),
           brlMi(a.orcado),
           brlMi(escopo === 'paga' ? a.faltaQueSePaga : a.faltaTodas),
+          ...a.porComponente.map((c) => brlMi(escopo === 'paga' ? c.queSePaga : c.todas)),
           // O GASTO FICA NA TABELA, e não no gráfico: ele é atribuído ao ano de
           // INÍCIO da obra, então não compara direto com o teto do ano.
           brlMi(a.noPlano),
@@ -137,7 +148,14 @@ export function CenarioAnualDeCapex({ dados }: { dados: CenarioAnual }) {
             }
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Bar dataKey="Faltaria investir" fill={COR.total} />
+          {/* EMPILHADA POR TIPO DE ELEMENTO, como o cronograma de obras do
+              plano — e pela mesma razão: dois anos que precisam do mesmo
+              dinheiro podem ser planos completamente diferentes. Um ano de
+              tronco e ETE não é um ano de ligação, e a altura sozinha não
+              distingue os dois. */}
+          {tipos.map((t) => (
+            <Bar key={t} dataKey={t} stackId="falta" fill={corDoComponente(t)} />
+          ))}
           {/* O TETO DE CADA ANO — e não a média, nem o que o plano gastou.
               A média (R$ 50 Mi) achatava o que varia; e o GASTO não serve de
               referência aqui por uma razão de contabilidade: ele é atribuído ao

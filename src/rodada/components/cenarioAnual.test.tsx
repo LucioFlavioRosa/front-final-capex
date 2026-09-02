@@ -70,6 +70,27 @@ describe('o cenário anual de CAPEX', () => {
     expect(screen.queryByText('Total do ano')).not.toBeInTheDocument()
   })
 
+  it('a barra é dividida por tipo de elemento, e as fatias somam o total', async () => {
+    // Dois anos que precisam do mesmo dinheiro podem ser planos completamente
+    // diferentes: um ano de tronco e ETE não é um ano de ligação. A altura
+    // sozinha não distingue os dois.
+    //
+    // A SOMA É O QUE ESTE TESTE GUARDA. O rateio por ano é aplicado a cada
+    // componente separadamente; se um deles escapar da conta, a pilha fica mais
+    // baixa que o número que o próprio quadro anuncia — e ninguém percebe,
+    // porque nada quebra.
+    abrir()
+    await userEvent.click(screen.getByRole('tab', { name: 'Tabela' }))
+
+    expect(await screen.findByText('Tronco')).toBeInTheDocument()
+    expect(screen.getByText('Rede coletora')).toBeInTheDocument()
+    expect(screen.getByText('ETE (módulo)')).toBeInTheDocument()
+
+    const ano = CENARIO_ANUAL.anos[0]
+    const soma = ano.porComponente.reduce((t, c) => t + c.todas, 0)
+    expect(Math.abs(soma - ano.faltaTodas) / ano.faltaTodas).toBeLessThan(0.01)
+  })
+
   it('a referência é o TETO de cada ano, e não a média nem o gasto', async () => {
     // A média (R$ 50 Mi) achatava o que varia. E o GASTO não serve de régua: é
     // atribuído ao ano em que a obra COMEÇA, e a obra consome orçamento ao longo

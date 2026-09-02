@@ -464,6 +464,13 @@ export interface AnoDoCenario {
   /** O que falta, rateado pelo PESO do ano no orçamento atual — mesma forma, escala maior. */
   faltaQueSePaga: number
   faltaTodas: number
+  /**
+   * Quanto de cada TIPO de elemento entraria no ano, com o mesmo rateio.
+   *
+   * Ordenado por CAPEX decrescente: a fatia maior fica embaixo da barra, que é
+   * onde a leitura começa.
+   */
+  porComponente: { componente: string; queSePaga: number; todas: number }[]
 }
 
 /**
