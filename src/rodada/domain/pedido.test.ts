@@ -31,8 +31,13 @@ describe('rotuloObjetivo — o objetivo se lê como foi escolhido', () => {
     expect(valorDoParametro('WORKERS', 4)).toBe('4')
   })
 
-  it('nomeia o recorte residencial com rótulo humano', () => {
-    expect(rotuloDoParametro('COBERTURA_SO_RESIDENCIAL')).toBe('Cobertura só residencial')
+  it('nomeia os booleanos da simulação com as mesmas palavras da tela', () => {
+    expect(rotuloDoParametro('USAR_CTS')).toBe('Coletores de tempo seco')
+    expect(valorDoParametro('USAR_CTS', true)).toBe('considerar')
+    expect(valorDoParametro('USAR_CTS', false)).toBe('ignorar')
+    expect(rotuloDoParametro('COBERTURA_SO_RESIDENCIAL')).toBe('Recorte da cobertura')
+    expect(valorDoParametro('COBERTURA_SO_RESIDENCIAL', true)).toBe('só residenciais')
+    expect(valorDoParametro('COBERTURA_SO_RESIDENCIAL', false)).toBe('todas as ligações')
     expect(ordenarParametros({ WORKERS: 4, COBERTURA_SO_RESIDENCIAL: true }).map(([k]) => k)).toEqual([
       'COBERTURA_SO_RESIDENCIAL',
       'WORKERS',

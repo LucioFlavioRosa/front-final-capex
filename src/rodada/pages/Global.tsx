@@ -254,7 +254,10 @@ export function Global() {
                     valor={`${inteiro(m.parametros.janelaCapex)} anos`}
                   />
                   <ItemRodape rotulo="Base de receita" valor={m.parametros.baseReceita} />
-                  <ItemRodape rotulo="CTS" valor={m.parametros.usarCts ? 'sim' : 'não'} />
+                  <ItemRodape
+                    rotulo="Coletores de tempo seco"
+                    valor={m.parametros.usarCts ? 'considerar' : 'ignorar'}
+                  />
                   <ItemRodape rotulo="Objetivo" valor={rotuloObjetivo(m.parametros.focoCobertura)} />
                   <ItemRodape rotulo="Criada por" valor={m.autor} />
                   <ItemRodape rotulo="Em" valor={dataHora(m.dataHora)} />

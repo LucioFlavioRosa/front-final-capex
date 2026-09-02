@@ -151,23 +151,23 @@ export const DICIONARIO_RODADA: Record<string, Verbete> = {
 
   // ------------------------------------------------- 05 o que entra no plano
   USAR_CTS: {
-    rotulo: 'Usar CTS',
+    rotulo: 'Coletores de tempo seco (CTS)',
     tec: 'USAR_CTS',
     origem: VOCE,
-    tipo: 'sim · não',
+    tipo: 'considerar · ignorar',
     oque: 'Se o coletor de tempo seco entra como estrutura própria na otimização.',
     porque:
-      'Sim: a CTS tem obras, receita e cobertura próprias. Não: ligações, economias, população, receita e vazão dela são somadas à sub-bacia irmã. Só faz efeito se a base tiver CTS cadastrada.',
-    exemplo: 'sim',
+      'Considerar: a CTS tem obras, receita e cobertura próprias. Ignorar: ligações, economias, população, receita e vazão dela são somadas à sub-bacia irmã. Só faz efeito se a base tiver CTS cadastrada.',
+    exemplo: 'considerar',
   },
   COBERTURA_SO_RESIDENCIAL: {
-    rotulo: 'Medir a meta só em ligações residenciais',
+    rotulo: 'Recorte da cobertura',
     tec: 'COBERTURA_SO_RESIDENCIAL',
     origem: VOCE,
-    tipo: 'sim · não',
+    tipo: 'todas as ligações · só residenciais',
     oque: 'Se a cobertura é medida contando só ligações e economias residenciais.',
     porque:
-      'O RECORTE ACABA NA COBERTURA. Receita, VPL, vazão e CAPEX usam o total nos dois casos — quem paga a conta é a ligação, seja de casa ou de fábrica, e a indústria manda esgoto que a ETE precisa tratar. Sim: universo e base atendida saem das colunas residenciais da base comercial. Não: saem dos totais.',
-    exemplo: 'não',
+      'O RECORTE ACABA NA COBERTURA. Receita, VPL, vazão e CAPEX usam o total nos dois casos — quem paga a conta é a ligação, seja de casa ou de fábrica, e a indústria manda esgoto que a ETE precisa tratar. Só residenciais: universo e base atendida saem das colunas residenciais da base comercial. Todas as ligações: saem dos totais.',
+    exemplo: 'todas as ligações',
   },
 }

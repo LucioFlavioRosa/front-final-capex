@@ -720,9 +720,8 @@ function ResumoDaRodada({
           valor={estado.curvaAdocao === 'scurve' ? 'curva S' : 'linear'}
         />
         {/* AS MESMAS PALAVRAS DO CONTROLE. O resumo existe para conferir a
-            escolha que se acabou de fazer ao lado; "Usar CTS: sim" obrigava a
-            traduzir de volta para "Considerar", e "não" não dizia o que
-            acontece no lugar. */}
+            escolha que se acabou de fazer ao lado; "sim" e "não" obrigavam a
+            traduzir de volta para as opções que aparecem nas pílulas. */}
         <Item
           rotulo="Coletores de tempo seco"
           valor={estado.usarCts ? 'considerar' : 'ignorar'}
