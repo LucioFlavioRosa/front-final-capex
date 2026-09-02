@@ -21,6 +21,18 @@ export type ModoOrcamento = 'ano' | 'unico'
 export type Penalidade = 'meta+cobertura' | 'meta'
 export type BaseReceita = 'arrecadada' | 'faturada'
 export type CurvaAdocao = 'scurve' | 'linear'
+/**
+ * A RÉGUA DA COBERTURA — em que moeda a meta é medida.
+ *
+ * Era coluna do cadastro, preenchida CIDADE A CIDADE. Não é dado: é a lente com
+ * que se olha o mesmo cadastro, e trocá-la não corrige informação nenhuma —
+ * muda a pergunta feita aos números que já estão lá. Por isso virou parâmetro
+ * de rodada, e vale para a unidade inteira: duas cidades da mesma unidade
+ * medidas em moedas diferentes dariam uma cobertura que não soma.
+ *
+ * A receita NÃO segue a régua: é sempre por ligação, nas três.
+ */
+export type UnidadeCobertura = 'ligacoes' | 'economias' | 'populacao'
 
 /** Uma linha do cronograma: ano e verba, ambos como TEXTO enquanto se digita. */
 export interface LinhaOrcamento {
@@ -53,6 +65,7 @@ export interface EstadoSimulacao {
   curvaAdocao: CurvaAdocao
   usarCts: boolean
   coberturaSoResidencial: boolean
+  unidadeCobertura: UnidadeCobertura
   dataInicio: string
 }
 
@@ -93,6 +106,9 @@ export function estadoInicial(): EstadoSimulacao {
     curvaAdocao: 'scurve',
     usarCts: true,
     coberturaSoResidencial: false,
+    // `ligacoes` é o default do motor, e era o que 140 das 141 cidades da base
+    // usavam — a régua nova não muda o resultado de quem não a tocar.
+    unidadeCobertura: 'ligacoes',
     dataInicio: '',
   }
 }
@@ -387,6 +403,7 @@ export interface CorpoNovaRodada {
   curva_adocao: CurvaAdocao
   usar_cts: boolean
   cobertura_so_residencial: boolean
+  unidade_cobertura: UnidadeCobertura
   data_inicio: string | null
 }
 
@@ -400,6 +417,7 @@ export function corpoDaRodada(e: EstadoSimulacao): CorpoNovaRodada {
     curva_adocao: e.curvaAdocao,
     usar_cts: e.usarCts,
     cobertura_so_residencial: e.coberturaSoResidencial,
+    unidade_cobertura: e.unidadeCobertura,
     data_inicio: e.dataInicio.trim() || null,
   }
 

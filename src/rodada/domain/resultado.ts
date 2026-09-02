@@ -35,6 +35,13 @@ export interface ParametrosRodada {
   /** 0 = so VPL · 1 = so cobertura. */
   focoCobertura: number
   coberturaSoResidencial: boolean
+  /**
+   * A régua da cobertura desta rodada: 'ligacoes' | 'economias' | 'populacao'.
+   *
+   * Sem ela na tela, dois resultados medidos em moedas diferentes ficam
+   * indistinguíveis — e "cobertura 62%" não quer dizer a mesma coisa nos dois.
+   */
+  unidadeCobertura: string
 }
 
 /**

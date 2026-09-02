@@ -159,16 +159,6 @@ export const DICT: Record<string, Verbete> = {
     porque: 'Define até quando a receita entra no VPL. Depois disso, nada é contado.',
     exemplo: '2045',
   },
-  unidade_cobertura: {
-    rotulo: 'Cobertura medida em',
-    tec: 'unidade_cobertura',
-    origem: 'você preenche · default ligações',
-    tipo: 'ligações | economias | população',
-    oque: 'A régua em que a cobertura da cidade é medida.',
-    porque:
-      'Vale para a verificação da META e para a faixa de PARIDADE. A receita continua sempre por ligação.',
-    exemplo: 'ligações',
-  },
   // ─── Recorte industrial ───────────────────────────────────────────────────
   // Os quatro verbetes repetem a mesma regra de propósito: ela é a fonte do
   // erro clássico (somar industrial ao total) e quem abre um deles pode não

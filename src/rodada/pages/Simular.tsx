@@ -24,6 +24,7 @@ import {
   numOuNulo,
   validar,
   type BaseReceita,
+  type UnidadeCobertura,
   type CurvaAdocao,
   type DerivadoOrcamento,
   type EstadoSimulacao,
@@ -362,6 +363,36 @@ export function Simular() {
                   />
                 </div>
                 <div>
+                  <RotuloParametro texto="Cobertura medida em" tecnico="UNIDADE_COBERTURA" />
+                  <SegmentedControl
+                    aria-label="Cobertura medida em"
+                    value={estado.unidadeCobertura}
+                    onChange={(v) =>
+                      despachar({ tipo: 'set', patch: { unidadeCobertura: v as UnidadeCobertura } })
+                    }
+                    options={[
+                      { value: 'ligacoes', label: 'Ligações' },
+                      { value: 'economias', label: 'Economias' },
+                      { value: 'populacao', label: 'População' },
+                    ]}
+                  />
+                  {/* A NOTA SÓ APARECE EM POPULAÇÃO, e é uma advertência de dado,
+                      não de conceito: nenhuma sub-bacia e nenhuma CTS da base tem
+                      universo e população informados. Sem eles o motor converte
+                      pela densidade 1,0 — ou seja, mede em ligações e segue em
+                      frente, avisando só no log do job. Quem escolhe aqui precisa
+                      saber disso ANTES de rodar, senão compara dois planos
+                      achando que estão em moedas diferentes. */}
+                  {estado.unidadeCobertura === 'populacao' && (
+                    <p className="mt-2 text-[12px] leading-snug text-amber-700">
+                      População exige <strong>universo</strong> e{' '}
+                      <strong>população atual</strong> por sub-bacia e CTS. Onde faltarem, a
+                      cobertura daquele elemento cai para <strong>ligações</strong> — o plano
+                      roda, mas a régua não é a que você pediu.
+                    </p>
+                  )}
+                </div>
+                <div>
                   <RotuloParametro texto="Curva de adesão" tecnico="CURVA_ADOCAO" />
                   <SegmentedControl
                     aria-label="Curva de adoção"
@@ -636,6 +667,17 @@ function ResumoDaRodada({
         />
         <Item rotulo="Estratégia de cobertura" valor={estado.penalidade} />
         <Item rotulo="Base de receita" valor={estado.baseReceita} />
+        {/* A RÉGUA ENTRA NO RESUMO como qualquer outro parâmetro do motor: é ele
+            que a pessoa confere antes de disparar, e "cobertura 62%" não quer
+            dizer a mesma coisa em ligações e em economias. */}
+        <Item
+          rotulo="Cobertura medida em"
+          valor={
+            { ligacoes: 'ligações', economias: 'economias', populacao: 'população' }[
+              estado.unidadeCobertura
+            ]
+          }
+        />
         <Item
           rotulo="Curva de adesão"
           valor={estado.curvaAdocao === 'scurve' ? 'curva S' : 'linear'}

@@ -18,9 +18,6 @@
  * arquivo, são perguntas para quem mantém a planilha:
  *   1. `sistema-topologia`, `subbacia-cts` — listadas no índice da planilha,
  *      mas sem aba própria no arquivo v8. Mantidas aqui pelo dicionário.
- *   2. `cidade-operacional` não tem a coluna `unidade_cobertura` que as
- *      "Regras e convenções" da própria v8 descrevem como usada para medir
- *      meta e paridade.
  *   3. `fator-esgoto` marca `cidade_id`/`cidade_name` como 'db', enquanto
  *      `metas-cobertura` marca as MESMAS colunas como 'un'. Como as duas abas
  *      têm linhas criadas pela unidade (`addRow`), a leitura 'db' deixaria a
@@ -161,11 +158,6 @@ export const SELECTS: Record<string, [string, string][]> = {
    *
    * A receita NÃO segue a régua: é sempre por ligação, em qualquer das três.
    */
-  unidade_cobertura: [
-    ['ligacoes', 'ligações'],
-    ['economias', 'economias'],
-    ['populacao', 'população'],
-  ],
 }
 
 export const PLACEHOLDER: Record<string, string> = {
@@ -232,7 +224,6 @@ export const COLUNA_LABELS: Record<string, string> = {
   componente_sistema_id_jusante: 'ID Destino',
   componente_sistema_nome_jusante: 'Sub-bacia/ETE de destino',
   data_fim_concessao: 'Fim da concessão',
-  unidade_cobertura: 'Cobertura medida em',
   sub_bacia_id: 'ID Sub-bacia',
   sub_bacia_name: 'Sub-bacia',
   cts_id: 'ID CTS',
@@ -640,21 +631,33 @@ export const SCHEMA: AbaDef[] = [
   },
   // ----------------------------------------------------------------- Município
   {
-    key: 'cidade-operacional', icone: Buildings, titulo: 'Régua de cobertura', bloco: 'Município',
-    // Só cidade: a régua de cobertura é DA CIDADE, e sistema não existe aqui.
-    escopo: { cidade: 'coluna' },
-    // `replicarPor` existe para a RÉGUA DE COBERTURA, que costuma ser uniforme
-    // dentro de uma operadora mas é decidida município a município.
-    //
-    // O FIM DA CONCESSÃO NÃO USA ISSO: é gravado na EMPRESA, e o banco o espalha
-    // para as cidades dela por gatilho — sem depender de alguém lembrar de
-    // clicar em "replicar".
-    replicarPor: 'emp_codigo',
-    desc: 'Em que régua a cobertura de cada município é medida — ligações, economias ou população. O fim da concessão NÃO está aqui: ele é da empresa, e se informa em Organização ▸ Empresas.',
+    key: 'cidade-operacional', icone: Buildings, titulo: 'Municípios', bloco: 'Município',
+    /**
+     * FORA DA TELA (`ocultaNoWizard`): as 4 colunas são 'db', não há o que
+     * preencher.
+     *
+     * A aba se chamava RÉGUA DE COBERTURA e existia para um campo só —
+     * `unidade_cobertura`. Ele virou parâmetro de rodada e a aba ficou sem nada
+     * que a unidade informe: emp_codigo, empresa, cidade_id e cidade_name já
+     * aparecem em Organização e em Empresas.
+     *
+     * A ABA NÃO É APAGADA porque o DADO continua servindo: `cidade-operacional`
+     * é onde a tela do Fluxo acha o NOME da cidade de um sistema, e é por ele
+     * que o seletor de CTS diz de qual município a lista é.
+     *
+     * `escopo` e `replicarPor` saíram junto: os dois existiam para a régua —
+     * recortar por cidade e replicar a escolha dentro da operadora. Sem campo
+     * editável, replicar o quê?
+     */
+    ocultaNoWizard: true,
+    desc: 'Os municípios da unidade, como vêm do de-para oficial da Aegea. A régua da cobertura saiu daqui: virou parâmetro da simulação, em Simular ▸ Cobertura medida em. O fim da concessão é da empresa, em Organização ▸ Empresas.',
     cols: [
       { coluna: 'emp_codigo', origem: 'db', procedencia: 'depara', oque: 'Código real da empresa operadora responsável por esta cidade.', exemplo: '57' }, { coluna: 'empresa', origem: 'db', procedencia: 'depara', oque: 'Nome da empresa operadora responsável por esta cidade.', exemplo: 'Águas do Rio 04' },
       { coluna: 'cidade_id', origem: 'db', procedencia: 'mock', oque: 'Identifica esta cidade dentro do cadastro.', exemplo: 'c001' }, { coluna: 'cidade_name', origem: 'db', procedencia: 'depara', oque: 'Nome da cidade.', exemplo: 'Belford Roxo' },
-      { coluna: 'unidade_cobertura', origem: 'un', procedencia: 'vazio', oque: 'A régua em que a cobertura desta cidade é medida: ligações, economias ou população.', porque: 'Vale para a verificação da META e para a faixa de PARIDADE. Escolher "população" torna obrigatórios o universo e a população atual de cada sub-bacia e CTS. A receita continua sempre por ligação.', exemplo: 'ligações' },
+      // `unidade_cobertura` SAIU DAQUI. A régua da cobertura não é dado de
+      // cadastro: é a lente com que se olha o cadastro, e trocá-la não corrige
+      // informação nenhuma. Virou parâmetro de rodada (`UNIDADE_COBERTURA`), na
+      // tela de Simular, valendo para a unidade inteira.
     ],
   },
   {

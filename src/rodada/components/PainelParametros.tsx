@@ -99,13 +99,21 @@ function ValorDoParametro({ segmentos }: { segmentos: string[] }) {
   )
 }
 
-/** Os seis campos tipados de `ParametrosRodada` — o fallback de quem não tem pedido. */
+/** O código do motor vira a palavra da tela — as três, escritas como se fala. */
+const ROTULO_REGUA: Record<string, string> = {
+  ligacoes: 'ligações',
+  economias: 'economias',
+  populacao: 'população',
+}
+
+/** Os sete campos tipados de `ParametrosRodada` — o fallback de quem não tem pedido. */
 function TabelaParametrosTipados({ meta }: { meta: RunMeta }) {
   const p = meta.parametros
   const linhas: [string, string][] = [
     ['Orçamento', `R$ ${p.orcamento.toLocaleString('pt-BR')}`],
     ['Janela de CAPEX', `${p.janelaCapex} anos`],
     ['Base de receita', p.baseReceita],
+    ['Cobertura medida em', ROTULO_REGUA[p.unidadeCobertura] ?? p.unidadeCobertura],
     ['Objetivo', rotuloObjetivo(p.focoCobertura)],
     ['CTS', p.usarCts ? 'sim' : 'não'],
     ['Cobertura só residencial', p.coberturaSoResidencial ? 'sim' : 'não'],
