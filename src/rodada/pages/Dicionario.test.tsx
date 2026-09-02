@@ -101,7 +101,7 @@ describe('Simular — o "?" abre o dicionário do parâmetro', () => {
     renderizar(<Simular />)
     conferirParametrosDoMotorAbertos()
 
-    await userEvent.click(screen.getByRole('button', { name: 'O que é "Usar CTS"?' }))
+    await userEvent.click(screen.getByRole('button', { name: 'O que é "Coletores de tempo seco (CTS)"?' }))
     expect(await screen.findByRole('complementary', { name: 'Dicionário de dados' })).toBeInTheDocument()
 
     await userEvent.keyboard('{Escape}')

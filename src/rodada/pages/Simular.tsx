@@ -11,7 +11,6 @@ import { Cartao } from '@/rodada/components/pecas'
 import { useCriarRodada, useProntidao } from '@/rodada/api/queries'
 import { useRegionais, useUnidade, useUnidades, type UnidadeResumo } from '@/lib/organizacaoApi'
 import {
-  BotaoAjuda,
   PainelDicionario,
   ProvedorDicionario,
   RotuloParametro,
@@ -456,43 +455,53 @@ export function Simular() {
                     ]}
                   />
                 </div>
-                <div className="flex items-center gap-2 sm:col-span-2">
-                <label className="flex items-center gap-2.5">
-                  <input
-                    type="checkbox"
-                    checked={estado.usarCts}
-                    onChange={(e) => despachar({ tipo: 'set', patch: { usarCts: e.target.checked } })}
-                    className="h-4 w-4 rounded border-ink-300 text-water-600 focus:ring-water-600/25"
+                {/* OS DOIS BOOLEANOS ENTRAM NA MESMA GRAMÁTICA DOS OUTROS.
+                    Eram caixas de marcar em linha inteira, no fim da seção: um
+                    controle diferente, num lugar diferente, para decisões do
+                    mesmo tipo. Quem lia a seção via cinco parâmetros com rótulo
+                    técnico e pílulas, e depois duas frases com caixinha — e uma
+                    caixa desmarcada não diz o que acontece quando ela está
+                    desmarcada. "Ignorar" e "Todas as ligações" dizem.
+
+                    O RÓTULO NOMEIA A COISA e as pílulas nomeiam a escolha, como
+                    em "Base de receita: Arrecadada | Faturada". O default é a
+                    primeira pílula, que é onde se espera encontrá-lo. */}
+                <div>
+                  <RotuloParametro
+                    texto="Coletores de tempo seco (CTS)"
+                    tecnico="USAR_CTS"
                   />
-                  <span className="text-[12.5px] text-ink-700">
-                    Considerar coletores de tempo seco (CTS)
-                  </span>
-                </label>
-                {/* O "?" fica FORA do `<label>` do checkbox pelo mesmo motivo
-                    de sempre: dentro, ele entraria no nome do campo. */}
-                <BotaoAjuda chave="USAR_CTS" texto="Usar CTS" />
+                  <SegmentedControl
+                    aria-label="Coletores de tempo seco (CTS)"
+                    value={estado.usarCts ? 'considerar' : 'ignorar'}
+                    onChange={(v) =>
+                      despachar({ tipo: 'set', patch: { usarCts: v === 'considerar' } })
+                    }
+                    options={[
+                      { value: 'considerar', label: 'Considerar' },
+                      { value: 'ignorar', label: 'Ignorar' },
+                    ]}
+                  />
                 </div>
-                <div className="flex items-center gap-2 sm:col-span-2">
-                <label className="flex items-center gap-2.5">
-                  <input
-                    type="checkbox"
-                    checked={estado.coberturaSoResidencial}
-                    onChange={(e) =>
+                <div>
+                  <RotuloParametro
+                    texto="Recorte da cobertura"
+                    tecnico="COBERTURA_SO_RESIDENCIAL"
+                  />
+                  <SegmentedControl
+                    aria-label="Recorte da cobertura"
+                    value={estado.coberturaSoResidencial ? 'residenciais' : 'todas'}
+                    onChange={(v) =>
                       despachar({
                         tipo: 'set',
-                        patch: { coberturaSoResidencial: e.target.checked },
+                        patch: { coberturaSoResidencial: v === 'residenciais' },
                       })
                     }
-                    className="h-4 w-4 rounded border-ink-300 text-water-600 focus:ring-water-600/25"
+                    options={[
+                      { value: 'todas', label: 'Todas as ligações' },
+                      { value: 'residenciais', label: 'Só residenciais' },
+                    ]}
                   />
-                  <span className="text-[12.5px] text-ink-700">
-                    Contar cobertura só sobre ligações residenciais
-                  </span>
-                </label>
-                <BotaoAjuda
-                  chave="COBERTURA_SO_RESIDENCIAL"
-                  texto="Medir a meta só em ligações residenciais"
-                />
                 </div>
               </div>
             )}
@@ -710,8 +719,18 @@ function ResumoDaRodada({
           rotulo="Curva de adesão"
           valor={estado.curvaAdocao === 'scurve' ? 'curva S' : 'linear'}
         />
-        <Item rotulo="Usar CTS" valor={estado.usarCts ? 'sim' : 'não'} />
-        <Item rotulo="Meta só residencial" valor={estado.coberturaSoResidencial ? 'sim' : 'não'} />
+        {/* AS MESMAS PALAVRAS DO CONTROLE. O resumo existe para conferir a
+            escolha que se acabou de fazer ao lado; "Usar CTS: sim" obrigava a
+            traduzir de volta para "Considerar", e "não" não dizia o que
+            acontece no lugar. */}
+        <Item
+          rotulo="Coletores de tempo seco"
+          valor={estado.usarCts ? 'considerar' : 'ignorar'}
+        />
+        <Item
+          rotulo="Recorte da cobertura"
+          valor={estado.coberturaSoResidencial ? 'só residenciais' : 'todas as ligações'}
+        />
       </dl>
     </Cartao>
   )
