@@ -377,21 +377,44 @@ export interface PainelGlobal {
   fimCapex: number
 }
 
-/** Uma sub-bacia específica dentro de uma `CategoriaExplicabilidade`. */
-export interface SubBaciaExplicabilidade {
-  subBaciaId: string
-  cidadeId: string
-  sistemaId: string
-  vazaoPresa: number
+/** Uma obra que ficou fora — as maiores de cada tópico, por CAPEX. */
+export interface ObraForaDoPlano {
+  obraId: string
+  componente: string
+  cidadeId: string | null
+  sistemaId: string | null
+  /** O nó que a obra atende. Vazio nas de transporte, que não têm nó próprio. */
+  subBaciaId: string | null
+  capex: number
+  /**
+   * Ligações que a obra traria. ZERO em obra de transporte, e isso é a regra do
+   * domínio, não falta de dado: só ligação e CTS faturam. O resto é CAPEX e OPEX
+   * que existe para o esgoto chegar à ETE.
+   */
+  ligacoes: number
 }
 
-/** Um motivo do plano não conectar 100% das sub-bacias, e quantas ele explica. */
-export interface CategoriaExplicabilidade {
-  categoria: string
-  subbacias: number
-  vazaoPresa: number
-  /** As sub-bacias desta categoria, maior vazão presa primeiro. */
-  itens: SubBaciaExplicabilidade[]
+/** Quantas obras de cada TIPO o tópico tem — a leitura de dentro dele. */
+export interface ComponenteDoTopico {
+  componente: string
+  obras: number
+  capex: number
+}
+
+/**
+ * Um dos três motivos de uma obra não entrar, agrupado pelo que se faz nele.
+ *
+ * `topico` é o CÓDIGO (`orcamento` | `nao_se_paga` | `depende` | `outros`), e a
+ * tela escreve a frase: mudar texto de tela não pode mudar contrato.
+ */
+export interface TopicoDaExplicabilidade {
+  topico: string
+  obras: number
+  capex: number
+  ligacoes: number
+  porComponente: ComponenteDoTopico[]
+  /** As dez de maior CAPEX — NÃO a lista completa, e a tela diz isso. */
+  maiores: ObraForaDoPlano[]
 }
 
 /** Uma obra que, não construída, trava mais de uma sub-bacia — o gargalo. */
@@ -411,15 +434,24 @@ export interface EloExplicabilidade {
 }
 
 /**
- * Resumo agregado de "por que não fatura", nível global — porta de entrada
- * para a explicabilidade que hoje só existe por sub-bacia (`Explicacao`, nível
- * 4). Responde ANTES de abrir uma sub-bacia específica: quais motivos mais
- * aparecem no plano, e quais obras travam mais gente.
+ * AS OBRAS QUE FICARAM FORA DO PLANO, em três tópicos.
+ *
+ * Era por SUB-BACIA (`naoFaturando`/`totalSubbacias`/`categorias`), e a troca
+ * não é de rótulo: obra de transporte não tem sub-bacia própria, então 85% do
+ * CAPEX que ficou de fora não cabia na lista antiga — 4.531 obras e R$ 4,4 bi
+ * invisíveis no maior run publicado.
+ *
+ * `deTerceiros` fica FORA dos tópicos: é obra que acontece e outro paga, não
+ * decisão de investimento do plano.
  */
 export interface ExplicabilidadeGlobal {
-  naoFaturando: number
-  totalSubbacias: number
-  categorias: CategoriaExplicabilidade[]
+  obrasFora: number
+  obrasCandidatas: number
+  obrasNoPlano: number
+  capexFora: number
+  ligacoesFora: number
+  deTerceiros: number
+  topicos: TopicoDaExplicabilidade[]
   elos: EloExplicabilidade[]
 }
 

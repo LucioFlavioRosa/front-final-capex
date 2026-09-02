@@ -42,6 +42,8 @@ export const chaves = {
   explicabilidade: (runId: string) => ['runs', runId, 'explicabilidade'] as const,
   explicabilidadeDaCidade: (runId: string, cidadeId: string) =>
     ['runs', runId, 'cidades', cidadeId, 'explicabilidade'] as const,
+  explicabilidadeDoSistema: (runId: string, sistemaId: string) =>
+    ['runs', runId, 'sistemas', sistemaId, 'explicabilidade'] as const,
   cidade: (runId: string, cidadeId: string) => ['runs', runId, 'cidades', cidadeId] as const,
   fluxo: (runId: string, sistemaId: string) => ['runs', runId, 'sistemas', sistemaId] as const,
   subbacia: (runId: string, subId: string) => ['runs', runId, 'subbacias', subId] as const,
@@ -174,6 +176,28 @@ export function useExplicabilidadeDaCidade(
     queryKey: chaves.explicabilidadeDaCidade(runId ?? '—', cidadeId ?? '—'),
     queryFn: () => resultados.explicabilidadeDaCidade(runId as string, cidadeId as string),
     enabled: !!runId && !!cidadeId,
+    ...IMUTAVEL,
+  })
+}
+
+/**
+ * "O que ficou fora" do nível 3.
+ *
+ * CONSULTA PRÓPRIA, e não recorte do payload global. Enquanto a resposta trazia
+ * a lista inteira de sub-bacias — cada uma com o `sistemaId` dela — a tela
+ * filtrava sozinha e não pedia nada. A resposta virou AGREGADO por obra, e
+ * agregado não se filtra depois: quem sabe somar por sistema é quem tem as
+ * linhas. O payload encolheu de 247 KB para 10 KB, então a ida a mais sai bem
+ * mais barata do que o que ela substitui.
+ */
+export function useExplicabilidadeDoSistema(
+  runId: string | undefined,
+  sistemaId: string | undefined,
+) {
+  return useQuery({
+    queryKey: chaves.explicabilidadeDoSistema(runId ?? '—', sistemaId ?? '—'),
+    queryFn: () => resultados.explicabilidadeDoSistema(runId as string, sistemaId as string),
+    enabled: !!runId && !!sistemaId,
     ...IMUTAVEL,
   })
 }

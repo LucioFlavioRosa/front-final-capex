@@ -30,7 +30,7 @@ import {
 } from '@/rodada/api/queries'
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
-import { brlMi, inteiro, pct, deTotal, vazao} from '@/rodada/lib/formato'
+import { brlMi, inteiro, pct, deTotal} from '@/rodada/lib/formato'
 
 /**
  * Nível 2 — uma cidade da rodada.
@@ -122,10 +122,10 @@ export function Cidade() {
               destaque={
                 aba === 'porque' && explicabilidade.data
                   ? {
-                      rotulo: 'Sub-bacias desta cidade fora do plano',
+                      rotulo: 'Obras desta cidade fora do plano',
                       valor: deTotal(
-                        explicabilidade.data.naoFaturando,
-                        explicabilidade.data.totalSubbacias,
+                        explicabilidade.data.obrasFora,
+                        explicabilidade.data.obrasCandidatas,
                       ),
                     }
                   : { rotulo: 'VPL da cidade', valor: brlMi(c.vpl), ajuda: 'VPL_PLANO' }
@@ -144,14 +144,16 @@ export function Cidade() {
                */
               itens={aba === 'porque' && explicabilidade.data ? [
                 {
-                  rotulo: 'Vazão presa',
-                  valor: vazao(
-                    explicabilidade.data.categorias.reduce((s, c2) => s + c2.vazaoPresa, 0),
-                  ),
+                  // O CAPEX NO LUGAR DA VAZÃO PRESA. A vazão era a medida certa
+                  // enquanto a linha era a sub-bacia; com obra, a pergunta é
+                  // quanto dinheiro ficou parado — e é o número que conversa com
+                  // o orçamento logo ao lado.
+                  rotulo: 'CAPEX fora do plano',
+                  valor: brlMi(explicabilidade.data.capexFora),
                 },
                 {
-                  rotulo: 'Motivos distintos',
-                  valor: inteiro(explicabilidade.data.categorias.length),
+                  rotulo: 'Ligações não conectadas',
+                  valor: inteiro(explicabilidade.data.ligacoesFora),
                 },
                 {
                   rotulo: 'Obras que destravariam mais',

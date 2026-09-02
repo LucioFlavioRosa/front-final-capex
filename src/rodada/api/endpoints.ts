@@ -166,6 +166,15 @@ export const resultados = {
   explicabilidadeDaCidade: (runId: string, cidadeId: string) =>
     api.get<ExplicabilidadeGlobal>(`${BASE}/${runId}/cidades/${cidadeId}/explicabilidade`),
 
+  /**
+   * O recorte do NÍVEL 3. Era filtro no cliente, e deixou de poder ser: a
+   * resposta virou agregado por obra, e agregado não se filtra depois.
+   */
+  explicabilidadeDoSistema: (runId: string, sistemaId: string) =>
+    api.get<ExplicabilidadeGlobal>(
+      `${BASE}/${runId}/sistemas/${encodeURIComponent(sistemaId)}/explicabilidade`,
+    ),
+
   /** Nível 2: cobertura, metas, fluxo de escoamento, paridade e sistemas da cidade. */
   cidade: (runId: string, cidadeId: string) =>
     api.get<CidadeDetalhe>(`${BASE}/${runId}/cidades/${cidadeId}`),

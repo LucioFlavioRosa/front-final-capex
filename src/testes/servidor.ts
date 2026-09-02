@@ -205,6 +205,89 @@ export const RESUMO_56 = {
   semObra: 1520,
 }
 
+/** Nada ficou fora — a tela nao desenha secao nenhuma. */
+export const EXPLICABILIDADE_VAZIA = {
+  obrasFora: 0,
+  obrasCandidatas: 0,
+  obrasNoPlano: 0,
+  capexFora: 0,
+  ligacoesFora: 0,
+  deTerceiros: 0,
+  topicos: [],
+  elos: [],
+}
+
+export const EXPLICABILIDADE = {
+  obrasFora: 6765,
+  obrasCandidatas: 7605,
+  obrasNoPlano: 280,
+  capexFora: 5_215_100_000,
+  ligacoesFora: 814_179,
+  deTerceiros: 560,
+  topicos: [
+    {
+      topico: 'orcamento',
+      obras: 1142,
+      capex: 538_500_000,
+      ligacoes: 564_692,
+      porComponente: [{ componente: 'Ligação de esgoto', obras: 1142, capex: 538_500_000 }],
+      maiores: [
+        {
+          obraId: 'lig-0001',
+          componente: 'Ligação de esgoto',
+          cidadeId: 'Aperibe',
+          sistemaId: 'S1',
+          subBaciaId: 'SB-001',
+          capex: 2_100_000,
+          ligacoes: 980,
+        },
+      ],
+    },
+    {
+      topico: 'nao_se_paga',
+      obras: 1070,
+      capex: 234_200_000,
+      ligacoes: 239_115,
+      porComponente: [{ componente: 'Ligação de esgoto', obras: 1070, capex: 234_200_000 }],
+      maiores: [],
+    },
+    {
+      // SEM RECEITA e com quase todo o dinheiro: 22 de 4.553 obras faturam.
+      topico: 'depende',
+      obras: 4553,
+      capex: 4_442_400_000,
+      ligacoes: 10_372,
+      porComponente: [
+        { componente: 'Tronco', obras: 876, capex: 1_210_800_000 },
+        { componente: 'Rede coletora', obras: 1654, capex: 1_159_800_000 },
+        { componente: 'ETE (módulo)', obras: 844, capex: 946_900_000 },
+      ],
+      maiores: [
+        {
+          obraId: 'tro-0042',
+          componente: 'Tronco',
+          cidadeId: 'c001',
+          sistemaId: 's001',
+          subBaciaId: 'b001',
+          capex: 18_400_000,
+          ligacoes: 0,
+        },
+      ],
+    },
+  ],
+  elos: [
+    {
+      obraId: 'tro-0042',
+      componente: 'Tronco',
+      cidadeId: 'c001',
+      sistemaId: 's001',
+      subBaciaId: 'b001',
+      bloqueia: 12,
+      vazaoLiberada: 45.2,
+    },
+  ],
+}
+
 export const handlers = [
   http.get('/api/regionais', () => HttpResponse.json(REGIONAIS)),
   http.get('/api/regionais/:regionalId/diretorias', ({ params }) =>
@@ -347,48 +430,21 @@ export const handlers = [
       },
     ]),
   ),
+  /**
+   * O QUE FICOU FORA — em obras, e nao mais em sub-bacias.
+   *
+   * Os numeros vem do maior run publicado, arredondados: e o que faz a fixture
+   * ensinar o formato certo. O terceiro topico tem quase todo o dinheiro e
+   * quase nenhuma ligacao — a regra do dominio aparecendo no dado, e o motivo
+   * de a lista antiga (por sub-bacia) nao ter onde po-lo.
+   */
   http.get('/api/runs/:runId/cidades/:cidadeId/explicabilidade', () =>
-    HttpResponse.json({ naoFaturando: 0, totalSubbacias: 0, categorias: [], elos: [] }),
+    HttpResponse.json(EXPLICABILIDADE_VAZIA),
   ),
-  http.get('/api/runs/:runId/explicabilidade', () =>
-    HttpResponse.json({
-      naoFaturando: 185,
-      totalSubbacias: 1047,
-      categorias: [
-        {
-          categoria: 'Sem orçamento na janela',
-          subbacias: 120,
-          vazaoPresa: 340.5,
-          itens: [
-            { subBaciaId: 'SB-001', cidadeId: 'Aperibe', sistemaId: 'S1', vazaoPresa: 12.4 },
-            { subBaciaId: 'SB-002', cidadeId: 'Aperibe', sistemaId: 'S1', vazaoPresa: 9.8 },
-          ],
-        },
-        {
-          categoria: 'Depende de transporte não construído',
-          subbacias: 65,
-          vazaoPresa: 210.2,
-          itens: [
-            { subBaciaId: 'SB-030', cidadeId: 'Cambuci', sistemaId: 'S2', vazaoPresa: 15.1 },
-          ],
-        },
-      ],
-      elos: [
-        {
-          obraId: 'tro-0042',
-          componente: 'Tronco',
-          cidadeId: 'c001',
-          sistemaId: 's001',
-          subBaciaId: 'b001',
-          bloqueia: 12,
-        },
-      ],
-    }),
+  http.get('/api/runs/:runId/sistemas/:sistemaId/explicabilidade', () =>
+    HttpResponse.json(EXPLICABILIDADE),
   ),
-  http.put('/api/runs/:runId/favorita', () => new HttpResponse(null, { status: 204 })),
-  http.delete('/api/runs/:runId/favorita', () => new HttpResponse(null, { status: 204 })),
-  http.put('/api/runs/:runId/comentario', () => new HttpResponse(null, { status: 204 })),
-  http.delete('/api/runs/:runId', () => new HttpResponse(null, { status: 204 })),
+  http.get('/api/runs/:runId/explicabilidade', () => HttpResponse.json(EXPLICABILIDADE)),
   http.get('/api/unidades/:id/prontidao', ({ params }) =>
     HttpResponse.json(params.id === '57' ? PRONTIDAO_LIMPA : PRONTIDAO_COM_PENDENCIA),
   ),
