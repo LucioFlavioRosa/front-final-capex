@@ -52,7 +52,7 @@ function leituraOk() {
   servidor.use(
     http.get('/api/unidades/:id/hierarquia', () =>
       HttpResponse.json({
-        unidReg: { rid: 'R4', rnome: 'Regional 4', uid: UNIDADE, unome: 'ÁGUAS DO RIO 01', waccMedio: '8' },
+        unidReg: { rid: 'R4', rnome: 'Regional 4', uid: UNIDADE, unome: 'ÁGUAS DO RIO 01', waccMedio: '8', usaCts: 'false' },
         empresas: [],
         cidades: [],
         sistemas: [],

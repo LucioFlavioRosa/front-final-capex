@@ -45,7 +45,7 @@ export function AdicionarCts({
    * mudança de texto.
    */
   dados: Dados
-  /** O sistema usa sistema de CTS e já tem a dele: não há o que adicionar. */
+  /** A unidade usa macrorregião de CTS e o sistema já tem a dele: nada a adicionar. */
   limitada: boolean
   onAdicionar: (componenteId: string) => void
 }) {
@@ -62,8 +62,10 @@ export function AdicionarCts({
   if (limitada)
     return (
       <div className="mt-3 rounded-[10px] border border-ink-200 bg-ink-50 px-3.5 py-2.5 text-[11.5px] leading-snug text-ink-water">
-        Este sistema está marcado como <strong>sistema de CTS</strong> e já tem a dele. Para
-        adicionar outra, desmarque a opção acima — ou tire a atual da tabela.
+        A unidade usa <strong>macrorregião de CTS</strong>, e este sistema já tem a dele. Para
+        adicionar outra, tire a atual da tabela — ou desmarque a opção em{' '}
+        <strong>Organização · Unidade e regional</strong>, o que vale para todos os sistemas
+        da unidade.
       </div>
     )
 
