@@ -59,4 +59,26 @@ describe('o cenário anual de CAPEX', () => {
     expect(screen.getByText('2032')).toBeInTheDocument()
     expect(screen.queryByText('2033')).not.toBeInTheDocument()
   })
+
+  it('a barra mostra SÓ o que ficou fora — o plano é referência, não fatia', async () => {
+    // A barra dividida obrigava a subtrair de olho para achar o número que a
+    // pergunta pede. O plano não sumiu: virou a linha tracejada.
+    abrir()
+    await userEvent.click(screen.getByRole('tab', { name: 'Tabela' }))
+
+    expect(await screen.findByText('Faltaria investir')).toBeInTheDocument()
+    expect(screen.queryByText('Total do ano')).not.toBeInTheDocument()
+  })
+
+  it('a referência é o CAPEX REAL de cada ano, e não uma média', async () => {
+    // A média (R$ 50 Mi) achatava o que varia: o plano gasta R$ 72,7 Mi em 2027
+    // e R$ 29,0 Mi em 2032. Com a linha reta, a distância até a barra era a
+    // mesma em todo ano — que é a leitura errada.
+    abrir()
+    await userEvent.click(screen.getByRole('tab', { name: 'Tabela' }))
+
+    expect(await screen.findByText('CAPEX do plano')).toBeInTheDocument()
+    expect(screen.getByText('R$ 72,7 Mi')).toBeInTheDocument()
+    expect(screen.getByText('R$ 29,0 Mi')).toBeInTheDocument()
+  })
 })

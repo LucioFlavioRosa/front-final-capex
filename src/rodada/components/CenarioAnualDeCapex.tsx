@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import {
   Bar,
-  BarChart,
   CartesianGrid,
+  ComposedChart,
   Legend,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -50,16 +51,23 @@ export function CenarioAnualDeCapex({ dados }: { dados: CenarioAnual }) {
   const [escopo, setEscopo] = useState<'paga' | 'todas'>('paga')
   const alvo = escopo === 'paga' ? dados.queSePaga : dados.todas
 
+  //: SÓ O QUE FICOU FORA. A barra não é mais dividida entre "o que o plano já
+  //: faz" e "o que falta": a pergunta do quadro é quanto FALTA investir, e a
+  //: fatia do plano dentro da barra respondia outra — obrigava a subtrair de
+  //: olho para achar o número que interessa.
+  //:
+  //: O plano não some da tela: ele vira a LINHA de referência. Assim a barra diz
+  //: uma coisa só, e a distância até a linha continua legível.
   const series = dados.anos.map((a) => ({
     ano: String(a.ano),
-    'No plano': a.noPlano / 1e6,
     'Faltaria investir': (escopo === 'paga' ? a.faltaQueSePaga : a.faltaTodas) / 1e6,
+    'CAPEX do plano': a.noPlano / 1e6,
   }))
 
   return (
     <QuadroGrafico
       titulo="Se quiséssemos fazer tudo nesta janela"
-      nota={`orçamento de hoje: ${brlMi(dados.orcamentoAnualDeHoje)} por ano, em ${dados.anosDaJanela} anos`}
+      nota={`a linha é o CAPEX que o plano gasta em cada ano — ${dados.anosDaJanela} anos de janela`}
       acoes={
         <SegmentedControl
           aria-label="Escopo do cenário"
@@ -72,11 +80,13 @@ export function CenarioAnualDeCapex({ dados }: { dados: CenarioAnual }) {
         />
       }
       tabela={{
-        colunas: ['Ano', 'No plano', 'Faltaria investir', 'Total do ano'],
-        linhas: dados.anos.map((a) => {
-          const falta = escopo === 'paga' ? a.faltaQueSePaga : a.faltaTodas
-          return [String(a.ano), brlMi(a.noPlano), brlMi(falta), brlMi(a.noPlano + falta)]
-        }),
+        colunas: ['Ano', 'CAPEX do plano', 'Faltaria investir', 'Teto do ano'],
+        linhas: dados.anos.map((a) => [
+          String(a.ano),
+          brlMi(a.noPlano),
+          brlMi(escopo === 'paga' ? a.faltaQueSePaga : a.faltaTodas),
+          brlMi(a.orcado),
+        ]),
       }}
     >
       {/* A NOTA CARREGA O MESMO NÚMERO EM DUAS RÉGUAS. Um fator de 11,7x é
@@ -111,7 +121,7 @@ export function CenarioAnualDeCapex({ dados }: { dados: CenarioAnual }) {
       </p>
 
       <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={series} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+        <ComposedChart data={series} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={COR.grid} />
           <XAxis dataKey="ano" tick={{ fontSize: 11 }} />
           <YAxis
@@ -125,9 +135,20 @@ export function CenarioAnualDeCapex({ dados }: { dados: CenarioAnual }) {
             }
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Bar dataKey="No plano" stackId="a" fill={COR.entra} />
-          <Bar dataKey="Faltaria investir" stackId="a" fill={COR.neutro} />
-        </BarChart>
+          <Bar dataKey="Faltaria investir" fill={COR.total} />
+          {/* O CAPEX REAL DO PLANO, ANO A ANO — e não uma linha na média.
+              A média (R$ 50 Mi) achatava justamente o que varia: o plano gasta
+              R$ 72,7 Mi em 2027 e R$ 29,0 Mi em 2032. Com a linha reta, a
+              distância até a barra era a mesma em todo ano; com a linha real,
+              cada ano diz a sua própria distância. */}
+          <Line
+            type="monotone"
+            dataKey="CAPEX do plano"
+            stroke={COR.entra}
+            strokeWidth={2}
+            dot={{ r: 3 }}
+          />
+        </ComposedChart>
       </ResponsiveContainer>
     </QuadroGrafico>
   )
