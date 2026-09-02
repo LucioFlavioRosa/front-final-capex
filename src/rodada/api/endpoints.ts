@@ -22,6 +22,7 @@ import { api } from '@/lib/api'
 import type {
   CidadeDetalhe,
   CidadeLinha,
+  CenarioAnual,
   ExplicabilidadeGlobal,
   Fluxo,
   ObraDetalhe,
@@ -154,6 +155,9 @@ export const resultados = {
   cidades: (runId: string) => api.get<CidadeLinha[]>(`${BASE}/${runId}/cidades`),
 
   /** Resumo agregado de "por que não fatura", por motivo — nível global. */
+  /** De quanto teria de ser o orçamento anual para fazer tudo na mesma janela. */
+  cenarioAnual: (runId: string) => api.get<CenarioAnual>(`${BASE}/${runId}/cenario-anual`),
+
   explicabilidade: (runId: string) =>
     api.get<ExplicabilidadeGlobal>(`${BASE}/${runId}/explicabilidade`),
 

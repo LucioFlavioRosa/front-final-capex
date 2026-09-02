@@ -40,6 +40,7 @@ export const chaves = {
     ['runs', runId, 'ebitda', cidadeId ?? 'unidade'] as const,
   cidades: (runId: string) => ['runs', runId, 'cidades'] as const,
   explicabilidade: (runId: string) => ['runs', runId, 'explicabilidade'] as const,
+  cenarioAnual: (runId: string) => ['runs', runId, 'cenario-anual'] as const,
   explicabilidadeDaCidade: (runId: string, cidadeId: string) =>
     ['runs', runId, 'cidades', cidadeId, 'explicabilidade'] as const,
   explicabilidadeDoSistema: (runId: string, sistemaId: string) =>
@@ -198,6 +199,16 @@ export function useExplicabilidadeDoSistema(
     queryKey: chaves.explicabilidadeDoSistema(runId ?? '—', sistemaId ?? '—'),
     queryFn: () => resultados.explicabilidadeDoSistema(runId as string, sistemaId as string),
     enabled: !!runId && !!sistemaId,
+    ...IMUTAVEL,
+  })
+}
+
+/** "De quanto teria de ser o orçamento anual" — o cenário do nível 1. */
+export function useCenarioAnual(runId: string | undefined) {
+  return useQuery({
+    queryKey: chaves.cenarioAnual(runId ?? '—'),
+    queryFn: () => resultados.cenarioAnual(runId as string),
+    enabled: !!runId,
     ...IMUTAVEL,
   })
 }

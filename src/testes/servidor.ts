@@ -288,6 +288,31 @@ export const EXPLICABILIDADE = {
   ],
 }
 
+/**
+ * O cenario anual — numeros do maior run publicado.
+ *
+ * O fator e 11,7x para o que se paga e 18,4x para tudo: e o tamanho real do
+ * problema, e a fixture o preserva para a tela nao ser testada contra numeros
+ * confortaveis.
+ */
+export const CENARIO_ANUAL = {
+  anos: [
+    { ano: 2027, orcado: 60_000_000, noPlano: 72_700_000, obrasNoPlano: 60, faltaQueSePaga: 639_900_000, faltaTodas: 1_043_000_000 },
+    { ano: 2028, orcado: 50_000_000, noPlano: 42_500_000, obrasNoPlano: 42, faltaQueSePaga: 533_300_000, faltaTodas: 869_200_000 },
+    { ano: 2029, orcado: 50_000_000, noPlano: 63_900_000, obrasNoPlano: 48, faltaQueSePaga: 533_300_000, faltaTodas: 869_200_000 },
+    { ano: 2030, orcado: 50_000_000, noPlano: 34_500_000, obrasNoPlano: 41, faltaQueSePaga: 533_300_000, faltaTodas: 869_200_000 },
+    { ano: 2031, orcado: 50_000_000, noPlano: 56_700_000, obrasNoPlano: 49, faltaQueSePaga: 533_300_000, faltaTodas: 869_200_000 },
+    { ano: 2032, orcado: 40_000_000, noPlano: 29_000_000, obrasNoPlano: 40, faltaQueSePaga: 426_600_000, faltaTodas: 695_400_000 },
+  ],
+  podemComecarCedo: { obras: 6085, de: 6765 },
+  anosDaJanela: 6,
+  orcamentoAnualDeHoje: 50_000_000,
+  obrasNoPlano: 280,
+  capexNoPlano: 299_400_000,
+  queSePaga: { obras: 4220, capex: 3_199_700_000, fator: 11.7, anosAoRitmoDeHoje: 64 },
+  todas: { obras: 6765, capex: 5_215_100_000, fator: 18.4, anosAoRitmoDeHoje: 104 },
+}
+
 export const handlers = [
   http.get('/api/regionais', () => HttpResponse.json(REGIONAIS)),
   http.get('/api/regionais/:regionalId/diretorias', ({ params }) =>
@@ -445,6 +470,7 @@ export const handlers = [
     HttpResponse.json(EXPLICABILIDADE),
   ),
   http.get('/api/runs/:runId/explicabilidade', () => HttpResponse.json(EXPLICABILIDADE)),
+  http.get('/api/runs/:runId/cenario-anual', () => HttpResponse.json(CENARIO_ANUAL)),
   http.get('/api/unidades/:id/prontidao', ({ params }) =>
     HttpResponse.json(params.id === '57' ? PRONTIDAO_LIMPA : PRONTIDAO_COM_PENDENCIA),
   ),

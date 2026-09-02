@@ -455,6 +455,59 @@ export interface ExplicabilidadeGlobal {
   elos: EloExplicabilidade[]
 }
 
+/** Um ano da janela: o que o plano faz nele, e o que faltaria investir. */
+export interface AnoDoCenario {
+  ano: number
+  orcado: number
+  noPlano: number
+  obrasNoPlano: number
+  /** O que falta, rateado pelo PESO do ano no orçamento atual — mesma forma, escala maior. */
+  faltaQueSePaga: number
+  faltaTodas: number
+}
+
+/**
+ * Quanto falta, em três réguas da mesma coisa.
+ *
+ * `fator` responde "de quantas vezes teria de ser o orçamento";
+ * `anosAoRitmoDeHoje` responde "quantos anos ao ritmo de hoje". É o mesmo
+ * número — e ter os dois é o que faz a ideia atravessar para quem não lida com
+ * orçamento todo dia.
+ */
+export interface EscopoDoCenario {
+  obras: number
+  capex: number
+  fator: number
+  anosAoRitmoDeHoje: number
+}
+
+/**
+ * DE QUANTO TERIA DE SER O ORÇAMENTO ANUAL para fazer tudo na MESMA janela.
+ *
+ * Substitui duas perguntas que os dados recusaram: "sem teto, o que entra em
+ * cada ano" (6.645 das 7.325 obras podem começar no primeiro — vira uma torre e
+ * três anos vazios) e "quantos anos ao ritmo de hoje" (64 — setenta barras não
+ * são um gráfico). Fixada a janela, a resposta cabe em seis barras.
+ */
+export interface CenarioAnual {
+  anos: AnoDoCenario[]
+  /**
+   * Quantas das que ficaram fora poderiam começar JÁ no primeiro ano.
+   *
+   * É o que sobrou da pergunta "sem teto, o que entra em cada ano?": a resposta
+   * não dava gráfico (quase tudo no primeiro, e três anos vazios), mas dá frase
+   * — e a frase é o achado. Tirado o dinheiro, não há nada segurando obra
+   * nenhuma: o cronograma do plano é artefato de orçamento, não de engenharia.
+   */
+  podemComecarCedo: { obras: number; de: number }
+  anosDaJanela: number
+  orcamentoAnualDeHoje: number
+  obrasNoPlano: number
+  capexNoPlano: number
+  queSePaga: EscopoDoCenario
+  todas: EscopoDoCenario
+}
+
 /** Serie de EBITDA + total, da unidade ou de uma cidade. */
 export interface PainelEbitda {
   anos: EbitdaAno[]

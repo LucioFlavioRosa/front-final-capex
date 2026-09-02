@@ -11,6 +11,7 @@ import {
 } from '@/rodada/components/pecas'
 import { SecaoElementos } from '@/rodada/components/SecaoElementos'
 import { SecaoPorQue } from '@/rodada/components/SecaoPorQue'
+import { CenarioAnualDeCapex } from '@/rodada/components/CenarioAnualDeCapex'
 import { PainelSensibilidade } from '@/rodada/components/PainelSensibilidade'
 import { useAbaResultado } from '@/rodada/layout/abaResultado'
 import {
@@ -19,7 +20,13 @@ import {
   GraficoEbitda,
 } from '@/rodada/components/graficos'
 import { GraficoCronogramaObras } from '@/rodada/components/GraficoCronogramaObras'
-import { useEbitda, useExplicabilidade, usePainel, useRunMeta } from '@/rodada/api/queries'
+import {
+  useCenarioAnual,
+  useEbitda,
+  useExplicabilidade,
+  usePainel,
+  useRunMeta,
+} from '@/rodada/api/queries'
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
 import { brlMi, dataHora, deTotal, inteiro, pct } from '@/rodada/lib/formato'
@@ -58,6 +65,7 @@ export function Global() {
   const painel = usePainel(runId)
   const ebitda = useEbitda(runId)
   const explicabilidade = useExplicabilidade(runId)
+  const cenario = useCenarioAnual(runId)
   const aba = useAbaResultado({ comSensibilidade: true })
   /**
    * O destino dos números de exclusão. Só os "X de Y" recebem: em cada um deles
@@ -303,6 +311,20 @@ export function Global() {
                 Sem `vazio` — a ausência de dado é o próprio sinal de "sem
                 nada a explicar" (100% fatura), e `SecaoPorQue` já trata isso
                 devolvendo `null`. */}
+            {/* O CENARIO VEM ANTES DA EXPLICABILIDADE, e a ordem e a leitura:
+                primeiro "quanto custaria nao deixar nada fora", depois "o que
+                ficou fora e por que". Invertido, a pessoa desce nas categorias
+                antes de saber o tamanho do problema. */}
+            {aba === 'porque' && (
+              <Estado
+                consulta={cenario}
+                rotulo="Carregando o cenário anual…"
+                tituloErro="Não foi possível carregar o cenário anual desta rodada."
+              >
+                {(c) => <CenarioAnualDeCapex dados={c} />}
+              </Estado>
+            )}
+
             {aba === 'porque' && (
               <Estado
                 consulta={explicabilidade}
