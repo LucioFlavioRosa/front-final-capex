@@ -60,7 +60,7 @@ export interface ColDef {
    *   `wacc`               herda o WACC médio da unidade quando vazio — é o que
    *                        o próprio campo do WACC promete na tela.
    *   `..._jusante`        nó terminal (a ETE) não tem para onde drenar.
-   *   `universo_populacao` só valem quando o município mede cobertura POR
+   *   `universo_populacao` só valem quando a RODADA mede cobertura POR
    *   `populacao_atual`    POPULAÇÃO; medindo por ligações, ficam vazios.
    *
    * O texto explica ao leitor por que aquele vazio é aceitável, e aparece no

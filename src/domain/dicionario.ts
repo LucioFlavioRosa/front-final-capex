@@ -207,17 +207,17 @@ export const DICT: Record<string, Verbete> = {
   universo_populacao: {
     rotulo: 'População — universo',
     tec: 'universo_populacao',
-    origem: 'você preenche · só quando a cidade mede por população',
+    origem: 'você preenche · só quando a rodada mede por população',
     tipo: 'habitantes',
     oque: 'Toda a população da área da sub-bacia, atendida ou não por esgoto.',
     porque:
-      'É o denominador da meta quando a cidade mede cobertura por população. Sem ele não dá para verificar o percentual contratado.',
+      'É o denominador da meta quando a rodada mede cobertura por população. Sem ele não dá para verificar o percentual contratado.',
     exemplo: '1.267',
   },
   populacao_atual: {
     rotulo: 'População atendida hoje',
     tec: 'populacao_atual',
-    origem: 'você preenche · só quando a cidade mede por população',
+    origem: 'você preenche · só quando a rodada mede por população',
     tipo: 'habitantes',
     oque: 'População que já tem coleta de esgoto, antes das obras deste plano.',
     porque:

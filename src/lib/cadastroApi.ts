@@ -101,7 +101,10 @@ interface Hierarquia {
 }
 
 interface Contrato {
-  cidades: { id: string; nome: string; empId: string; empNome: string; fim: string; cob: string }[]
+  // `cob` saiu da cidade na migração 019 — a régua da cobertura virou parâmetro
+  // de rodada. O `cob` que sobrou em `fator` é outra coisa: o percentual da
+  // faixa de paridade.
+  cidades: { id: string; nome: string; empId: string; empNome: string; fim: string }[]
   metas: { cid: string; ano: string; pct: string }[]
   fator: { cid: string; cob: string; par: string }[]
 }

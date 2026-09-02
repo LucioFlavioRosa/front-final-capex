@@ -142,17 +142,19 @@ export const SELECTS: Record<string, [string, string][]> = {
   nova: [['Sim', 'Sim'], ['Não', 'Não']],
 
   /*
-   * A RÉGUA DA COBERTURA — em que unidade a meta da cidade é medida.
+   * A RÉGUA DA COBERTURA SAIU DAQUI (migração 019): não é dado de cadastro, é a
+   * lente com que se olha o cadastro, e virou parâmetro de rodada — na tela de
+   * Simular, valendo para a unidade inteira.
    *
-   * O valor gravado é o código (`ligacoes`), e o rótulo é a palavra em português:
-   * o banco guarda os três literais sem acento e sem CHECK, e é o `<select>` que
-   * faz as vezes de restrição. Digitar livre aqui deixaria entrar 'ligações' com
-   * acento, que `reguaDe()` no back trata como "régua não escolhida" — pendência
-   * silenciosa numa cidade que o usuário jurou ter preenchido.
+   * O QUE ELA DEIXOU COMO AVISO: o valor gravado era o código (`ligacoes`) e o
+   * rótulo era a palavra em português, e mesmo com `<select>` uma cidade da base
+   * ficou anos com 'ligações' acentuado gravado no lugar do valor. Onde houver
+   * par código/rótulo, é o código que viaja.
    *
-   * Escolher `populacao` muda o que é EXIGIDO nas fichas de sub-bacia e CTS:
-   * `universo_populacao` e `populacao_atual` passam a contar como pendência
-   * (`pendencias.py`, `_PARAMS_POP`). Aqui as duas colunas já aparecem sempre, em
+   * O texto abaixo era a continuação deste bloco, sobre as colunas de população
+   * na sub-bacia e na CTS. Elas continuam existindo; o que mudou é que ninguém
+   * mais as EXIGE pelo cadastro, porque a escolha que as exigia mora na rodada.
+   * Aqui as duas colunas já apareciam sempre, em
    * `colsOperacionalComercial` — não há nada a mostrar ou esconder; o que muda é
    * a conta de completude, e essa vem pronta do servidor.
    *
@@ -523,11 +525,11 @@ const colsOperacionalComercial = (csv: 'subbacias' | 'cts'): ColDef[] => [
    * `lib/cadastroApi.ts`).
    */
   { coluna: 'ticket_medio', origem: 'db', procedencia: 'vazio', oque: 'Receita média por ligação — receita faturada dividida pelas ligações ativas.', porque: 'É o que multiplica as ligações novas para estimar a receita das obras. Conta do servidor: não é digitado nem gravado.' },
-  { coluna: 'universo_economias_residencial', origem: 'db', procedencia: csv, oque: 'Quantas do universo de economias são residenciais.', porque: 'Denominador da meta quando a cidade mede cobertura em economias e a rodada pede só residencial.' },
+  { coluna: 'universo_economias_residencial', origem: 'db', procedencia: csv, oque: 'Quantas do universo de economias são residenciais.', porque: 'Denominador da meta quando a rodada mede cobertura em economias e pede só residencial.' },
   { coluna: 'economias_atuais_residencial', origem: 'db', procedencia: csv, oque: 'Quantas das economias já atendidas são residenciais.', porque: 'Numerador de partida da meta no recorte residencial por economias.' },
   // população não existe em nenhum CSV
-  { coluna: 'universo_populacao', origem: 'un', procedencia: 'vazio', oque: 'Toda a população da área da sub-bacia, atendida ou não por esgoto.', porque: 'É o denominador da meta quando a cidade mede cobertura por população. Sem ele não dá para verificar o percentual contratado.', exemplo: '1.267' , opcional: 'só quando o município mede cobertura por população'},
-  { coluna: 'populacao_atual', origem: 'un', procedencia: 'vazio', oque: 'População que já tem coleta de esgoto, antes das obras deste plano.', porque: 'É o numerador de partida da meta. A diferença para o universo é a população que as obras precisam atender.', exemplo: '406' , opcional: 'só quando o município mede cobertura por população'},
+  { coluna: 'universo_populacao', origem: 'un', procedencia: 'vazio', oque: 'Toda a população da área da sub-bacia, atendida ou não por esgoto.', porque: 'É o denominador da meta quando a rodada mede cobertura por população. Sem ele não dá para verificar o percentual contratado.', exemplo: '1.267' , opcional: 'só quando a rodada mede cobertura por população'},
+  { coluna: 'populacao_atual', origem: 'un', procedencia: 'vazio', oque: 'População que já tem coleta de esgoto, antes das obras deste plano.', porque: 'É o numerador de partida da meta. A diferença para o universo é a população que as obras precisam atender.', exemplo: '406' , opcional: 'só quando a rodada mede cobertura por população'},
   { coluna: 'populacao_novas_obras', origem: 'calc', procedencia: 'vazio', oque: 'Calculado: universo − atendida hoje.', porque: 'É a população que as obras deste plano passam a atender. O valor gravado nesta coluna é ignorado — o motor sempre recalcula.' },
   { coluna: 'potencial_crescimento', origem: 'un', procedencia: 'vazio', oque: 'Multiplicador do universo de ligações da sub-bacia. 1,0 = sem crescimento; 1,5 = universo 50% maior.', porque: 'Amplia SÓ o denominador da meta de cobertura.', exemplo: '1,0' },
 ]

@@ -83,7 +83,8 @@ O dump do backend reproduz exatamente isto:
   eram os funis de coluna refazendo `Set` + ordenação a cada render, com o painel fechado.
 - Campos: as 4 colunas residenciais, `ticket_medio` (derivado, só leitura), e a janela da
   obra (`obra_obrigatoria_ano`, `obra_proibida_ate`) nas **três** abas de obra.
-- "Cobertura medida em" na aba de Concessão, com as três réguas.
+- "Cobertura medida em" é PARÂMETRO DE RODADA, na tela de Simular, com as
+  três réguas. Saiu do cadastro na migração 019.
 - Editar/Salvar por botão, excluir CTS do sistema, caixa "usa sistema de CTS".
 
 ### Testes — três suítes, cada uma com um propósito
