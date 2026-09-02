@@ -61,13 +61,13 @@ export function CenarioAnualDeCapex({ dados }: { dados: CenarioAnual }) {
   const series = dados.anos.map((a) => ({
     ano: String(a.ano),
     'Faltaria investir': (escopo === 'paga' ? a.faltaQueSePaga : a.faltaTodas) / 1e6,
-    'CAPEX do plano': a.noPlano / 1e6,
+    'Teto do ano': a.orcado / 1e6,
   }))
 
   return (
     <QuadroGrafico
       titulo="Se quiséssemos fazer tudo nesta janela"
-      nota={`a linha é o CAPEX que o plano gasta em cada ano — ${dados.anosDaJanela} anos de janela`}
+      nota={`a linha é o teto de CAPEX de cada ano — ${dados.anosDaJanela} anos de janela`}
       acoes={
         <SegmentedControl
           aria-label="Escopo do cenário"
@@ -80,12 +80,14 @@ export function CenarioAnualDeCapex({ dados }: { dados: CenarioAnual }) {
         />
       }
       tabela={{
-        colunas: ['Ano', 'CAPEX do plano', 'Faltaria investir', 'Teto do ano'],
+        colunas: ['Ano', 'Teto do ano', 'Faltaria investir', 'CAPEX do plano'],
         linhas: dados.anos.map((a) => [
           String(a.ano),
-          brlMi(a.noPlano),
-          brlMi(escopo === 'paga' ? a.faltaQueSePaga : a.faltaTodas),
           brlMi(a.orcado),
+          brlMi(escopo === 'paga' ? a.faltaQueSePaga : a.faltaTodas),
+          // O GASTO FICA NA TABELA, e não no gráfico: ele é atribuído ao ano de
+          // INÍCIO da obra, então não compara direto com o teto do ano.
+          brlMi(a.noPlano),
         ]),
       }}
     >
@@ -136,14 +138,18 @@ export function CenarioAnualDeCapex({ dados }: { dados: CenarioAnual }) {
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
           <Bar dataKey="Faltaria investir" fill={COR.total} />
-          {/* O CAPEX REAL DO PLANO, ANO A ANO — e não uma linha na média.
-              A média (R$ 50 Mi) achatava justamente o que varia: o plano gasta
-              R$ 72,7 Mi em 2027 e R$ 29,0 Mi em 2032. Com a linha reta, a
-              distância até a barra era a mesma em todo ano; com a linha real,
-              cada ano diz a sua própria distância. */}
+          {/* O TETO DE CADA ANO — e não a média, nem o que o plano gastou.
+              A média (R$ 50 Mi) achatava o que varia; e o GASTO não serve de
+              referência aqui por uma razão de contabilidade: ele é atribuído ao
+              ano em que a obra COMEÇA, e a obra consome orçamento ao longo da
+              execução. Por isso o gasto de 2027 aparece como R$ 72,7 Mi contra
+              um teto de R$ 60,0 Mi — não é estouro, é régua diferente.
+
+              O teto é a régua da decisão: foi ele que barrou as obras da barra,
+              e é dele que a pergunta "quantas vezes maior" fala. */}
           <Line
             type="monotone"
-            dataKey="CAPEX do plano"
+            dataKey="Teto do ano"
             stroke={COR.entra}
             strokeWidth={2}
             dot={{ r: 3 }}

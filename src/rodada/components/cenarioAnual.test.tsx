@@ -70,15 +70,16 @@ describe('o cenário anual de CAPEX', () => {
     expect(screen.queryByText('Total do ano')).not.toBeInTheDocument()
   })
 
-  it('a referência é o CAPEX REAL de cada ano, e não uma média', async () => {
-    // A média (R$ 50 Mi) achatava o que varia: o plano gasta R$ 72,7 Mi em 2027
-    // e R$ 29,0 Mi em 2032. Com a linha reta, a distância até a barra era a
-    // mesma em todo ano — que é a leitura errada.
+  it('a referência é o TETO de cada ano, e não a média nem o gasto', async () => {
+    // A média (R$ 50 Mi) achatava o que varia. E o GASTO não serve de régua: é
+    // atribuído ao ano em que a obra COMEÇA, e a obra consome orçamento ao longo
+    // da execução — por isso 2027 aparece com R$ 72,7 Mi gastos contra um teto
+    // de R$ 60,0 Mi. O teto é o que barrou as obras da barra.
     abrir()
     await userEvent.click(screen.getByRole('tab', { name: 'Tabela' }))
 
-    expect(await screen.findByText('CAPEX do plano')).toBeInTheDocument()
-    expect(screen.getByText('R$ 72,7 Mi')).toBeInTheDocument()
-    expect(screen.getByText('R$ 29,0 Mi')).toBeInTheDocument()
+    expect(await screen.findByText('Teto do ano')).toBeInTheDocument()
+    expect(screen.getByText('R$ 60,0 Mi')).toBeInTheDocument()
+    expect(screen.getByText('R$ 40,0 Mi')).toBeInTheDocument()
   })
 })
