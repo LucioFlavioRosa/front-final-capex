@@ -154,11 +154,11 @@ export const DICIONARIO_RODADA: Record<string, Verbete> = {
     rotulo: 'Coletores de tempo seco (CTS)',
     tec: 'USAR_CTS',
     origem: VOCE,
-    tipo: 'considerar · ignorar',
+    tipo: 'orçar à parte · somar à sub-bacia',
     oque: 'Se o coletor de tempo seco entra como estrutura própria na otimização.',
     porque:
-      'Considerar: a CTS tem obras, receita e cobertura próprias. Ignorar: ligações, economias, população, receita e vazão dela são somadas à sub-bacia irmã. Só faz efeito se a base tiver CTS cadastrada.',
-    exemplo: 'considerar',
+      'Orçar à parte: a CTS tem obras, receita e cobertura próprias. Somar à sub-bacia: ligações, economias, população, receita e vazão dela entram na sub-bacia irmã — a demanda CONTINUA no plano, sem obra de CTS para orçar. Só faz efeito se a base tiver CTS cadastrada.',
+    exemplo: 'orçar à parte',
   },
   COBERTURA_SO_RESIDENCIAL: {
     rotulo: 'Recorte da cobertura',

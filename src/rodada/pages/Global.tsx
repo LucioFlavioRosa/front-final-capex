@@ -256,7 +256,7 @@ export function Global() {
                   <ItemRodape rotulo="Base de receita" valor={m.parametros.baseReceita} />
                   <ItemRodape
                     rotulo="Coletores de tempo seco"
-                    valor={m.parametros.usarCts ? 'considerar' : 'ignorar'}
+                    valor={m.parametros.usarCts ? 'orçar à parte' : 'somar à sub-bacia'}
                   />
                   <ItemRodape rotulo="Objetivo" valor={rotuloObjetivo(m.parametros.focoCobertura)} />
                   <ItemRodape rotulo="Criada por" valor={m.autor} />

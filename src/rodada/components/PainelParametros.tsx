@@ -115,7 +115,7 @@ function TabelaParametrosTipados({ meta }: { meta: RunMeta }) {
     ['Base de receita', p.baseReceita],
     ['Cobertura medida em', ROTULO_REGUA[p.unidadeCobertura] ?? p.unidadeCobertura],
     ['Objetivo', rotuloObjetivo(p.focoCobertura)],
-    ['Coletores de tempo seco', p.usarCts ? 'considerar' : 'ignorar'],
+    ['Coletores de tempo seco', p.usarCts ? 'orçar à parte' : 'somar à sub-bacia'],
     ['Recorte da cobertura', p.coberturaSoResidencial ? 'só residenciais' : 'todas as ligações'],
   ]
   return (

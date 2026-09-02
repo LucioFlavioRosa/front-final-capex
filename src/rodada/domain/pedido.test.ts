@@ -33,8 +33,11 @@ describe('rotuloObjetivo — o objetivo se lê como foi escolhido', () => {
 
   it('nomeia os booleanos da simulação com as mesmas palavras da tela', () => {
     expect(rotuloDoParametro('USAR_CTS')).toBe('Coletores de tempo seco')
-    expect(valorDoParametro('USAR_CTS', true)).toBe('considerar')
-    expect(valorDoParametro('USAR_CTS', false)).toBe('ignorar')
+    // NÃO "ignorar": desligado, a demanda da CTS é SOMADA à sub-bacia irmã —
+    // ela continua no plano. A palavra tem de dizer o que acontece, e não
+    // sugerir que o coletor sumiu da conta.
+    expect(valorDoParametro('USAR_CTS', true)).toBe('orçar à parte')
+    expect(valorDoParametro('USAR_CTS', false)).toBe('somar à sub-bacia')
     expect(rotuloDoParametro('COBERTURA_SO_RESIDENCIAL')).toBe('Recorte da cobertura')
     expect(valorDoParametro('COBERTURA_SO_RESIDENCIAL', true)).toBe('só residenciais')
     expect(valorDoParametro('COBERTURA_SO_RESIDENCIAL', false)).toBe('todas as ligações')

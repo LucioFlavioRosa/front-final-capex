@@ -473,13 +473,17 @@ export function Simular() {
                   />
                   <SegmentedControl
                     aria-label="Coletores de tempo seco (CTS)"
-                    value={estado.usarCts ? 'considerar' : 'ignorar'}
-                    onChange={(v) =>
-                      despachar({ tipo: 'set', patch: { usarCts: v === 'considerar' } })
-                    }
+                    value={estado.usarCts ? 'orcar' : 'somar'}
+                    onChange={(v) => despachar({ tipo: 'set', patch: { usarCts: v === 'orcar' } })}
+                    /* "IGNORAR" MENTIA, e o próprio verbete do dicionário
+                       entregava a mentira: desligado, o coletor não é ignorado —
+                       ligações, economias, população, receita e vazão dele são
+                       SOMADAS à sub-bacia irmã. A demanda continua no plano; o
+                       que muda é quem a atende, e portanto se há obra de CTS
+                       para orçar. As duas pílulas nomeiam esse par. */
                     options={[
-                      { value: 'considerar', label: 'Considerar' },
-                      { value: 'ignorar', label: 'Ignorar' },
+                      { value: 'orcar', label: 'Orçar à parte' },
+                      { value: 'somar', label: 'Somar à sub-bacia' },
                     ]}
                   />
                 </div>
@@ -724,7 +728,7 @@ function ResumoDaRodada({
             traduzir de volta para as opções que aparecem nas pílulas. */}
         <Item
           rotulo="Coletores de tempo seco"
-          valor={estado.usarCts ? 'considerar' : 'ignorar'}
+          valor={estado.usarCts ? 'orçar à parte' : 'somar à sub-bacia'}
         />
         <Item
           rotulo="Recorte da cobertura"
