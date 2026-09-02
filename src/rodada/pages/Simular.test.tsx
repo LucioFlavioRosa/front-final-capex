@@ -247,7 +247,10 @@ describe('Simular — a régua de população avisa com número', () => {
     await escolherUnidade('57') // 200 de 200 no mock
     await userEvent.click(screen.getByRole('radio', { name: 'População' }))
 
-    expect(await screen.findByText(/todas as sub-bacias e CTS têm população/i)).toBeInTheDocument()
+    expect(
+      await screen.findByText(/todas as sub-bacias e CTS têm universo e população atual/i),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/régua vale/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/cai para/)).not.toBeInTheDocument()
   })
 })

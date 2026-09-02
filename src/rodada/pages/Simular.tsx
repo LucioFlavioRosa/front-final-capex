@@ -403,8 +403,8 @@ export function Simular() {
                     <p className="mt-2 text-[12px] leading-snug text-amber-700">
                       {semPopulacao === 0 ? (
                         <>
-                          Todas as sub-bacias e CTS têm população informada — a régua vale
-                          para a unidade inteira.
+                          Todas as sub-bacias e CTS têm universo e população atual
+                          informados.
                         </>
                       ) : (
                         <>
