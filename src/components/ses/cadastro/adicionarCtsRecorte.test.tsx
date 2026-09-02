@@ -77,6 +77,31 @@ describe('o seletor de CTS é recortado pela cidade do sistema', () => {
     expect(within(grupo).queryByRole('option', { name: 'CTS daqui' })).not.toBeInTheDocument()
   })
 
+  it('sistema sem cidade não duplica a lista nem promete um recorte', () => {
+    // `cidadeDoSistema` vazio casava com as CTS de cidade vazia por igualdade
+    // (`'' === ''`), e elas entravam NAS DUAS listas: as mesmas opções duas
+    // vezes, com a mesma `key`, e o contador dizendo o dobro. O recorte sumia
+    // justamente quando não havia por onde recortar.
+    render(
+      <AdicionarCts
+        sistemaId="s1"
+        sistemaNome="Sistema 1"
+        cidadeDoSistema=""
+        cidadeNome="—"
+        topo={TOPO}
+        dados={DADOS}
+        limitada={false}
+        onAdicionar={vi.fn()}
+      />,
+    )
+
+    // A CTS sem lugar aparece UMA vez só.
+    expect(screen.getAllByRole('option', { name: 'CTS sem-lugar' })).toHaveLength(1)
+    // E a tela não promete um município que não tem.
+    expect(screen.getByRole('option', { name: /sem cidade cadastrada/ })).toBeInTheDocument()
+    expect(screen.getByText(/não é recortada por município/)).toBeInTheDocument()
+  })
+
   it('sem nenhuma CTS na cidade, o seletor diz qual cidade está vazia', () => {
     render(
       <AdicionarCts

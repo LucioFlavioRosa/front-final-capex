@@ -80,7 +80,12 @@ export function AdicionarCts({
    * colocar às cegas uma CTS que pode ser de outro município.
    */
   const daCidade = useMemo(
-    () => livres.filter((t) => t.cidade_id === cidadeDoSistema),
+    // A GUARDA `cidadeDoSistema &&` NAO E DEFENSIVA À TOA: sem ela, um sistema
+    // sem cidade cai em `'' === ''` e casa com TODAS as CTS sem cidade — que a
+    // linha seguinte já colhe. As mesmas opções apareceriam duas vezes, com a
+    // mesma `key`, e o contador diria o dobro. O recorte some justamente quando
+    // não há por onde recortar, que é quando ele mais parecia estar valendo.
+    () => (cidadeDoSistema ? livres.filter((t) => t.cidade_id === cidadeDoSistema) : []),
     [livres, cidadeDoSistema],
   )
   const semCidade = useMemo(() => livres.filter((t) => !t.cidade_id), [livres])
@@ -112,9 +117,15 @@ export function AdicionarCts({
           className="min-w-0 flex-1 rounded-[8px] border border-ink-200 bg-white px-2.5 py-1.5 text-[12.5px]"
         >
           <option value="">
-            {quantas
-              ? `Escolha uma CTS… (${quantas} livre${quantas > 1 ? 's' : ''} em ${cidadeNome})`
-              : `Nenhuma CTS livre em ${cidadeNome}`}
+            {!cidadeDoSistema
+              ? /* O SISTEMA AINDA NAO TEM CIDADE: prometer um recorte por cidade
+                   aqui seria mentir sobre o que a lista é. */
+                quantas
+                ? `Escolha uma CTS… (${quantas} sem cidade cadastrada)`
+                : 'Este sistema ainda não tem cidade'
+              : quantas
+                ? `Escolha uma CTS… (${quantas} livre${quantas > 1 ? 's' : ''} em ${cidadeNome})`
+                : `Nenhuma CTS livre em ${cidadeNome}`}
           </option>
           {daCidade.map((c) => (
             <option key={c.componente_sistema_id} value={c.componente_sistema_id}>
@@ -146,7 +157,17 @@ export function AdicionarCts({
         </button>
       </div>
       <div className="mt-1.5 text-[11.5px] leading-snug text-ink-water">
-        Só aparecem CTS de <strong>{cidadeNome}</strong> que não estão em nenhum outro sistema.
+        {cidadeDoSistema ? (
+          <>
+            Só aparecem CTS de <strong>{cidadeNome}</strong> que não estão em nenhum outro
+            sistema.
+          </>
+        ) : (
+          <>
+            Este sistema não tem cidade cadastrada, então a lista{' '}
+            <strong>não é recortada por município</strong>.
+          </>
+        )}{' '}
         Depois de adicionar, defina para onde ela escoa na tabela e salve.
       </div>
     </div>

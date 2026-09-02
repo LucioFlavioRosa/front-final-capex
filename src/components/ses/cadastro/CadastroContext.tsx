@@ -286,6 +286,19 @@ function reducer(state: CadastroState, action: Action): CadastroState {
      */
     case 'IMPORTAR_PLANILHA': {
       if (!state.unidade) return state
+      /*
+       * A MESCLA TROCA A ABA INTEIRA, e para `sistema-topologia` isso teria um
+       * custo escondido: as linhas SEM SISTEMA carregam `cidade_id`, que não é
+       * coluna da planilha e é o que recorta o seletor de CTS pela cidade. Uma
+       * aba importada sem ela jogaria todas as CTS livres em "sem cidade
+       * cadastrada" — o seletor voltaria a ofertar as de qualquer município,
+       * só que com um rótulo dizendo que não sabe onde elas estão.
+       *
+       * NÃO ACONTECE HOJE: a v8 não tem aba de fluxo (ver o cabeçalho de
+       * `schema.ts`), e as rotas de template/importar ainda respondem 404. Fica
+       * escrito aqui para quem for implementá-las: ou a planilha passa a trazer
+       * `cidade_id`, ou esta mescla preserva o das linhas sem sistema.
+       */
       const data = { ...state.unidade.data, ...action.dados }
       return {
         ...state,
