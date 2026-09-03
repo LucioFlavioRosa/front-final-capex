@@ -18,18 +18,32 @@ import {
   type AbaResultado,
 } from '@/rodada/layout/abaResultado'
 
-const ABAS: { id: AbaResultado; rotulo: string; descricao: string; soNaRodada?: boolean }[] = [
-  { id: 'plano', rotulo: 'Plano', descricao: 'o que entrou' },
-  { id: 'porque', rotulo: 'Por quê', descricao: 'o que ficou de fora' },
+/*
+ * O NOME DA ABA É O CENÁRIO, e não uma categoria seguida dele.
+ *
+ * Era "Plano · obras no plano", "Por quê · sem limite de CAPEX na janela": a
+ * palavra da frente não acrescentava nada que a frase já não dissesse, e ainda
+ * cobrava o dobro da largura — a barra pedia 746 px e a descrição tinha de sumir
+ * abaixo de `lg`, deixando o celular com três rótulos genéricos. Sem ela, cabe
+ * inteira em toda largura e diz mais.
+ *
+ * SÓ UMA DELAS COMEÇA COM "E SE", e é o que separa as duas de orçamento. Por um
+ * tempo as duas começavam assim ("e se não tivesse limite" × "e se o CAPEX
+ * fosse maior") e ficavam confundíveis: a distinção inteira morava em "não
+ * tivesse limite" contra "fosse maior". Hoje uma faz pergunta aberta e a outra
+ * descreve um cenário FECHADO — a mesma janela, sem teto.
+ *
+ * A ORDEM VAI DO PRÓXIMO AO DISTANTE: o plano que existe, depois o orçamento um
+ * pouco maior, e por fim o cenário sem teto nenhum. A aba do meio some fora do
+ * nível da rodada, e as duas que ficam continuam nessa mesma escada.
+ */
+const ABAS: { id: AbaResultado; rotulo: string; soNaRodada?: boolean }[] = [
+  { id: 'plano', rotulo: 'Obras no plano' },
   // SÓ NO NÍVEL DA RODADA. A curva é do orçamento inteiro; não há sensibilidade
   // de uma cidade nem de uma obra. Mostrar a aba lá e abrir uma tela vazia seria
   // pior que não a mostrar — ela prometeria uma resposta que não existe.
-  {
-    id: 'sensibilidade',
-    rotulo: 'Sensibilidade',
-    descricao: 'e se o CAPEX fosse maior',
-    soNaRodada: true,
-  },
+  { id: 'sensibilidade', rotulo: 'E se o CAPEX fosse maior', soNaRodada: true },
+  { id: 'porque', rotulo: 'Sem limite de CAPEX na janela' },
 ]
 
 export function AbasResultado({ ehVariacao = false }: { ehVariacao?: boolean }) {
@@ -55,7 +69,13 @@ export function AbasResultado({ ehVariacao = false }: { ehVariacao?: boolean }) 
     <div
       role="tablist"
       aria-label="O que olhar nesta rodada"
-      className="mb-5 inline-flex gap-1 rounded-full border border-ink-200 bg-white p-1 shadow-soft"
+      /* ROLA NO EIXO X EM VEZ DE QUEBRAR: as três frases somam 630 px e o
+         celular tem 390. Barra de abas que quebra em duas linhas deixa de
+         parecer uma barra — cada pílula vira um botão solto —, enquanto rolar é
+         o gesto que a forma já sugere. `max-w-full` para o `inline-flex` não
+         ignorar o limite do pai, e o scrollbar fica escondido porque as pílulas
+         cortadas na borda já dizem que há mais. */
+      className="mb-5 flex max-w-full gap-1 overflow-x-auto rounded-full border border-ink-200 bg-white p-1 shadow-soft [scrollbar-width:none] lg:inline-flex [&::-webkit-scrollbar]:hidden"
     >
       {visiveis.map((aba) => {
         const ativa = aba.id === atual
@@ -69,18 +89,16 @@ export function AbasResultado({ ehVariacao = false }: { ehVariacao?: boolean }) 
                cinco vezes e apertar Voltar deve sair do nível, não desfazer os
                cinco cliques. Descer de nível continua empilhando normalmente. */
             replace
-            className={`rounded-full px-4 py-2 text-[13.5px] font-bold transition-colors duration-hover ease-saida ${
+            onFocus={(e) =>
+              e.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+            }
+            className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-[13.5px] font-bold transition-colors duration-hover ease-saida ${
               ativa
                 ? 'bg-water-600 text-white'
                 : 'text-ink-600 hover:bg-water-50 hover:text-ink-900'
             }`}
           >
             {aba.rotulo}
-            <span
-              className={`ml-2 font-normal ${ativa ? 'text-white/70' : 'text-ink-water'}`}
-            >
-              {aba.descricao}
-            </span>
           </Link>
         )
       })}

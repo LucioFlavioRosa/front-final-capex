@@ -131,16 +131,19 @@ describe('AbasResultado numa variação', () => {
       </MemoryRouter>,
     )
 
+  // AS ABAS SÃO CHAMADAS PELO CENÁRIO, e não por uma categoria. As buscas aqui
+  // seguem o nome visível — "Plano", "Por quê" e "Sensibilidade" saíram da tela
+  // porque não acrescentavam nada que a frase já não dissesse.
   it('a rodada comum tem as três abas', () => {
     abrir('/resultados/r1', false)
-    expect(screen.getByRole('tab', { name: /Sensibilidade/ })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /CAPEX fosse maior/ })).toBeInTheDocument()
   })
 
-  it('a variação NÃO oferece Sensibilidade', () => {
+  it('a variação NÃO oferece a aba de sensibilidade', () => {
     abrir('/resultados/r1', true)
-    expect(screen.queryByRole('tab', { name: /Sensibilidade/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /Plano/ })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /Por quê/ })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /CAPEX fosse maior/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Obras no plano/ })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Sem limite de CAPEX/ })).toBeInTheDocument()
   })
 
   it('e uma URL com `aba=sensibilidade` numa variação cai no Plano', () => {
@@ -148,6 +151,6 @@ describe('AbasResultado numa variação', () => {
     // chega aqui sem passar pela barra.
     abrir('/resultados/r1?aba=sensibilidade', true)
     const ativa = screen.getAllByRole('tab').find((b) => b.getAttribute('aria-selected') === 'true')
-    expect(ativa).toHaveTextContent('Plano')
+    expect(ativa).toHaveTextContent('Obras no plano')
   })
 })
