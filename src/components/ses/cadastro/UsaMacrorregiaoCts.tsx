@@ -9,6 +9,15 @@ import type { Row } from '../../../data/cadastroUnidade/types'
  * CADASTRO, e não de otimização: o motor nunca contou CTS por sistema, e para
  * ele uma ou duas são nós como quaisquer outros.
  *
+ * OS DOIS ESTADOS TÊM NOME, e cada texto diz o do seu: marcado é MACRORREGIÃO,
+ * desmarcado é MICRORREGIÃO. Antes só o marcado tinha nome, e o desmarcado era
+ * descrito pela ação de sair dele ("marque se…") — quem chegava desmarcado não
+ * sabia que aquele também era um regime, e não a ausência de um.
+ *
+ * A AÇÃO SEMPRE APONTA PARA O OUTRO REGIME, e por isso o verbo troca com o
+ * estado: "desmarque" quando marcado, "marque" quando não. Um "marque se…" na
+ * caixa já marcada pede o que a pessoa acabou de fazer.
+ *
  * MACRORREGIÃO, e não "sistema de CTS", que era como a caixa se chamava. Além de
  * ser o nome que a operação usa, o antigo colidia com `sistema`, que no cadastro
  * é outra coisa — o conjunto de sub-bacias que escoam para a mesma ETE. A frase
@@ -75,19 +84,19 @@ export function UsaMacrorregiaoCts({
           </>
         ) : marcado ? (
           <>
-            Um coletor de tempo seco atende à região, e{' '}
             <strong className="font-semibold text-ink-900">
-              cada sistema desta unidade aceita uma CTS
-            </strong>
-            . Adicionar uma segunda é recusado pelo servidor.
+              Os sistemas desta unidade aceitam apenas uma CTS
+            </strong>{' '}
+            cada — é a operação organizada em <strong>macrorregião</strong> de CTS. Desmarque se
+            ela é organizada em microrregião.
           </>
         ) : (
           <>
             <strong className="font-semibold text-ink-900">
               Os sistemas desta unidade aceitam mais de uma CTS
             </strong>{' '}
-            cada. Marque se a operação é organizada em macrorregião de CTS — vale para todos
-            os sistemas da unidade.
+            cada — é a operação organizada em <strong>microrregião</strong> de CTS. Marque se ela
+            é organizada em macrorregião.
           </>
         )}
       </p>
