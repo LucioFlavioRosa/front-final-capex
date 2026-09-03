@@ -335,7 +335,7 @@ export function Global() {
                 rotulo="Carregando o cenário anual…"
                 tituloErro="Não foi possível carregar o cenário anual desta rodada."
               >
-                {(c) => <CenarioAnualDeCapex dados={c} />}
+                {(c) => <CenarioAnualDeCapex dados={c} runId={runId} />}
               </Estado>
             )}
 

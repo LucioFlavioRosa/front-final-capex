@@ -370,7 +370,7 @@ export function GraficoCronogramaObras({ runId }: { runId: string | undefined })
  * feita para ser somada, e milhão arredondado com a unidade grudada no texto
  * não soma.
  */
-const COLUNAS_DA_PLANILHA = [
+export const COLUNAS_DA_PLANILHA = [
   { titulo: 'Obra', largura: 26 },
   { titulo: 'Componente', largura: 22 },
   { titulo: 'Cidade', largura: 22 },
@@ -392,7 +392,7 @@ const COLUNAS_DA_PLANILHA = [
   { titulo: 'Prazo (meses)', largura: 14, formato: 'inteiro' as const },
 ]
 
-function linhaDaPlanilha(o: ObraLinha) {
+export function linhaDaPlanilha(o: ObraLinha) {
   return [
     o.obraId,
     o.componente,

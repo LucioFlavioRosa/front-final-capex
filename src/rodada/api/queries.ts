@@ -41,6 +41,8 @@ export const chaves = {
   cidades: (runId: string) => ['runs', runId, 'cidades'] as const,
   explicabilidade: (runId: string) => ['runs', runId, 'explicabilidade'] as const,
   cenarioAnual: (runId: string) => ['runs', runId, 'cenario-anual'] as const,
+  obrasDoCenario: (runId: string, filtro: Record<string, unknown>) =>
+    ['runs', runId, 'cenario-anual', 'obras', filtro] as const,
   explicabilidadeDaCidade: (runId: string, cidadeId: string) =>
     ['runs', runId, 'cidades', cidadeId, 'explicabilidade'] as const,
   explicabilidadeDoSistema: (runId: string, sistemaId: string) =>
@@ -150,15 +152,6 @@ export function useCidades(runId: string | undefined) {
   })
 }
 
-export function useExplicabilidade(runId: string | undefined) {
-  return useQuery({
-    queryKey: chaves.explicabilidade(runId ?? '—'),
-    queryFn: () => resultados.explicabilidade(runId as string),
-    enabled: !!runId,
-    ...IMUTAVEL,
-  })
-}
-
 export function useCidade(runId: string | undefined, cidadeId: string | undefined) {
   return useQuery({
     queryKey: chaves.cidade(runId ?? '—', cidadeId ?? '—'),
@@ -234,6 +227,25 @@ export function useObras(
     // página anterior na tela enquanto a nova pagina/filtra — sem isso a
     // tabela pisca vazia a cada clique em "próxima página".
     placeholderData: (anterior) => anterior,
+    ...IMUTAVEL,
+  })
+}
+
+/**
+ * As obras de uma fatia do cenário anual — ano, tipo e escopo, os três juntos.
+ *
+ * O filtro inteiro entra na chave de cache: trocar de escopo ou de ano é outra
+ * lista, e servir a anterior seria repetir, em silêncio, o defeito que esta
+ * rota veio consertar.
+ */
+export function useObrasDoCenario(
+  runId: string | undefined,
+  filtro: { escopo: 'paga' | 'todas'; ano?: number; componente?: string; tamanho?: number },
+) {
+  return useQuery({
+    queryKey: chaves.obrasDoCenario(runId ?? '—', filtro),
+    queryFn: () => resultados.obrasDoCenario(runId as string, filtro),
+    enabled: !!runId,
     ...IMUTAVEL,
   })
 }
@@ -397,7 +409,6 @@ export function useCriarRodada() {
   })
 }
 
-
 /**
  * A CURVA DE SENSIBILIDADE — teto e pontos, numa consulta só.
  *
@@ -446,7 +457,6 @@ export function useDispararVariacao() {
     },
   })
 }
-
 
 /**
  * O sinal de vida de uma rodada em execução.

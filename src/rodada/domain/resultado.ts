@@ -470,7 +470,7 @@ export interface AnoDoCenario {
    * Ordenado por CAPEX decrescente: a fatia maior fica embaixo da barra, que é
    * onde a leitura começa.
    */
-  porComponente: { componente: string; queSePaga: number; todas: number }[]
+  porComponente: { componente: string; codigo: string; queSePaga: number; todas: number }[]
 }
 
 /**

@@ -230,7 +230,7 @@ export const EXPLICABILIDADE = {
       obras: 1142,
       capex: 538_500_000,
       ligacoes: 564_692,
-      porComponente: [{ componente: 'Ligação de esgoto', obras: 1142, capex: 538_500_000 }],
+      porComponente: [{ componente: 'Ligação de esgoto', codigo: 'lig', obras: 1142, capex: 538_500_000 }],
       maiores: [
         {
           obraId: 'lig-0001',
@@ -248,7 +248,7 @@ export const EXPLICABILIDADE = {
       obras: 1070,
       capex: 234_200_000,
       ligacoes: 239_115,
-      porComponente: [{ componente: 'Ligação de esgoto', obras: 1070, capex: 234_200_000 }],
+      porComponente: [{ componente: 'Ligação de esgoto', codigo: 'lig', obras: 1070, capex: 234_200_000 }],
       maiores: [],
     },
     {
@@ -258,9 +258,9 @@ export const EXPLICABILIDADE = {
       capex: 4_442_400_000,
       ligacoes: 10_372,
       porComponente: [
-        { componente: 'Tronco', obras: 876, capex: 1_210_800_000 },
-        { componente: 'Rede coletora', obras: 1654, capex: 1_159_800_000 },
-        { componente: 'ETE (módulo)', obras: 844, capex: 946_900_000 },
+        { componente: 'Tronco', codigo: 'tro', obras: 876, capex: 1_210_800_000 },
+        { componente: 'Rede coletora', codigo: 'rede', obras: 1654, capex: 1_159_800_000 },
+        { componente: 'ETE (módulo)', codigo: 'ete_mod', obras: 844, capex: 946_900_000 },
       ],
       maiores: [
         {
@@ -297,12 +297,12 @@ export const EXPLICABILIDADE = {
  */
 export const CENARIO_ANUAL = {
   anos: [
-    { ano: 2027, orcado: 60_000_000, noPlano: 72_700_000, obrasNoPlano: 60, faltaQueSePaga: 639_900_000, faltaTodas: 1_043_000_000 , porComponente: [{ componente: 'Tronco', queSePaga: 102880000, todas: 242160000 }, { componente: 'Rede coletora', queSePaga: 126780000, todas: 231960000 }, { componente: 'ETE (módulo)', queSePaga: 181880000, todas: 189380000 }, { componente: 'Ligação de esgoto', queSePaga: 120980000, todas: 156100000 }, { componente: 'EEE', queSePaga: 55460000, todas: 123300000 }, { componente: 'Linha de recalque', queSePaga: 51800000, todas: 100120000 }]},
-    { ano: 2028, orcado: 50_000_000, noPlano: 42_500_000, obrasNoPlano: 42, faltaQueSePaga: 533_300_000, faltaTodas: 869_200_000 , porComponente: [{ componente: 'Tronco', queSePaga: 85733333, todas: 201800000 }, { componente: 'Rede coletora', queSePaga: 105650000, todas: 193300000 }, { componente: 'ETE (módulo)', queSePaga: 151566667, todas: 157816667 }, { componente: 'Ligação de esgoto', queSePaga: 100816667, todas: 130083333 }, { componente: 'EEE', queSePaga: 46216667, todas: 102750000 }, { componente: 'Linha de recalque', queSePaga: 43166667, todas: 83433333 }]},
-    { ano: 2029, orcado: 50_000_000, noPlano: 63_900_000, obrasNoPlano: 48, faltaQueSePaga: 533_300_000, faltaTodas: 869_200_000 , porComponente: [{ componente: 'Tronco', queSePaga: 85733333, todas: 201800000 }, { componente: 'Rede coletora', queSePaga: 105650000, todas: 193300000 }, { componente: 'ETE (módulo)', queSePaga: 151566667, todas: 157816667 }, { componente: 'Ligação de esgoto', queSePaga: 100816667, todas: 130083333 }, { componente: 'EEE', queSePaga: 46216667, todas: 102750000 }, { componente: 'Linha de recalque', queSePaga: 43166667, todas: 83433333 }]},
-    { ano: 2030, orcado: 50_000_000, noPlano: 34_500_000, obrasNoPlano: 41, faltaQueSePaga: 533_300_000, faltaTodas: 869_200_000 , porComponente: [{ componente: 'Tronco', queSePaga: 85733333, todas: 201800000 }, { componente: 'Rede coletora', queSePaga: 105650000, todas: 193300000 }, { componente: 'ETE (módulo)', queSePaga: 151566667, todas: 157816667 }, { componente: 'Ligação de esgoto', queSePaga: 100816667, todas: 130083333 }, { componente: 'EEE', queSePaga: 46216667, todas: 102750000 }, { componente: 'Linha de recalque', queSePaga: 43166667, todas: 83433333 }]},
-    { ano: 2031, orcado: 50_000_000, noPlano: 56_700_000, obrasNoPlano: 49, faltaQueSePaga: 533_300_000, faltaTodas: 869_200_000 , porComponente: [{ componente: 'Tronco', queSePaga: 85733333, todas: 201800000 }, { componente: 'Rede coletora', queSePaga: 105650000, todas: 193300000 }, { componente: 'ETE (módulo)', queSePaga: 151566667, todas: 157816667 }, { componente: 'Ligação de esgoto', queSePaga: 100816667, todas: 130083333 }, { componente: 'EEE', queSePaga: 46216667, todas: 102750000 }, { componente: 'Linha de recalque', queSePaga: 43166667, todas: 83433333 }]},
-    { ano: 2032, orcado: 40_000_000, noPlano: 29_000_000, obrasNoPlano: 40, faltaQueSePaga: 426_600_000, faltaTodas: 695_400_000 , porComponente: [{ componente: 'Tronco', queSePaga: 68586667, todas: 161440000 }, { componente: 'Rede coletora', queSePaga: 84520000, todas: 154640000 }, { componente: 'ETE (módulo)', queSePaga: 121253333, todas: 126253333 }, { componente: 'Ligação de esgoto', queSePaga: 80653333, todas: 104066667 }, { componente: 'EEE', queSePaga: 36973333, todas: 82200000 }, { componente: 'Linha de recalque', queSePaga: 34533333, todas: 66746667 }]},
+    { ano: 2027, orcado: 60_000_000, noPlano: 72_700_000, obrasNoPlano: 60, faltaQueSePaga: 639_900_000, faltaTodas: 1_043_000_000 , porComponente: [{ componente: 'Tronco', codigo: 'tro', queSePaga: 102880000, todas: 242160000 }, { componente: 'Rede coletora', codigo: 'rede', queSePaga: 126780000, todas: 231960000 }, { componente: 'ETE (módulo)', codigo: 'ete_mod', queSePaga: 181880000, todas: 189380000 }, { componente: 'Ligação de esgoto', codigo: 'lig', queSePaga: 120980000, todas: 156100000 }, { componente: 'EEE', codigo: 'eee', queSePaga: 55460000, todas: 123300000 }, { componente: 'Linha de recalque', codigo: 'lr', queSePaga: 51800000, todas: 100120000 }]},
+    { ano: 2028, orcado: 50_000_000, noPlano: 42_500_000, obrasNoPlano: 42, faltaQueSePaga: 533_300_000, faltaTodas: 869_200_000 , porComponente: [{ componente: 'Tronco', codigo: 'tro', queSePaga: 85733333, todas: 201800000 }, { componente: 'Rede coletora', codigo: 'rede', queSePaga: 105650000, todas: 193300000 }, { componente: 'ETE (módulo)', codigo: 'ete_mod', queSePaga: 151566667, todas: 157816667 }, { componente: 'Ligação de esgoto', codigo: 'lig', queSePaga: 100816667, todas: 130083333 }, { componente: 'EEE', codigo: 'eee', queSePaga: 46216667, todas: 102750000 }, { componente: 'Linha de recalque', codigo: 'lr', queSePaga: 43166667, todas: 83433333 }]},
+    { ano: 2029, orcado: 50_000_000, noPlano: 63_900_000, obrasNoPlano: 48, faltaQueSePaga: 533_300_000, faltaTodas: 869_200_000 , porComponente: [{ componente: 'Tronco', codigo: 'tro', queSePaga: 85733333, todas: 201800000 }, { componente: 'Rede coletora', codigo: 'rede', queSePaga: 105650000, todas: 193300000 }, { componente: 'ETE (módulo)', codigo: 'ete_mod', queSePaga: 151566667, todas: 157816667 }, { componente: 'Ligação de esgoto', codigo: 'lig', queSePaga: 100816667, todas: 130083333 }, { componente: 'EEE', codigo: 'eee', queSePaga: 46216667, todas: 102750000 }, { componente: 'Linha de recalque', codigo: 'lr', queSePaga: 43166667, todas: 83433333 }]},
+    { ano: 2030, orcado: 50_000_000, noPlano: 34_500_000, obrasNoPlano: 41, faltaQueSePaga: 533_300_000, faltaTodas: 869_200_000 , porComponente: [{ componente: 'Tronco', codigo: 'tro', queSePaga: 85733333, todas: 201800000 }, { componente: 'Rede coletora', codigo: 'rede', queSePaga: 105650000, todas: 193300000 }, { componente: 'ETE (módulo)', codigo: 'ete_mod', queSePaga: 151566667, todas: 157816667 }, { componente: 'Ligação de esgoto', codigo: 'lig', queSePaga: 100816667, todas: 130083333 }, { componente: 'EEE', codigo: 'eee', queSePaga: 46216667, todas: 102750000 }, { componente: 'Linha de recalque', codigo: 'lr', queSePaga: 43166667, todas: 83433333 }]},
+    { ano: 2031, orcado: 50_000_000, noPlano: 56_700_000, obrasNoPlano: 49, faltaQueSePaga: 533_300_000, faltaTodas: 869_200_000 , porComponente: [{ componente: 'Tronco', codigo: 'tro', queSePaga: 85733333, todas: 201800000 }, { componente: 'Rede coletora', codigo: 'rede', queSePaga: 105650000, todas: 193300000 }, { componente: 'ETE (módulo)', codigo: 'ete_mod', queSePaga: 151566667, todas: 157816667 }, { componente: 'Ligação de esgoto', codigo: 'lig', queSePaga: 100816667, todas: 130083333 }, { componente: 'EEE', codigo: 'eee', queSePaga: 46216667, todas: 102750000 }, { componente: 'Linha de recalque', codigo: 'lr', queSePaga: 43166667, todas: 83433333 }]},
+    { ano: 2032, orcado: 40_000_000, noPlano: 29_000_000, obrasNoPlano: 40, faltaQueSePaga: 426_600_000, faltaTodas: 695_400_000 , porComponente: [{ componente: 'Tronco', codigo: 'tro', queSePaga: 68586667, todas: 161440000 }, { componente: 'Rede coletora', codigo: 'rede', queSePaga: 84520000, todas: 154640000 }, { componente: 'ETE (módulo)', codigo: 'ete_mod', queSePaga: 121253333, todas: 126253333 }, { componente: 'Ligação de esgoto', codigo: 'lig', queSePaga: 80653333, todas: 104066667 }, { componente: 'EEE', codigo: 'eee', queSePaga: 36973333, todas: 82200000 }, { componente: 'Linha de recalque', codigo: 'lr', queSePaga: 34533333, todas: 66746667 }]},
   ],
   podemComecarCedo: { obras: 6085, de: 6765 },
   anosDaJanela: 6,
@@ -392,20 +392,48 @@ export const handlers = [
             obras: 2,
             capex: 500_366,
             porComponente: [
-              { componente: 'Ligação de esgoto', obras: 1, capex: 310_024 },
-              { componente: 'Rede coletora', obras: 1, capex: 190_342 },
+              { componente: 'Ligação de esgoto', codigo: 'lig', obras: 1, capex: 310_024 },
+              { componente: 'Rede coletora', codigo: 'rede', obras: 1, capex: 190_342 },
             ],
           },
           obrigatoria: { obras: 0, capex: 0, porComponente: [] },
           terceiro: {
             obras: 3,
             capex: 0,
-            porComponente: [{ componente: 'EEE', obras: 3, capex: 0 }],
+            porComponente: [{ componente: 'EEE', codigo: 'eee', obras: 3, capex: 0 }],
           },
         },
       ],
     }),
   ),
+  // O RECORTE PEDIDO VOLTA NA RESPOSTA. As obras de uma fatia do cenário
+  // dependem de escopo, ano e componente juntos, e o defeito que esta rota veio
+  // consertar era exatamente um recorte que a tela mostrava e a chamada não
+  // levava. Devolvendo o que foi pedido, o teste consegue afirmar que os três
+  // chegaram — sem isso ele só veria uma lista, que passaria igual errada.
+  http.get('/api/runs/:runId/cenario-anual/obras', ({ request }) => {
+    const q = new URL(request.url).searchParams
+    return HttpResponse.json({
+      total: 1,
+      itens: [
+        {
+          obraId: `${q.get('componente') ?? 'todos'}/${q.get('escopo')}/${q.get('ano') ?? 'janela'}`,
+          componente: 'Tronco',
+          situacao: 'nao-construida',
+          recorte: 'escolhida',
+          cidadeId: 'Belford Roxo',
+          sistemaId: 'Sistema 27',
+          subBaciaId: 'b2b27_1_2',
+          capex: 624_279,
+          quantidade: 383,
+          unidade: 'm',
+          anoInicio: null,
+          dataPronta: null,
+          prazoMeses: 9,
+        },
+      ],
+    })
+  }),
   http.get('/api/runs/:runId/obras', () =>
     HttpResponse.json({
       total: 1,
