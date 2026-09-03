@@ -589,7 +589,7 @@ export const SCHEMA: AbaDef[] = [
       // mesma posição, e os dois visíveis seriam dois controles para o mesmo dado.
       {
         coluna: 'usa_macrorregiao_cts', origem: 'un', procedencia: 'vazio',
-        oque: 'Marcado: a unidade usa macrorregião de CTS, e cada sistema dela aceita UMA CTS. Desmarcado: aceitam várias.',
+        oque: 'Marcado: a operação é organizada em MACRORREGIÃO de CTS, e cada sistema da unidade aceita uma CTS. Desmarcado: é MICRORREGIÃO, e os sistemas aceitam várias.',
         porque: 'Define quantos coletores de tempo seco os sistemas desta unidade comportam. O servidor recusa adicionar a segunda CTS a um sistema quando a unidade está marcada, e recusa marcar a unidade se algum sistema já tiver duas.',
         exemplo: 'Nao',
       },

@@ -4,14 +4,15 @@
  * As três respondem perguntas diferentes sobre a mesma rodada:
  *
  *   Plano         o que ENTROU — quanto vale, quando acontece, o que foi construído.
- *   Por quê       o que ficou de FORA, e a razão — categorias, elos, a narrativa.
+ *   Por quê       o que ficou de FORA, e a razão — as obras, os tópicos, o cenário.
  *   Sensibilidade o que MUDARIA com mais orçamento — o teto e a curva.
  *
  * O corte entre as duas primeiras é `entrou` × `não entrou`, e não "resultado ×
  * explicabilidade": o segundo par é abstrato e não decide onde cada bloco mora.
  * Este decide, e já está nos dados — a explicabilidade fala inteiramente de
- * `naoFaturando`, categorias de exclusão e elos. A cascata do VPL explica, mas
- * explica o que entrou, então é Plano.
+ * obras que NÃO foram construídas: os tópicos, os elos e o cenário de quanto
+ * teria de ser o orçamento. A cascata do VPL explica, mas explica o que
+ * entrou, então é Plano.
  *
  * A terceira fala de um plano que NÃO EXISTE — o que aconteceria com outro
  * orçamento. Ela morava dentro do Plano e sufocava lá: são três curvas, uma

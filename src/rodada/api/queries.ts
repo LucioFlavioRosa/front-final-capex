@@ -40,8 +40,13 @@ export const chaves = {
     ['runs', runId, 'ebitda', cidadeId ?? 'unidade'] as const,
   cidades: (runId: string) => ['runs', runId, 'cidades'] as const,
   explicabilidade: (runId: string) => ['runs', runId, 'explicabilidade'] as const,
+  cenarioAnual: (runId: string) => ['runs', runId, 'cenario-anual'] as const,
+  obrasDoCenario: (runId: string, filtro: Record<string, unknown>) =>
+    ['runs', runId, 'cenario-anual', 'obras', filtro] as const,
   explicabilidadeDaCidade: (runId: string, cidadeId: string) =>
     ['runs', runId, 'cidades', cidadeId, 'explicabilidade'] as const,
+  explicabilidadeDoSistema: (runId: string, sistemaId: string) =>
+    ['runs', runId, 'sistemas', sistemaId, 'explicabilidade'] as const,
   cidade: (runId: string, cidadeId: string) => ['runs', runId, 'cidades', cidadeId] as const,
   fluxo: (runId: string, sistemaId: string) => ['runs', runId, 'sistemas', sistemaId] as const,
   subbacia: (runId: string, subId: string) => ['runs', runId, 'subbacias', subId] as const,
@@ -147,15 +152,6 @@ export function useCidades(runId: string | undefined) {
   })
 }
 
-export function useExplicabilidade(runId: string | undefined) {
-  return useQuery({
-    queryKey: chaves.explicabilidade(runId ?? '—'),
-    queryFn: () => resultados.explicabilidade(runId as string),
-    enabled: !!runId,
-    ...IMUTAVEL,
-  })
-}
-
 export function useCidade(runId: string | undefined, cidadeId: string | undefined) {
   return useQuery({
     queryKey: chaves.cidade(runId ?? '—', cidadeId ?? '—'),
@@ -174,6 +170,38 @@ export function useExplicabilidadeDaCidade(
     queryKey: chaves.explicabilidadeDaCidade(runId ?? '—', cidadeId ?? '—'),
     queryFn: () => resultados.explicabilidadeDaCidade(runId as string, cidadeId as string),
     enabled: !!runId && !!cidadeId,
+    ...IMUTAVEL,
+  })
+}
+
+/**
+ * "O que ficou fora" do nível 3.
+ *
+ * CONSULTA PRÓPRIA, e não recorte do payload global. Enquanto a resposta trazia
+ * a lista inteira de sub-bacias — cada uma com o `sistemaId` dela — a tela
+ * filtrava sozinha e não pedia nada. A resposta virou AGREGADO por obra, e
+ * agregado não se filtra depois: quem sabe somar por sistema é quem tem as
+ * linhas. O payload encolheu de 247 KB para 10 KB, então a ida a mais sai bem
+ * mais barata do que o que ela substitui.
+ */
+export function useExplicabilidadeDoSistema(
+  runId: string | undefined,
+  sistemaId: string | undefined,
+) {
+  return useQuery({
+    queryKey: chaves.explicabilidadeDoSistema(runId ?? '—', sistemaId ?? '—'),
+    queryFn: () => resultados.explicabilidadeDoSistema(runId as string, sistemaId as string),
+    enabled: !!runId && !!sistemaId,
+    ...IMUTAVEL,
+  })
+}
+
+/** "De quanto teria de ser o orçamento anual" — o cenário do nível 1. */
+export function useCenarioAnual(runId: string | undefined) {
+  return useQuery({
+    queryKey: chaves.cenarioAnual(runId ?? '—'),
+    queryFn: () => resultados.cenarioAnual(runId as string),
+    enabled: !!runId,
     ...IMUTAVEL,
   })
 }
@@ -199,6 +227,25 @@ export function useObras(
     // página anterior na tela enquanto a nova pagina/filtra — sem isso a
     // tabela pisca vazia a cada clique em "próxima página".
     placeholderData: (anterior) => anterior,
+    ...IMUTAVEL,
+  })
+}
+
+/**
+ * As obras de uma fatia do cenário anual — ano, tipo e escopo, os três juntos.
+ *
+ * O filtro inteiro entra na chave de cache: trocar de escopo ou de ano é outra
+ * lista, e servir a anterior seria repetir, em silêncio, o defeito que esta
+ * rota veio consertar.
+ */
+export function useObrasDoCenario(
+  runId: string | undefined,
+  filtro: { escopo: 'paga' | 'todas'; ano?: number; componente?: string; tamanho?: number },
+) {
+  return useQuery({
+    queryKey: chaves.obrasDoCenario(runId ?? '—', filtro),
+    queryFn: () => resultados.obrasDoCenario(runId as string, filtro),
+    enabled: !!runId,
     ...IMUTAVEL,
   })
 }
@@ -362,7 +409,6 @@ export function useCriarRodada() {
   })
 }
 
-
 /**
  * A CURVA DE SENSIBILIDADE — teto e pontos, numa consulta só.
  *
@@ -411,7 +457,6 @@ export function useDispararVariacao() {
     },
   })
 }
-
 
 /**
  * O sinal de vida de uma rodada em execução.

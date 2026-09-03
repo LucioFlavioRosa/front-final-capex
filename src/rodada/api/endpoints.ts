@@ -22,6 +22,7 @@ import { api } from '@/lib/api'
 import type {
   CidadeDetalhe,
   CidadeLinha,
+  CenarioAnual,
   ExplicabilidadeGlobal,
   Fluxo,
   ObraDetalhe,
@@ -154,6 +155,31 @@ export const resultados = {
   cidades: (runId: string) => api.get<CidadeLinha[]>(`${BASE}/${runId}/cidades`),
 
   /** Resumo agregado de "por que não fatura", por motivo — nível global. */
+  /** De quanto teria de ser o orçamento anual para fazer tudo na mesma janela. */
+  cenarioAnual: (runId: string) => api.get<CenarioAnual>(`${BASE}/${runId}/cenario-anual`),
+
+  /**
+   * AS OBRAS DE UMA FATIA do cenário anual — o que a barra clicada soma.
+   *
+   * Rota própria, e não `obras({ componente, ano })`: a lista genérica filtra
+   * pelo ano em que a obra COMEÇA, e obra fora do plano não começa em ano
+   * nenhum — o ano aqui é o que a distribuição do cenário atribuiu a ela. E
+   * `escopo` não existe na lista genérica, que foi como a planilha do chip
+   * "só o que se paga" acabou vindo com as obras todas.
+   *
+   * Sem `ano`, a janela inteira daquele tipo — que é o total que o chip mostra.
+   */
+  obrasDoCenario: (
+    runId: string,
+    filtro: { escopo: 'paga' | 'todas'; ano?: number; componente?: string; tamanho?: number },
+  ) => {
+    const q = new URLSearchParams({ escopo: filtro.escopo })
+    if (filtro.ano) q.set('ano', String(filtro.ano))
+    if (filtro.componente) q.set('componente', filtro.componente)
+    if (filtro.tamanho) q.set('tamanho', String(filtro.tamanho))
+    return api.get<ObrasPagina>(`${BASE}/${runId}/cenario-anual/obras?${q}`)
+  },
+
   explicabilidade: (runId: string) =>
     api.get<ExplicabilidadeGlobal>(`${BASE}/${runId}/explicabilidade`),
 
@@ -165,6 +191,15 @@ export const resultados = {
    */
   explicabilidadeDaCidade: (runId: string, cidadeId: string) =>
     api.get<ExplicabilidadeGlobal>(`${BASE}/${runId}/cidades/${cidadeId}/explicabilidade`),
+
+  /**
+   * O recorte do NÍVEL 3. Era filtro no cliente, e deixou de poder ser: a
+   * resposta virou agregado por obra, e agregado não se filtra depois.
+   */
+  explicabilidadeDoSistema: (runId: string, sistemaId: string) =>
+    api.get<ExplicabilidadeGlobal>(
+      `${BASE}/${runId}/sistemas/${encodeURIComponent(sistemaId)}/explicabilidade`,
+    ),
 
   /** Nível 2: cobertura, metas, fluxo de escoamento, paridade e sistemas da cidade. */
   cidade: (runId: string, cidadeId: string) =>

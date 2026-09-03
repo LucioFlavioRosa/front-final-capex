@@ -16,9 +16,8 @@ import {
 } from '@/rodada/components/pecas'
 import { SecaoElementos } from '@/rodada/components/SecaoElementos'
 import { SecaoPorQue } from '@/rodada/components/SecaoPorQue'
-import { recortarPorSistema } from '@/rodada/domain/explicabilidade'
 import { useAbaResultado } from '@/rodada/layout/abaResultado'
-import { useExplicabilidadeDaCidade, useFluxo, useRunMeta } from '@/rodada/api/queries'
+import { useExplicabilidadeDoSistema, useFluxo, useRunMeta } from '@/rodada/api/queries'
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
 import { VAZIO, brlMi, deTotal, inteiro, ocupacaoEte, vazao } from '@/rodada/lib/formato'
@@ -40,13 +39,15 @@ export function Sistema() {
   const aba = useAbaResultado()
   const fluxo = useFluxo(runId, sistemaId)
   /**
-   * A explicabilidade do nível 3 vem da CIDADE e é recortada aqui — não há rota
-   * de sistema, e não precisa haver: os itens já trazem `sistemaId`. Só busca
-   * quando a aba pede, para o Plano não pagar por um payload que ele não usa.
+   * O QUE FICOU FORA, deste sistema. Rota própria desde que a resposta virou
+   * agregado por obra: antes vinha a explicabilidade da CIDADE e esta tela
+   * recortava sozinha, porque cada item carregava o `sistemaId` dele. Agregado
+   * não se filtra depois. Só busca quando a aba pede, para o Plano não pagar por
+   * um payload que ele não usa.
    */
-  const explicabilidade = useExplicabilidadeDaCidade(
+  const explicabilidade = useExplicabilidadeDoSistema(
     aba === 'porque' ? runId : undefined,
-    aba === 'porque' ? fluxo.data?.cidadeId : undefined,
+    aba === 'porque' ? sistemaId : undefined,
   )
 
   useCrumbs(
@@ -133,9 +134,9 @@ export function Sistema() {
             ) : (
               explicabilidade.data && (
                 <SecaoPorQue
-                  dados={recortarPorSistema(explicabilidade.data, t.sistemaId, t.subbacias)}
+                  dados={explicabilidade.data}
                   runId={runId}
-                  titulo="Sub-bacias deste sistema fora do plano"
+                  titulo="Obras deste sistema fora do plano"
                 />
               )
             )}

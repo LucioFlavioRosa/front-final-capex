@@ -205,6 +205,114 @@ export const RESUMO_56 = {
   semObra: 1520,
 }
 
+/** Nada ficou fora — a tela nao desenha secao nenhuma. */
+export const EXPLICABILIDADE_VAZIA = {
+  obrasFora: 0,
+  obrasCandidatas: 0,
+  obrasNoPlano: 0,
+  capexFora: 0,
+  ligacoesFora: 0,
+  deTerceiros: 0,
+  topicos: [],
+  elos: [],
+}
+
+export const EXPLICABILIDADE = {
+  obrasFora: 6765,
+  obrasCandidatas: 7605,
+  obrasNoPlano: 280,
+  capexFora: 5_215_100_000,
+  ligacoesFora: 814_179,
+  deTerceiros: 560,
+  topicos: [
+    {
+      topico: 'orcamento',
+      obras: 1142,
+      capex: 538_500_000,
+      ligacoes: 564_692,
+      porComponente: [{ componente: 'Ligação de esgoto', codigo: 'lig', obras: 1142, capex: 538_500_000 }],
+      maiores: [
+        {
+          obraId: 'lig-0001',
+          componente: 'Ligação de esgoto',
+          cidadeId: 'Aperibe',
+          sistemaId: 'S1',
+          subBaciaId: 'SB-001',
+          capex: 2_100_000,
+          ligacoes: 980,
+        },
+      ],
+    },
+    {
+      topico: 'nao_se_paga',
+      obras: 1070,
+      capex: 234_200_000,
+      ligacoes: 239_115,
+      porComponente: [{ componente: 'Ligação de esgoto', codigo: 'lig', obras: 1070, capex: 234_200_000 }],
+      maiores: [],
+    },
+    {
+      // SEM RECEITA e com quase todo o dinheiro: 22 de 4.553 obras faturam.
+      topico: 'depende',
+      obras: 4553,
+      capex: 4_442_400_000,
+      ligacoes: 10_372,
+      porComponente: [
+        { componente: 'Tronco', codigo: 'tro', obras: 876, capex: 1_210_800_000 },
+        { componente: 'Rede coletora', codigo: 'rede', obras: 1654, capex: 1_159_800_000 },
+        { componente: 'ETE (módulo)', codigo: 'ete_mod', obras: 844, capex: 946_900_000 },
+      ],
+      maiores: [
+        {
+          obraId: 'tro-0042',
+          componente: 'Tronco',
+          cidadeId: 'c001',
+          sistemaId: 's001',
+          subBaciaId: 'b001',
+          capex: 18_400_000,
+          ligacoes: 0,
+        },
+      ],
+    },
+  ],
+  elos: [
+    {
+      obraId: 'tro-0042',
+      componente: 'Tronco',
+      cidadeId: 'c001',
+      sistemaId: 's001',
+      subBaciaId: 'b001',
+      bloqueia: 12,
+      vazaoLiberada: 45.2,
+    },
+  ],
+}
+
+/**
+ * O cenario anual — numeros do maior run publicado.
+ *
+ * O fator e 11,7x para o que se paga e 18,4x para tudo: e o tamanho real do
+ * problema, e a fixture o preserva para a tela nao ser testada contra numeros
+ * confortaveis.
+ */
+export const CENARIO_ANUAL = {
+  anos: [
+    { ano: 2027, orcado: 60_000_000, noPlano: 72_700_000, obrasNoPlano: 60, faltaQueSePaga: 639_900_000, faltaTodas: 1_043_000_000 , porComponente: [{ componente: 'Tronco', codigo: 'tro', queSePaga: 102880000, todas: 242160000 }, { componente: 'Rede coletora', codigo: 'rede', queSePaga: 126780000, todas: 231960000 }, { componente: 'ETE (módulo)', codigo: 'ete_mod', queSePaga: 181880000, todas: 189380000 }, { componente: 'Ligação de esgoto', codigo: 'lig', queSePaga: 120980000, todas: 156100000 }, { componente: 'EEE', codigo: 'eee', queSePaga: 55460000, todas: 123300000 }, { componente: 'Linha de recalque', codigo: 'lr', queSePaga: 51800000, todas: 100120000 }]},
+    { ano: 2028, orcado: 50_000_000, noPlano: 42_500_000, obrasNoPlano: 42, faltaQueSePaga: 533_300_000, faltaTodas: 869_200_000 , porComponente: [{ componente: 'Tronco', codigo: 'tro', queSePaga: 85733333, todas: 201800000 }, { componente: 'Rede coletora', codigo: 'rede', queSePaga: 105650000, todas: 193300000 }, { componente: 'ETE (módulo)', codigo: 'ete_mod', queSePaga: 151566667, todas: 157816667 }, { componente: 'Ligação de esgoto', codigo: 'lig', queSePaga: 100816667, todas: 130083333 }, { componente: 'EEE', codigo: 'eee', queSePaga: 46216667, todas: 102750000 }, { componente: 'Linha de recalque', codigo: 'lr', queSePaga: 43166667, todas: 83433333 }]},
+    { ano: 2029, orcado: 50_000_000, noPlano: 63_900_000, obrasNoPlano: 48, faltaQueSePaga: 533_300_000, faltaTodas: 869_200_000 , porComponente: [{ componente: 'Tronco', codigo: 'tro', queSePaga: 85733333, todas: 201800000 }, { componente: 'Rede coletora', codigo: 'rede', queSePaga: 105650000, todas: 193300000 }, { componente: 'ETE (módulo)', codigo: 'ete_mod', queSePaga: 151566667, todas: 157816667 }, { componente: 'Ligação de esgoto', codigo: 'lig', queSePaga: 100816667, todas: 130083333 }, { componente: 'EEE', codigo: 'eee', queSePaga: 46216667, todas: 102750000 }, { componente: 'Linha de recalque', codigo: 'lr', queSePaga: 43166667, todas: 83433333 }]},
+    { ano: 2030, orcado: 50_000_000, noPlano: 34_500_000, obrasNoPlano: 41, faltaQueSePaga: 533_300_000, faltaTodas: 869_200_000 , porComponente: [{ componente: 'Tronco', codigo: 'tro', queSePaga: 85733333, todas: 201800000 }, { componente: 'Rede coletora', codigo: 'rede', queSePaga: 105650000, todas: 193300000 }, { componente: 'ETE (módulo)', codigo: 'ete_mod', queSePaga: 151566667, todas: 157816667 }, { componente: 'Ligação de esgoto', codigo: 'lig', queSePaga: 100816667, todas: 130083333 }, { componente: 'EEE', codigo: 'eee', queSePaga: 46216667, todas: 102750000 }, { componente: 'Linha de recalque', codigo: 'lr', queSePaga: 43166667, todas: 83433333 }]},
+    { ano: 2031, orcado: 50_000_000, noPlano: 56_700_000, obrasNoPlano: 49, faltaQueSePaga: 533_300_000, faltaTodas: 869_200_000 , porComponente: [{ componente: 'Tronco', codigo: 'tro', queSePaga: 85733333, todas: 201800000 }, { componente: 'Rede coletora', codigo: 'rede', queSePaga: 105650000, todas: 193300000 }, { componente: 'ETE (módulo)', codigo: 'ete_mod', queSePaga: 151566667, todas: 157816667 }, { componente: 'Ligação de esgoto', codigo: 'lig', queSePaga: 100816667, todas: 130083333 }, { componente: 'EEE', codigo: 'eee', queSePaga: 46216667, todas: 102750000 }, { componente: 'Linha de recalque', codigo: 'lr', queSePaga: 43166667, todas: 83433333 }]},
+    { ano: 2032, orcado: 40_000_000, noPlano: 29_000_000, obrasNoPlano: 40, faltaQueSePaga: 426_600_000, faltaTodas: 695_400_000 , porComponente: [{ componente: 'Tronco', codigo: 'tro', queSePaga: 68586667, todas: 161440000 }, { componente: 'Rede coletora', codigo: 'rede', queSePaga: 84520000, todas: 154640000 }, { componente: 'ETE (módulo)', codigo: 'ete_mod', queSePaga: 121253333, todas: 126253333 }, { componente: 'Ligação de esgoto', codigo: 'lig', queSePaga: 80653333, todas: 104066667 }, { componente: 'EEE', codigo: 'eee', queSePaga: 36973333, todas: 82200000 }, { componente: 'Linha de recalque', codigo: 'lr', queSePaga: 34533333, todas: 66746667 }]},
+  ],
+  podemComecarCedo: { obras: 6085, de: 6765 },
+  anosDaJanela: 6,
+  orcamentoAnualDeHoje: 50_000_000,
+  obrasNoPlano: 280,
+  capexNoPlano: 299_400_000,
+  queSePaga: { obras: 4220, capex: 3_199_700_000, fator: 11.7, anosAoRitmoDeHoje: 64 },
+  todas: { obras: 6765, capex: 5_215_100_000, fator: 18.4, anosAoRitmoDeHoje: 104 },
+}
+
 export const handlers = [
   http.get('/api/regionais', () => HttpResponse.json(REGIONAIS)),
   http.get('/api/regionais/:regionalId/diretorias', ({ params }) =>
@@ -284,20 +392,48 @@ export const handlers = [
             obras: 2,
             capex: 500_366,
             porComponente: [
-              { componente: 'Ligação de esgoto', obras: 1, capex: 310_024 },
-              { componente: 'Rede coletora', obras: 1, capex: 190_342 },
+              { componente: 'Ligação de esgoto', codigo: 'lig', obras: 1, capex: 310_024 },
+              { componente: 'Rede coletora', codigo: 'rede', obras: 1, capex: 190_342 },
             ],
           },
           obrigatoria: { obras: 0, capex: 0, porComponente: [] },
           terceiro: {
             obras: 3,
             capex: 0,
-            porComponente: [{ componente: 'EEE', obras: 3, capex: 0 }],
+            porComponente: [{ componente: 'EEE', codigo: 'eee', obras: 3, capex: 0 }],
           },
         },
       ],
     }),
   ),
+  // O RECORTE PEDIDO VOLTA NA RESPOSTA. As obras de uma fatia do cenário
+  // dependem de escopo, ano e componente juntos, e o defeito que esta rota veio
+  // consertar era exatamente um recorte que a tela mostrava e a chamada não
+  // levava. Devolvendo o que foi pedido, o teste consegue afirmar que os três
+  // chegaram — sem isso ele só veria uma lista, que passaria igual errada.
+  http.get('/api/runs/:runId/cenario-anual/obras', ({ request }) => {
+    const q = new URL(request.url).searchParams
+    return HttpResponse.json({
+      total: 1,
+      itens: [
+        {
+          obraId: `${q.get('componente') ?? 'todos'}/${q.get('escopo')}/${q.get('ano') ?? 'janela'}`,
+          componente: 'Tronco',
+          situacao: 'nao-construida',
+          recorte: 'escolhida',
+          cidadeId: 'Belford Roxo',
+          sistemaId: 'Sistema 27',
+          subBaciaId: 'b2b27_1_2',
+          capex: 624_279,
+          quantidade: 383,
+          unidade: 'm',
+          anoInicio: null,
+          dataPronta: null,
+          prazoMeses: 9,
+        },
+      ],
+    })
+  }),
   http.get('/api/runs/:runId/obras', () =>
     HttpResponse.json({
       total: 1,
@@ -347,48 +483,22 @@ export const handlers = [
       },
     ]),
   ),
+  /**
+   * O QUE FICOU FORA — em obras, e nao mais em sub-bacias.
+   *
+   * Os numeros vem do maior run publicado, arredondados: e o que faz a fixture
+   * ensinar o formato certo. O terceiro topico tem quase todo o dinheiro e
+   * quase nenhuma ligacao — a regra do dominio aparecendo no dado, e o motivo
+   * de a lista antiga (por sub-bacia) nao ter onde po-lo.
+   */
   http.get('/api/runs/:runId/cidades/:cidadeId/explicabilidade', () =>
-    HttpResponse.json({ naoFaturando: 0, totalSubbacias: 0, categorias: [], elos: [] }),
+    HttpResponse.json(EXPLICABILIDADE_VAZIA),
   ),
-  http.get('/api/runs/:runId/explicabilidade', () =>
-    HttpResponse.json({
-      naoFaturando: 185,
-      totalSubbacias: 1047,
-      categorias: [
-        {
-          categoria: 'Sem orçamento na janela',
-          subbacias: 120,
-          vazaoPresa: 340.5,
-          itens: [
-            { subBaciaId: 'SB-001', cidadeId: 'Aperibe', sistemaId: 'S1', vazaoPresa: 12.4 },
-            { subBaciaId: 'SB-002', cidadeId: 'Aperibe', sistemaId: 'S1', vazaoPresa: 9.8 },
-          ],
-        },
-        {
-          categoria: 'Depende de transporte não construído',
-          subbacias: 65,
-          vazaoPresa: 210.2,
-          itens: [
-            { subBaciaId: 'SB-030', cidadeId: 'Cambuci', sistemaId: 'S2', vazaoPresa: 15.1 },
-          ],
-        },
-      ],
-      elos: [
-        {
-          obraId: 'tro-0042',
-          componente: 'Tronco',
-          cidadeId: 'c001',
-          sistemaId: 's001',
-          subBaciaId: 'b001',
-          bloqueia: 12,
-        },
-      ],
-    }),
+  http.get('/api/runs/:runId/sistemas/:sistemaId/explicabilidade', () =>
+    HttpResponse.json(EXPLICABILIDADE),
   ),
-  http.put('/api/runs/:runId/favorita', () => new HttpResponse(null, { status: 204 })),
-  http.delete('/api/runs/:runId/favorita', () => new HttpResponse(null, { status: 204 })),
-  http.put('/api/runs/:runId/comentario', () => new HttpResponse(null, { status: 204 })),
-  http.delete('/api/runs/:runId', () => new HttpResponse(null, { status: 204 })),
+  http.get('/api/runs/:runId/explicabilidade', () => HttpResponse.json(EXPLICABILIDADE)),
+  http.get('/api/runs/:runId/cenario-anual', () => HttpResponse.json(CENARIO_ANUAL)),
   http.get('/api/unidades/:id/prontidao', ({ params }) =>
     HttpResponse.json(params.id === '57' ? PRONTIDAO_LIMPA : PRONTIDAO_COM_PENDENCIA),
   ),

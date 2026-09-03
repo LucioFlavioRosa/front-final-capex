@@ -10,7 +10,7 @@ import {
   Trilha,
 } from '@/rodada/components/pecas'
 import { SecaoElementos } from '@/rodada/components/SecaoElementos'
-import { SecaoPorQue } from '@/rodada/components/SecaoPorQue'
+import { CenarioAnualDeCapex } from '@/rodada/components/CenarioAnualDeCapex'
 import { PainelSensibilidade } from '@/rodada/components/PainelSensibilidade'
 import { useAbaResultado } from '@/rodada/layout/abaResultado'
 import {
@@ -19,7 +19,12 @@ import {
   GraficoEbitda,
 } from '@/rodada/components/graficos'
 import { GraficoCronogramaObras } from '@/rodada/components/GraficoCronogramaObras'
-import { useEbitda, useExplicabilidade, usePainel, useRunMeta } from '@/rodada/api/queries'
+import {
+  useCenarioAnual,
+  useEbitda,
+  usePainel,
+  useRunMeta,
+} from '@/rodada/api/queries'
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
 import { brlMi, dataHora, deTotal, inteiro, pct } from '@/rodada/lib/formato'
@@ -57,7 +62,7 @@ export function Global() {
   const meta = useRunMeta(runId)
   const painel = usePainel(runId)
   const ebitda = useEbitda(runId)
-  const explicabilidade = useExplicabilidade(runId)
+  const cenario = useCenarioAnual(runId)
   const aba = useAbaResultado({ comSensibilidade: true })
   /**
    * O destino dos números de exclusão. Só os "X de Y" recebem: em cada um deles
@@ -111,14 +116,32 @@ export function Global() {
                 aba !== 'porque'
                   ? { rotulo: 'VPL do plano', valor: brlMi(m.kpis.vpl), ajuda: 'VPL_PLANO' }
                   : {
-                      rotulo: 'Sub-bacias fora do plano',
-                      valor: inteiro(m.kpis.subbaciasTotal - m.kpis.subbaciasFaturando),
+                      // OBRAS, e nao sub-bacias: a aba inteira passou a contar
+                      // obra, e um destaque em outra unidade fazia o numero de
+                      // cima nao fechar com nada do quadro logo abaixo.
+                      rotulo: 'Obras fora do plano',
+                      // `deTotal` e nao o absoluto: 7.799 sozinho nao diz se e
+                      // muito. "de 8.079" diz, e e a mesma regua do quadro
+                      // abaixo — que recorta um pouco mais fino (tira obra de
+                      // terceiro e o que nunca foi obra) e por isso conta menos.
+                      valor: deTotal(
+                        m.kpis.obrasTotal - m.kpis.obrasConstruidas,
+                        m.kpis.obrasTotal,
+                      ),
                     }
               }
               itens={aba === 'porque' ? [
                 {
-                  rotulo: 'Obras não construídas',
-                  valor: deTotal(m.kpis.obrasTotal - m.kpis.obrasConstruidas, m.kpis.obrasTotal),
+                  // A SUB-BACIA DESCE DO DESTAQUE PARA CA quando a aba passou a
+                  // contar OBRA. Ela continua sendo informacao — quantos nos
+                  // ficaram sem faturar —, mas deixou de ser a manchete: o que
+                  // entra ou nao no plano e a obra, e era isso que o destaque
+                  // precisava dizer.
+                  rotulo: 'Sub-bacias que não faturam',
+                  valor: deTotal(
+                    m.kpis.subbaciasTotal - m.kpis.subbaciasFaturando,
+                    m.kpis.subbaciasTotal,
+                  ),
                 },
                 {
                   rotulo: 'Metas contratuais não cumpridas',
@@ -300,16 +323,19 @@ export function Global() {
             )}
 
             {/* Quadro próprio: vem de outro endpoint, carrega e falha sozinho.
-                Sem `vazio` — a ausência de dado é o próprio sinal de "sem
-                nada a explicar" (100% fatura), e `SecaoPorQue` já trata isso
-                devolvendo `null`. */}
+                A ABA "POR QUE" TEM UM QUADRO SÓ. A seção de categorias
+                ("O que ficou fora do plano") saiu daqui: ela respondia por que
+                cada obra ficou de fora, e o cenário responde o que fazer a
+                respeito — que é a pergunta de quem abre esta aba. Duas leituras
+                empilhadas faziam a segunda parecer detalhe da primeira.
+                A seção continua nos níveis 2 e 3, onde não há cenário. */}
             {aba === 'porque' && (
               <Estado
-                consulta={explicabilidade}
-                rotulo="Carregando a explicabilidade…"
-                tituloErro="Não foi possível carregar a explicabilidade desta rodada."
+                consulta={cenario}
+                rotulo="Carregando o cenário anual…"
+                tituloErro="Não foi possível carregar o cenário anual desta rodada."
               >
-                {(ex) => <SecaoPorQue dados={ex} runId={runId} />}
+                {(c) => <CenarioAnualDeCapex dados={c} runId={runId} />}
               </Estado>
             )}
 

@@ -57,6 +57,20 @@ interface QuadroGraficoProps {
    * atenção com o que ele alterna.
    */
   filtro?: ReactNode
+  /**
+   * A legenda do desenho — e o único conteúdo do modo Gráfico que NÃO é
+   * `aria-hidden`.
+   *
+   * `children` inteiro fica escondido da árvore acessível de propósito: o
+   * desenho é SVG e o equivalente textual é a aba Tabela. Isso deixou de valer
+   * quando uma legenda passou a ter BOTÕES — cada tipo abre a lista de obras
+   * dele. Botão focável dentro de `aria-hidden` é o pior dos dois mundos:
+   * alcançável pelo Tab e mudo no leitor de tela.
+   *
+   * Por isso a legenda tem slot próprio, fora daquele bloco. Ela só aparece no
+   * modo Gráfico — na Tabela, as colunas já nomeiam as séries.
+   */
+  legenda?: ReactNode
   tabela: DadosTabela
   children: ReactNode
 }
@@ -68,6 +82,7 @@ export function QuadroGrafico({
   nota,
   acoes,
   filtro,
+  legenda,
   tabela,
   children,
 }: QuadroGraficoProps) {
@@ -79,13 +94,23 @@ export function QuadroGrafico({
 
   return (
     <figure aria-labelledby={`${id}-t`} className="carta m-0 overflow-hidden">
-      {/* SEM `flex-wrap`: o toggle tem de ficar na linha do título mesmo em
-          card estreito (a metade de uma linha de dois quadros). Com wrap ele
-          cai para baixo do subtítulo e cada quadro da mesma linha põe o
-          controle numa altura diferente. Quem cede espaço é o título, que
-          tem `min-w-0` e quebra. */}
-      <div className="flex items-start justify-between gap-4 px-4 pt-4 md:px-5 md:pt-5">
-        <div className="min-w-0">
+      {/* SEM `flex-wrap` A PARTIR DE `md`: o toggle tem de ficar na linha do
+          título em card estreito (a metade de uma linha de dois quadros). Com
+          wrap ele cai para baixo do subtítulo e cada quadro da mesma linha põe
+          o controle numa altura diferente. Quem cede espaço é o título, que tem
+          `min-w-0` e quebra.
+
+          NO CELULAR A RAZÃO NÃO EXISTE — não há dois quadros na mesma linha
+          para alinhar — e o preço de manter era alto: num quadro com dois
+          controles (escopo mais gráfico/tabela), o bloco de ações levava 414 px
+          numa tela de 390, os controles saíam pela direita e o título quebrava
+          uma palavra por linha. Wrap abaixo de `md`, nowrap a partir dele. */}
+      <div className="flex flex-wrap items-start justify-between gap-4 px-4 pt-4 md:flex-nowrap md:px-5 md:pt-5">
+        {/* `w-full` ABAIXO DE `md`, senão o wrap piora o que veio consertar: com
+            `min-w-0` e sem largura, este bloco encolhe a zero, os controles
+            tomam a linha e o TÍTULO some cortado pelo `overflow-hidden` do
+            cartão. Linha inteira para o título, controles na linha de baixo. */}
+        <div className="w-full min-w-0 md:w-auto">
           <figcaption id={`${id}-t`} className="text-[15px] font-bold text-ink-800">
             {titulo}
           </figcaption>
@@ -98,50 +123,57 @@ export function QuadroGrafico({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-        {acoes}
-        <div
-          ref={containerRef}
-          role="tablist"
-          aria-label={`Ver "${titulo}" como`}
-          className="relative flex shrink-0 gap-1 rounded-full border border-ink-200 bg-ink-50 p-1"
-        >
-          <button
-            type="button"
-            role="tab"
-            id={`${id}-btn-grafico`}
-            aria-selected={!verTabela}
-            aria-controls={`${id}-painel`}
-            data-indicador={!verTabela ? '1' : undefined}
-            onClick={() => setVerTabela(false)}
-            className={`relative z-10 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors duration-hover ease-saida ${
-              !verTabela ? 'text-water-700' : 'text-ink-water hover:text-ink-700'
-            }`}
+        {/* `md:shrink-0`, e não `shrink-0`: sem poder encolher, o bloco mantinha
+            a largura de conteúdo mesmo depois de cair para a segunda linha, e o
+            wrap do pai não resolvia nada. `flex-wrap` aqui deixa os dois
+            controles empilharem entre si quando nem em duas linhas cabem. */}
+        <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0 md:flex-nowrap">
+          {acoes}
+          <div
+            ref={containerRef}
+            role="tablist"
+            aria-label={`Ver "${titulo}" como`}
+            className="relative flex shrink-0 gap-1 rounded-full border border-ink-200 bg-ink-50 p-1"
           >
-            Gráfico
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id={`${id}-btn-tabela`}
-            aria-selected={verTabela}
-            aria-controls={`${id}-painel`}
-            data-indicador={verTabela ? '1' : undefined}
-            onClick={() => setVerTabela(true)}
-            className={`relative z-10 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors duration-hover ease-saida ${
-              verTabela ? 'text-water-700' : 'text-ink-water hover:text-ink-700'
-            }`}
-          >
-            Tabela
-          </button>
-          {estilo && (
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-1 rounded-full bg-white shadow-soft transition-[transform,width] duration-mover ease-saida"
-              style={{ width: estilo.width, transform: `translateX(${estilo.left}px)` }}
-            />
-          )}
-        </div>
+            <button
+              type="button"
+              role="tab"
+              id={`${id}-btn-grafico`}
+              aria-selected={!verTabela}
+              aria-controls={`${id}-painel`}
+              data-indicador={!verTabela ? '1' : undefined}
+              onClick={() => setVerTabela(false)}
+              className={`relative z-10 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors duration-hover ease-saida ${
+                !verTabela ? 'text-water-700' : 'text-ink-water hover:text-ink-700'
+              }`}
+            >
+              Gráfico
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id={`${id}-btn-tabela`}
+              aria-selected={verTabela}
+              aria-controls={`${id}-painel`}
+              data-indicador={verTabela ? '1' : undefined}
+              onClick={() => setVerTabela(true)}
+              className={`relative z-10 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors duration-hover ease-saida ${
+                verTabela ? 'text-water-700' : 'text-ink-water hover:text-ink-700'
+              }`}
+            >
+              Tabela
+            </button>
+            {estilo && (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-1 rounded-full bg-white shadow-soft transition-[transform,width] duration-mover ease-saida"
+                style={{
+                  width: estilo.width,
+                  transform: `translateX(${estilo.left}px)`,
+                }}
+              />
+            )}
+          </div>
         </div>
       </div>
 
@@ -177,10 +209,18 @@ export function QuadroGrafico({
             </table>
           </div>
         ) : (
-          /* O desenho é aria-hidden: o equivalente textual é a aba Tabela. */
-          <div aria-hidden="true" className="viz-root px-2.5 pb-3 pt-1 md:px-3.5">
-            {children}
-          </div>
+          <>
+            {/* O desenho é aria-hidden: o equivalente textual é a aba Tabela. */}
+            <div aria-hidden="true" className="viz-root px-2.5 pb-3 pt-1 md:px-3.5">
+              {children}
+            </div>
+            {/* `viz-root` TAMBÉM AQUI: a classe não esconde nada, ela DECLARA as
+                variáveis `--viz-*`. A legenda saiu do bloco do desenho para não
+                ficar sob `aria-hidden`, e saiu junto do escopo onde as cores
+                existem — os pontinhos dos chips vieram vazios até a classe
+                acompanhar. */}
+            {legenda && <div className="viz-root px-4 pb-3 md:px-5">{legenda}</div>}
+          </>
         )}
       </div>
 

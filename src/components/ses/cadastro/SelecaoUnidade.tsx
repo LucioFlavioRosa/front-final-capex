@@ -214,6 +214,15 @@ export function SelecaoUnidade() {
 
         <div className="min-w-0 rounded-2xl border border-ink-200 bg-white p-[18px]">
           <div className="mb-2.5 text-[10.5px] font-semibold uppercase tracking-[.09em] text-ink-water">Diretoria</div>
+          {/* O CARTÃO VAZIO PRECISA DIZER POR QUE ESTÁ VAZIO. Antes de a regional
+              ser escolhida esta coluna não tinha estado nenhum: nem carregando,
+              nem vazio, nem bloqueado — só um retângulo branco. As outras
+              situações (carregando, erro, "nenhuma diretoria") já eram tratadas,
+              faltava a primeira que qualquer pessoa encontra, que é abrir a
+              tela. */}
+          {!restrito && !regionalAtual && (
+            <p className="text-[12.5px] text-ink-water">Escolha a regional ao lado.</p>
+          )}
           {!restrito && diretorias.isPending && regionalAtual && (
             <p className="text-[12.5px] text-ink-water">Carregando…</p>
           )}
@@ -229,9 +238,13 @@ export function SelecaoUnidade() {
               </button>
             </p>
           )}
-          {!restrito && regionalAtual && !diretorias.isPending && LISTA_DIRETORIAS.length === 0 && (
-            <p className="text-[12.5px] text-ink-water">Nenhuma diretoria nesta regional.</p>
-          )}
+          {!restrito &&
+            regionalAtual &&
+            !diretorias.isPending &&
+            !diretorias.isError &&
+            LISTA_DIRETORIAS.length === 0 && (
+              <p className="text-[12.5px] text-ink-water">Nenhuma diretoria nesta regional.</p>
+            )}
           <div className="flex max-h-[340px] flex-col gap-1.5 overflow-y-auto">
             {LISTA_DIRETORIAS.map((d) => (
               <button
@@ -251,6 +264,14 @@ export function SelecaoUnidade() {
 
         <div className="min-w-0 rounded-2xl border border-ink-200 bg-white p-[18px]">
           <div className="mb-2.5 text-[10.5px] font-semibold uppercase tracking-[.09em] text-ink-water">Unidade</div>
+          {/* Mesma lacuna da coluna anterior, um passo adiante: aqui o que falta
+              é a diretoria. A frase nomeia o passo que destrava, e não um
+              estado ("vazio") que a pessoa já vê. */}
+          {!restrito && !diretoriaAtual && !unidades.isPending && !unidades.isError && (
+            <p className="text-[12.5px] text-ink-water">
+              {regionalAtual ? 'Escolha a diretoria ao lado.' : 'Escolha a regional e a diretoria.'}
+            </p>
+          )}
           {!restrito && unidades.isPending && regionalAtual && (
             <p className="text-[12.5px] text-ink-water">Carregando…</p>
           )}
@@ -266,9 +287,13 @@ export function SelecaoUnidade() {
               </button>
             </p>
           )}
-          {!restrito && diretoriaAtual && !unidades.isPending && listaUnidades.length === 0 && (
-            <p className="text-[12.5px] text-ink-water">Nenhuma unidade nesta diretoria.</p>
-          )}
+          {!restrito &&
+            diretoriaAtual &&
+            !unidades.isPending &&
+            !unidades.isError &&
+            listaUnidades.length === 0 && (
+              <p className="text-[12.5px] text-ink-water">Nenhuma unidade nesta diretoria.</p>
+            )}
           {/* Lista alta: rola dentro do cartão em vez de esticar a página. */}
           <div className="flex max-h-[340px] flex-col gap-1.5 overflow-y-auto">
             {listaUnidades.map((u) => (
