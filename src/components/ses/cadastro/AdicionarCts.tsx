@@ -79,16 +79,37 @@ export function AdicionarCts({
    * mas enquanto existir, ela precisa ficar visível e SEPARADA, para ninguém
    * colocar às cegas uma CTS que pode ser de outro município.
    */
+  /**
+   * A MACRORREGIÃO NÃO SE RECORTA POR CIDADE, e é o único caso.
+   *
+   * O recorte abaixo protege quem coloca um COLETOR: um de outro município no
+   * seletor é um erro esperando acontecer. Mas uma macrorregião atende à região,
+   * e pode cruzar município por definição — ela reporta a cidade de mais
+   * ligações, e só. Recortá-la como coletor a esconderia de todos os sistemas
+   * das outras cidades que ela atende, sem dizer por quê: o servidor a aceitaria,
+   * e a tela nem a ofereceria.
+   */
+  const ehMacro = (t: Row) => t.macro === 'true'
+
   const daCidade = useMemo(
     // A GUARDA `cidadeDoSistema &&` NAO E DEFENSIVA À TOA: sem ela, um sistema
     // sem cidade cai em `'' === ''` e casa com TODAS as CTS sem cidade — que a
     // linha seguinte já colhe. As mesmas opções apareceriam duas vezes, com a
     // mesma `key`, e o contador diria o dobro. O recorte some justamente quando
     // não há por onde recortar, que é quando ele mais parecia estar valendo.
-    () => (cidadeDoSistema ? livres.filter((t) => t.cidade_id === cidadeDoSistema) : []),
+    () =>
+      cidadeDoSistema
+        ? livres.filter((t) => ehMacro(t) || t.cidade_id === cidadeDoSistema)
+        : livres.filter(ehMacro),
     [livres, cidadeDoSistema],
   )
-  const semCidade = useMemo(() => livres.filter((t) => !t.cidade_id), [livres])
+  // As sem cidade, que continuam saindo à parte — a macrorregião já foi colhida
+  // acima, e sem esta exclusão uma sem cidade dominante apareceria nas duas
+  // listas, com a mesma `key`.
+  const semCidade = useMemo(
+    () => livres.filter((t) => !t.cidade_id && !ehMacro(t)),
+    [livres],
+  )
   const quantas = daCidade.length + semCidade.length
 
   if (!sistemaId) return null
