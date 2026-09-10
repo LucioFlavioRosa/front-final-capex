@@ -186,7 +186,8 @@ export function Elemento() {
                 <Cartao
                   tabela
                   titulo="Quem depende desta obra"
-                  nota="rateio do CAPEX por vazão contribuída"
+                  nota="rateio do CAPEX por vazão contribuída — custo, não desconto"
+                  ajuda="RATEIO_DO_CAPEX"
                 >
                   {o.dependencias.length === 0 ? (
                     <p className="m-2.5 rounded-xl border-[1.5px] border-dashed border-ink-300 p-4 text-center text-[12px] text-ink-water">
