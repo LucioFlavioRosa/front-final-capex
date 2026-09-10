@@ -85,7 +85,11 @@ O dump do backend reproduz exatamente isto:
   obra (`obra_obrigatoria_ano`, `obra_proibida_ate`) nas **três** abas de obra.
 - "Cobertura medida em" é PARÂMETRO DE RODADA, na tela de Simular, com as
   três réguas. Saiu do cadastro na migração 019.
-- Editar/Salvar por botão, excluir CTS do sistema, caixa "usa sistema de CTS".
+- Editar/Salvar por botão, excluir CTS do sistema, e a caixa **"esta unidade usa
+  macrorregião de CTS"** — na aba da unidade, não por sistema. Marcada, cada sistema
+  aceita UMA CTS; desmarcada (microrregião), aceitam várias. É cadastro: o motor não
+  conta CTS por sistema. Não confundir com `USAR_CTS`, parâmetro de rodada que decide
+  se a CTS existe na simulação.
 
 ### Testes — três suítes, cada uma com um propósito
 
