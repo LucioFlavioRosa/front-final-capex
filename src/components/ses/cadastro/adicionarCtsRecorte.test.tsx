@@ -192,3 +192,42 @@ describe('a macrorregião não é recortada por município', () => {
     expect(screen.getByRole('option', { name: 'CTS MACRO_A' })).toBeInTheDocument()
   })
 })
+
+describe('o rótulo conta a mesma história que a lista', () => {
+  it('avisa das macrorregiões quando há uma na lista', () => {
+    render(
+      <AdicionarCts
+        sistemaId="s9"
+        sistemaNome="Sistema 9"
+        cidadeDoSistema="c5"
+        cidadeNome="Nova Iguaçu"
+        topo={[cts('MACRO_A', 'c1', 'true'), cts('daqui', 'c5')]}
+        dados={DADOS}
+        limitada={false}
+        onAdicionar={vi.fn()}
+      />,
+    )
+
+    // "Só aparecem CTS de Nova Iguaçu" deixaria de ser verdade com a
+    // macrorregião de c1 na lista — e um recorte descrito errado é pior que
+    // recorte nenhum: quem procura entende que a lista está completa.
+    expect(screen.getByText(/macrorregiões/)).toBeInTheDocument()
+  })
+
+  it('não promete macrorregião nenhuma quando não há', () => {
+    render(
+      <AdicionarCts
+        sistemaId="s9"
+        sistemaNome="Sistema 9"
+        cidadeDoSistema="c5"
+        cidadeNome="Nova Iguaçu"
+        topo={[cts('daqui', 'c5')]}
+        dados={DADOS}
+        limitada={false}
+        onAdicionar={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText(/macrorregiões/)).not.toBeInTheDocument()
+  })
+})

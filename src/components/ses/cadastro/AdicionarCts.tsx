@@ -110,6 +110,11 @@ export function AdicionarCts({
     () => livres.filter((t) => !t.cidade_id && !ehMacro(t)),
     [livres],
   )
+  // O RÓTULO TEM DE CONTAR A MESMA HISTÓRIA QUE A LISTA. "Só aparecem CTS de X"
+  // deixa de ser verdade no instante em que uma macrorregião de outra cidade
+  // entra por exceção, e um recorte que a tela descreve errado é pior que
+  // recorte nenhum: quem procura entende que a lista está completa.
+  const temMacro = useMemo(() => daCidade.some(ehMacro), [daCidade])
   const quantas = daCidade.length + semCidade.length
 
   if (!sistemaId) return null
@@ -181,7 +186,14 @@ export function AdicionarCts({
         {cidadeDoSistema ? (
           <>
             Só aparecem CTS de <strong>{cidadeNome}</strong> que não estão em nenhum outro
-            sistema.
+            sistema
+            {temMacro ? (
+              <>
+                , mais as <strong>macrorregiões</strong> da unidade, que atendem a mais de
+                um município
+              </>
+            ) : null}
+            .
           </>
         ) : (
           <>
