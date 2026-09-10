@@ -387,6 +387,18 @@ export function CadastroWizard() {
     return linha?.cidade_name || cid
   }, [sistemaEscolhido, dadosDoCadastro])
 
+  /**
+   * A EMPRESA do sistema escolhido, pela cidade dele: `cidade-empresa` é o vínculo,
+   * e toda cidade tem uma empresa. É por ela que o seletor recorta as
+   * macrorregiões — a outra metade da chave `(sistema_cts, emp_codigo)`.
+   */
+  const empresaDoSistemaEscolhido = useMemo(() => {
+    const cid = sistemaEscolhido?.cidade_id
+    if (!cid) return ''
+    const linha = (dadosDoCadastro?.['cidade-empresa'] ?? []).find((r) => r.cidade_id === cid)
+    return linha?.emp_codigo ?? ''
+  }, [sistemaEscolhido, dadosDoCadastro])
+
   /** A linha de `unidade-regional` — onde moram o WACC e a macrorregião de CTS. */
   const linhaDaUnidade = unidade?.data['unidade-regional']?.[0]
   const unidadeUsaCts = linhaDaUnidade?.usa_macrorregiao_cts === 'Sim'
@@ -1012,6 +1024,7 @@ export function CadastroWizard() {
                     sistemaId={escopo.sistemaId}
                     sistemaNome={sistemaEscolhido?.sistema_name ?? ''}
                     cidadeDoSistema={sistemaEscolhido?.cidade_id ?? ''}
+                    empresaDoSistema={empresaDoSistemaEscolhido}
                     cidadeNome={cidadeDoSistemaEscolhido}
                     topo={topoDoCadastro ?? []}
                     dados={unidade.data}

@@ -24,13 +24,14 @@ import { render, screen, within } from '@testing-library/react'
 import { AdicionarCts } from './AdicionarCts'
 import type { Row } from '../../../data/cadastroUnidade/types'
 
-const cts = (id: string, cidade: string, macro = 'false'): Row => ({
+const cts = (id: string, cidade: string, macro = 'false', empresa = ''): Row => ({
   sistema_id: '',
   componente_sistema_id: id,
   componente_sistema_nome: `CTS ${id}`,
   componente_tipo: 'cts',
   cidade_id: cidade,
   macro,
+  emp_codigo: empresa,
 })
 
 /** As três livres: uma na cidade do sistema, uma noutra, uma sem cidade. */
@@ -45,6 +46,7 @@ function abrir() {
       sistemaId="s1"
       sistemaNome="Sistema 1"
       cidadeDoSistema="c1"
+      empresaDoSistema="e1"
       cidadeNome="Belford Roxo"
       topo={TOPO}
       dados={DADOS}
@@ -88,6 +90,7 @@ describe('o seletor de CTS é recortado pela cidade do sistema', () => {
         sistemaId="s1"
         sistemaNome="Sistema 1"
         cidadeDoSistema=""
+        empresaDoSistema=""
         cidadeNome="—"
         topo={TOPO}
         dados={DADOS}
@@ -109,6 +112,7 @@ describe('o seletor de CTS é recortado pela cidade do sistema', () => {
         sistemaId="s1"
         sistemaNome="Sistema 1"
         cidadeDoSistema="c9"
+        empresaDoSistema="e1"
         cidadeNome="Mesquita"
         topo={[cts('de-fora', 'c2')]}
         dados={DADOS}
@@ -132,15 +136,16 @@ describe('o seletor de CTS é recortado pela cidade do sistema', () => {
  * `d1c5` e `d1c13`, reporta `d1c1`, e ficava invisível nos 20 sistemas que a
  * unidade tem nas outras duas — enquanto o servidor a aceitava sem reclamar.
  */
-describe('a macrorregião não é recortada por município', () => {
-  const MACRO = cts('MACRO_A', 'c1', 'true')
+describe('a macrorregião é recortada pela EMPRESA, e não pela cidade', () => {
+  const MACRO = cts('MACRO_A', 'c1', 'true', 'e1')
 
-  it('é oferecida num sistema de OUTRA cidade', () => {
+  it('é oferecida num sistema de OUTRA cidade, da mesma empresa', () => {
     render(
       <AdicionarCts
         sistemaId="s9"
         sistemaNome="Sistema 9"
         cidadeDoSistema="c5"
+        empresaDoSistema="e1"
         cidadeNome="Nova Iguaçu"
         topo={[MACRO, cts('de-fora', 'c2')]}
         dados={DADOS}
@@ -151,21 +156,40 @@ describe('a macrorregião não é recortada por município', () => {
 
     const opcoes = within(screen.getByRole('combobox'))
     expect(opcoes.getByRole('option', { name: 'CTS MACRO_A' })).toBeInTheDocument()
-    // O coletor comum de outra cidade continua fora — a exceção é só dela.
+    // O coletor comum de outra cidade continua fora — a régua dele é a cidade.
     expect(opcoes.queryByRole('option', { name: 'CTS de-fora' })).not.toBeInTheDocument()
   })
 
+  it('NÃO é oferecida num sistema de outra empresa, mesmo na mesma cidade', () => {
+    // O outro lado: sem este teste, "não recortar por cidade" viraria "não
+    // recortar por nada", e a lista do modo macrorregião ficava maior que a do
+    // modo coletor — Pavuna aparecendo a duas cidades de distância.
+    render(
+      <AdicionarCts
+        sistemaId="s9"
+        sistemaNome="Sistema 9"
+        cidadeDoSistema="c1"
+        empresaDoSistema="e2"
+        cidadeNome="Belford Roxo"
+        topo={[MACRO]}
+        dados={DADOS}
+        limitada={false}
+        onAdicionar={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole('option', { name: 'CTS MACRO_A' })).not.toBeInTheDocument()
+  })
+
   it('aparece UMA vez só, e não também no grupo das sem cidade', () => {
-    // Uma macrorregião sem cidade dominante (grupo cujos membros não têm cidade)
-    // cairia nas duas listas se a exclusão do segundo filtro faltasse: as mesmas
-    // opções duas vezes, com a mesma `key`.
     render(
       <AdicionarCts
         sistemaId="s9"
         sistemaNome="Sistema 9"
         cidadeDoSistema="c5"
+        empresaDoSistema="e1"
         cidadeNome="Nova Iguaçu"
-        topo={[cts('MACRO_B', '', 'true')]}
+        topo={[cts('MACRO_B', '', 'true', 'e1')]}
         dados={DADOS}
         limitada={false}
         onAdicionar={vi.fn()}
@@ -173,23 +197,6 @@ describe('a macrorregião não é recortada por município', () => {
     )
 
     expect(screen.getAllByRole('option', { name: 'CTS MACRO_B' })).toHaveLength(1)
-  })
-
-  it('num sistema SEM cidade, ainda é oferecida', () => {
-    render(
-      <AdicionarCts
-        sistemaId="s9"
-        sistemaNome="Sistema 9"
-        cidadeDoSistema=""
-        cidadeNome="—"
-        topo={[MACRO, cts('sem-lugar', '')]}
-        dados={DADOS}
-        limitada={false}
-        onAdicionar={vi.fn()}
-      />,
-    )
-
-    expect(screen.getByRole('option', { name: 'CTS MACRO_A' })).toBeInTheDocument()
   })
 })
 
@@ -200,8 +207,9 @@ describe('o rótulo conta a mesma história que a lista', () => {
         sistemaId="s9"
         sistemaNome="Sistema 9"
         cidadeDoSistema="c5"
+        empresaDoSistema="e1"
         cidadeNome="Nova Iguaçu"
-        topo={[cts('MACRO_A', 'c1', 'true'), cts('daqui', 'c5')]}
+        topo={[cts('MACRO_A', 'c1', 'true', 'e1'), cts('daqui', 'c5')]}
         dados={DADOS}
         limitada={false}
         onAdicionar={vi.fn()}
@@ -220,6 +228,7 @@ describe('o rótulo conta a mesma história que a lista', () => {
         sistemaId="s9"
         sistemaNome="Sistema 9"
         cidadeDoSistema="c5"
+        empresaDoSistema="e1"
         cidadeNome="Nova Iguaçu"
         topo={[cts('daqui', 'c5')]}
         dados={DADOS}

@@ -97,7 +97,10 @@ interface Hierarquia {
   sistemas: { id: string; nome: string; cidId: string; usaCts?: string }[]
   topo: { sis: string; id: string; nome: string; jus: string; tipo?: string }[]
   /** Componentes fora de qualquer sistema — hoje, as CTS ainda não colocadas. */
-  semSistema?: { id: string; nome: string; tipo?: string; cidId?: string; macro?: string }[]
+  semSistema?: {
+    id: string; nome: string; tipo?: string; cidId?: string
+    macro?: string; empId?: string
+  }[]
 }
 
 interface Contrato {
@@ -406,10 +409,11 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
         // para a cidade do sistema. Vazio = a carga não trouxe a cidade, e
         // essas vão para um grupo à parte em vez de sumir.
         cidade_id: t.cidId ?? '',
-        // MACRORREGIÃO NÃO SE RECORTA POR CIDADE. Ela pode atender vários
-        // municípios e reporta um só (o de mais ligações), então o recorte que
-        // protege um coletor a esconderia dos sistemas das demais cidades.
         macro: t.macro ?? 'false',
+        // A EMPRESA DA MACRORREGIÃO — a outra metade da chave dela, e a régua
+        // pela qual o seletor a recorta. `cidade_id` acima é só a dominante: a
+        // macrorregião cruza município, e cidade não é a régua dela.
+        emp_codigo: t.empId ?? '',
         componente_sistema_id_jusante: '',
         componente_sistema_nome_jusante: '',
       })),

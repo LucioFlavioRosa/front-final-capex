@@ -39,6 +39,7 @@ export function AdicionarCts({
   sistemaId,
   sistemaNome,
   cidadeDoSistema,
+  empresaDoSistema,
   cidadeNome,
   topo,
   dados,
@@ -47,8 +48,10 @@ export function AdicionarCts({
 }: {
   sistemaId: string
   sistemaNome: string
-  /** A cidade do sistema — o recorte da lista. */
+  /** A cidade do sistema — o recorte da lista, para os COLETORES. */
   cidadeDoSistema: string
+  /** A empresa do sistema — o recorte da lista, para as MACRORREGIÕES. */
+  empresaDoSistema: string
   /** O nome dela, para o texto. Cai no id quando o nome não veio. */
   cidadeNome: string
   /** As linhas da aba do Fluxo — é delas que sai quem está sem sistema. */
@@ -80,16 +83,22 @@ export function AdicionarCts({
    * colocar às cegas uma CTS que pode ser de outro município.
    */
   /**
-   * A MACRORREGIÃO NÃO SE RECORTA POR CIDADE, e é o único caso.
+   * A MACRORREGIÃO SE RECORTA PELA EMPRESA, e o coletor pela cidade.
    *
-   * O recorte abaixo protege quem coloca um COLETOR: um de outro município no
-   * seletor é um erro esperando acontecer. Mas uma macrorregião atende à região,
-   * e pode cruzar município por definição — ela reporta a cidade de mais
-   * ligações, e só. Recortá-la como coletor a esconderia de todos os sistemas
-   * das outras cidades que ela atende, sem dizer por quê: o servidor a aceitaria,
-   * e a tela nem a ofereceria.
+   * O recorte por cidade protege quem coloca um COLETOR: um de outro município
+   * no seletor é um erro esperando acontecer. Uma macrorregião cruza município
+   * por definição, então cidade não é a régua dela — e as duas tentativas de
+   * usá-la erraram para lados opostos. Recortar pela cidade dominante a escondia
+   * dos sistemas dos outros municípios dela (`Bandeirantes` atende 4 e aparecia
+   * em 1). Não recortar nada a oferecia a duas cidades de distância, e a lista do
+   * modo macrorregião ficava MAIOR que a do modo coletor — quando a intuição de
+   * quem opera é que "uma CTS por sistema" dê MENOS opções, não mais.
+   *
+   * A régua certa é a que a chave `(sistema_cts, emp_codigo)` sempre disse: a
+   * macrorregião é ofertável nos sistemas da empresa que a opera.
    */
   const ehMacro = (t: Row) => t.macro === 'true'
+  const daEmpresa = (t: Row) => !!empresaDoSistema && t.emp_codigo === empresaDoSistema
 
   const daCidade = useMemo(
     // A GUARDA `cidadeDoSistema &&` NAO E DEFENSIVA À TOA: sem ela, um sistema
@@ -98,16 +107,19 @@ export function AdicionarCts({
     // mesma `key`, e o contador diria o dobro. O recorte some justamente quando
     // não há por onde recortar, que é quando ele mais parecia estar valendo.
     () =>
-      cidadeDoSistema
-        ? livres.filter((t) => ehMacro(t) || t.cidade_id === cidadeDoSistema)
-        : livres.filter(ehMacro),
-    [livres, cidadeDoSistema],
+      livres.filter((t) =>
+        ehMacro(t) ? daEmpresa(t) : !!cidadeDoSistema && t.cidade_id === cidadeDoSistema,
+      ),
+    [livres, cidadeDoSistema, empresaDoSistema],
   )
   // As sem cidade, que continuam saindo à parte — a macrorregião já foi colhida
   // acima, e sem esta exclusão uma sem cidade dominante apareceria nas duas
   // listas, com a mesma `key`.
+  // SEM ONDE RECORTAR, num caso ou no outro: o coletor que a carga não situou,
+  // e a macrorregião cujos membros não têm cidade (e portanto nem empresa). Os
+  // dois vão para o grupo à parte em vez de sumir.
   const semCidade = useMemo(
-    () => livres.filter((t) => !t.cidade_id && !ehMacro(t)),
+    () => livres.filter((t) => (ehMacro(t) ? !t.emp_codigo : !t.cidade_id)),
     [livres],
   )
   // O RÓTULO TEM DE CONTAR A MESMA HISTÓRIA QUE A LISTA. "Só aparecem CTS de X"
