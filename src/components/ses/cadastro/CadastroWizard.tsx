@@ -377,6 +377,21 @@ export function CadastroWizard() {
     () => sistemasDoCadastro?.find((r) => r.sistema_id === escopo.sistemaId),
     [sistemasDoCadastro, escopo.sistemaId],
   )
+  /**
+   * AS CIDADES DO SISTEMA ESCOLHIDO — todas. Um sistema pode estar em várias
+   * (`cidade-sistema` tem uma linha por cidade), e `sistemaEscolhido` é só a
+   * primeira dessas linhas. Recortar o seletor de CTS pela primeira esconderia
+   * o coletor que está na segunda cidade do mesmo sistema.
+   */
+  const cidadesDoSistemaEscolhido = useMemo(
+    () =>
+      new Set(
+        (sistemasDoCadastro ?? [])
+          .filter((r) => r.sistema_id === escopo.sistemaId && r.cidade_id)
+          .map((r) => r.cidade_id),
+      ),
+    [sistemasDoCadastro, escopo.sistemaId],
+  )
   const topoDoCadastro = unidade?.data[ABA_DO_FLUXO]
   const dadosDoCadastro = unidade?.data
   const ctsDoSistema = useMemo(() => {
@@ -407,12 +422,14 @@ export function CadastroWizard() {
    * e toda cidade tem uma empresa. É por ela que o seletor recorta as
    * macrorregiões — a outra metade da chave `(sistema_cts, emp_codigo)`.
    */
-  const empresaDoSistemaEscolhido = useMemo(() => {
-    const cid = sistemaEscolhido?.cidade_id
-    if (!cid) return ''
-    const linha = (dadosDoCadastro?.['cidade-empresa'] ?? []).find((r) => r.cidade_id === cid)
-    return linha?.emp_codigo ?? ''
-  }, [sistemaEscolhido, dadosDoCadastro])
+  const empresasDoSistemaEscolhido = useMemo(() => {
+    // UM CONJUNTO: as cidades do sistema podem ser de empresas diferentes
+    // (Saracuruna está em Duque de Caxias, da 57, e em Magé, da 56).
+    const vinculos = dadosDoCadastro?.['cidade-empresa'] ?? []
+    return new Set(
+      vinculos.filter((r) => cidadesDoSistemaEscolhido.has(r.cidade_id)).map((r) => r.emp_codigo),
+    )
+  }, [cidadesDoSistemaEscolhido, dadosDoCadastro])
 
   /** A linha de `unidade-regional` — onde moram o WACC e a macrorregião de CTS. */
   const linhaDaUnidade = unidade?.data['unidade-regional']?.[0]
@@ -1039,8 +1056,8 @@ export function CadastroWizard() {
                   <AdicionarCts
                     sistemaId={escopo.sistemaId}
                     sistemaNome={sistemaEscolhido?.sistema_name ?? ''}
-                    cidadeDoSistema={sistemaEscolhido?.cidade_id ?? ''}
-                    empresaDoSistema={empresaDoSistemaEscolhido}
+                    cidadesDoSistema={cidadesDoSistemaEscolhido}
+                    empresasDoSistema={empresasDoSistemaEscolhido}
                     cidadeNome={cidadeDoSistemaEscolhido}
                     topo={topoDoCadastro ?? []}
                     dados={unidade.data}

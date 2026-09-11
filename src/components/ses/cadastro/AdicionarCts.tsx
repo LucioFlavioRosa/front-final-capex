@@ -38,8 +38,8 @@ import { ehCts, type Dados } from '../../../domain/fluxo'
 export function AdicionarCts({
   sistemaId,
   sistemaNome,
-  cidadeDoSistema,
-  empresaDoSistema,
+  cidadesDoSistema,
+  empresasDoSistema,
   cidadeNome,
   topo,
   dados,
@@ -48,10 +48,10 @@ export function AdicionarCts({
 }: {
   sistemaId: string
   sistemaNome: string
-  /** A cidade do sistema — o recorte da lista, para os COLETORES. */
-  cidadeDoSistema: string
-  /** A empresa do sistema — o recorte da lista, para as MACRORREGIÕES. */
-  empresaDoSistema: string
+  /** As cidades do sistema — o recorte da lista, para os COLETORES. Um sistema pode estar em várias. */
+  cidadesDoSistema: Set<string>
+  /** As empresas do sistema — o recorte da lista, para as MACRORREGIÕES. Podem ser mais de uma. */
+  empresasDoSistema: Set<string>
   /** O nome dela, para o texto. Cai no id quando o nome não veio. */
   cidadeNome: string
   /** As linhas da aba do Fluxo — é delas que sai quem está sem sistema. */
@@ -98,19 +98,20 @@ export function AdicionarCts({
    * macrorregião é ofertável nos sistemas da empresa que a opera.
    */
   const ehMacro = (t: Row) => t.macro === 'true'
-  const daEmpresa = (t: Row) => !!empresaDoSistema && t.emp_codigo === empresaDoSistema
+  const daEmpresa = (t: Row) => empresasDoSistema.has(t.emp_codigo)
+  const daCidadeDoSistema = (t: Row) => cidadesDoSistema.has(t.cidade_id)
+  const temCidade = cidadesDoSistema.size > 0
 
   const daCidade = useMemo(
-    // A GUARDA `cidadeDoSistema &&` NAO E DEFENSIVA À TOA: sem ela, um sistema
-    // sem cidade cai em `'' === ''` e casa com TODAS as CTS sem cidade — que a
-    // linha seguinte já colhe. As mesmas opções apareceriam duas vezes, com a
-    // mesma `key`, e o contador diria o dobro. O recorte some justamente quando
-    // não há por onde recortar, que é quando ele mais parecia estar valendo.
-    () =>
-      livres.filter((t) =>
-        ehMacro(t) ? daEmpresa(t) : !!cidadeDoSistema && t.cidade_id === cidadeDoSistema,
-      ),
-    [livres, cidadeDoSistema, empresaDoSistema],
+    // UM SISTEMA SEM CIDADE NÃO CASA COM NADA: `Set` vazio não tem `''` dentro,
+    // então a CTS sem cidade não entra aqui — ela vai para o grupo à parte, que
+    // `semCidade` colhe. Com a versão anterior (`'' === ''`) ela entrava nas duas
+    // listas, com a mesma `key`, e o contador dizia o dobro.
+    () => livres.filter((t) => (ehMacro(t) ? daEmpresa(t) : daCidadeDoSistema(t))),
+    // Sets são comparados por referência; os dois vêm de `useMemo` no wizard e só
+    // mudam quando o sistema escolhido muda.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [livres, cidadesDoSistema, empresasDoSistema],
   )
   // As sem cidade, que continuam saindo à parte — a macrorregião já foi colhida
   // acima, e sem esta exclusão uma sem cidade dominante apareceria nas duas
@@ -155,7 +156,7 @@ export function AdicionarCts({
           className="min-w-0 flex-1 rounded-[8px] border border-ink-200 bg-white px-2.5 py-1.5 text-[12.5px]"
         >
           <option value="">
-            {!cidadeDoSistema
+            {!temCidade
               ? /* O SISTEMA AINDA NAO TEM CIDADE: prometer um recorte por cidade
                    aqui seria mentir sobre o que a lista é. */
                 quantas
@@ -195,7 +196,7 @@ export function AdicionarCts({
         </button>
       </div>
       <div className="mt-1.5 text-[11.5px] leading-snug text-ink-water">
-        {cidadeDoSistema ? (
+        {temCidade ? (
           <>
             Só aparecem CTS de <strong>{cidadeNome}</strong> que não estão em nenhum outro
             sistema

@@ -45,8 +45,8 @@ function abrir() {
     <AdicionarCts
       sistemaId="s1"
       sistemaNome="Sistema 1"
-      cidadeDoSistema="c1"
-      empresaDoSistema="e1"
+      cidadesDoSistema={new Set(['c1'])}
+      empresasDoSistema={new Set(['e1'])}
       cidadeNome="Belford Roxo"
       topo={TOPO}
       dados={DADOS}
@@ -89,8 +89,8 @@ describe('o seletor de CTS é recortado pela cidade do sistema', () => {
       <AdicionarCts
         sistemaId="s1"
         sistemaNome="Sistema 1"
-        cidadeDoSistema=""
-        empresaDoSistema=""
+        cidadesDoSistema={new Set()}
+        empresasDoSistema={new Set()}
         cidadeNome="—"
         topo={TOPO}
         dados={DADOS}
@@ -111,8 +111,8 @@ describe('o seletor de CTS é recortado pela cidade do sistema', () => {
       <AdicionarCts
         sistemaId="s1"
         sistemaNome="Sistema 1"
-        cidadeDoSistema="c9"
-        empresaDoSistema="e1"
+        cidadesDoSistema={new Set(['c9'])}
+        empresasDoSistema={new Set(['e1'])}
         cidadeNome="Mesquita"
         topo={[cts('de-fora', 'c2')]}
         dados={DADOS}
@@ -144,8 +144,8 @@ describe('a macrorregião é recortada pela EMPRESA, e não pela cidade', () => 
       <AdicionarCts
         sistemaId="s9"
         sistemaNome="Sistema 9"
-        cidadeDoSistema="c5"
-        empresaDoSistema="e1"
+        cidadesDoSistema={new Set(['c5'])}
+        empresasDoSistema={new Set(['e1'])}
         cidadeNome="Nova Iguaçu"
         topo={[MACRO, cts('de-fora', 'c2')]}
         dados={DADOS}
@@ -168,8 +168,8 @@ describe('a macrorregião é recortada pela EMPRESA, e não pela cidade', () => 
       <AdicionarCts
         sistemaId="s9"
         sistemaNome="Sistema 9"
-        cidadeDoSistema="c1"
-        empresaDoSistema="e2"
+        cidadesDoSistema={new Set(['c1'])}
+        empresasDoSistema={new Set(['e2'])}
         cidadeNome="Belford Roxo"
         topo={[MACRO]}
         dados={DADOS}
@@ -186,8 +186,8 @@ describe('a macrorregião é recortada pela EMPRESA, e não pela cidade', () => 
       <AdicionarCts
         sistemaId="s9"
         sistemaNome="Sistema 9"
-        cidadeDoSistema="c5"
-        empresaDoSistema="e1"
+        cidadesDoSistema={new Set(['c5'])}
+        empresasDoSistema={new Set(['e1'])}
         cidadeNome="Nova Iguaçu"
         topo={[cts('MACRO_B', '', 'true', 'e1')]}
         dados={DADOS}
@@ -206,8 +206,8 @@ describe('o rótulo conta a mesma história que a lista', () => {
       <AdicionarCts
         sistemaId="s9"
         sistemaNome="Sistema 9"
-        cidadeDoSistema="c5"
-        empresaDoSistema="e1"
+        cidadesDoSistema={new Set(['c5'])}
+        empresasDoSistema={new Set(['e1'])}
         cidadeNome="Nova Iguaçu"
         topo={[cts('MACRO_A', 'c1', 'true', 'e1'), cts('daqui', 'c5')]}
         dados={DADOS}
@@ -227,8 +227,8 @@ describe('o rótulo conta a mesma história que a lista', () => {
       <AdicionarCts
         sistemaId="s9"
         sistemaNome="Sistema 9"
-        cidadeDoSistema="c5"
-        empresaDoSistema="e1"
+        cidadesDoSistema={new Set(['c5'])}
+        empresasDoSistema={new Set(['e1'])}
         cidadeNome="Nova Iguaçu"
         topo={[cts('daqui', 'c5')]}
         dados={DADOS}
