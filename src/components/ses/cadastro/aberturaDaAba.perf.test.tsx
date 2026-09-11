@@ -17,7 +17,7 @@ import { render } from '@testing-library/react'
 import { AbaGrid } from './AbaGrid'
 import { SCHEMA } from '@/data/cadastroUnidade/schema'
 import { lerCadastro } from '@/lib/cadastroApi'
-import { casaComEscopo, escopoInicial, opcoesEscopo } from '@/domain/escopo'
+import { casaComEscopo, escopoInicial, opcoesEscopo, barraDeEscopoVisivel } from '@/domain/escopo'
 import type { Dados } from '@/domain/fluxo'
 import type { Row } from '@/data/cadastroUnidade/types'
 
@@ -31,7 +31,6 @@ globalThis.ResizeObserver = class {
 } as unknown as typeof ResizeObserver
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
-const MIN_LINHAS_PARA_ESCOPO = 15
 
 let noAr = false
 let dados: Dados
@@ -58,7 +57,7 @@ const nada = () => {}
 function abrir(abaKey: string): { ms: number; pintadas: number; total: number } {
   const aba = SCHEMA.find((a) => a.key === abaKey)!
   const rows = ((dados as unknown as Record<string, Row[]>)[abaKey] ?? []) as Row[]
-  const temBarra = !!aba.escopo && rows.length >= MIN_LINHAS_PARA_ESCOPO
+  const temBarra = barraDeEscopoVisivel(aba, rows.length)
   const escopo = escopoInicial(opcoesEscopo(dados, aba, rows), temBarra)
   const filtro = (row: Row) => casaComEscopo(dados, aba, row, escopo)
 

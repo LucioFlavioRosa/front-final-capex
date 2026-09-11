@@ -70,9 +70,9 @@ export interface ColDef {
 }
 
 /**
- * DE ONDE SAI A CIDADE DE UMA LINHA — e por que isso é declaração, não código.
+ * POR QUE OS EIXOS DA BARRA SÃO DECLARAÇÃO, e não código.
  *
- * A barra de escopo (cidade + sistema) recorta TODAS as abas, e nenhuma aba tem
+ * A barra de escopo (empresa + sistema) recorta TODAS as abas, e nenhuma aba tem
  * as duas colunas: a de metas tem `cidade_id` e nenhum sistema; a de CAPEX da
  * CTS não tem nem um nem outro, só `cts_id`. Cada aba chega ao mesmo par por um
  * caminho diferente.
@@ -80,14 +80,8 @@ export interface ColDef {
  * Declarar o caminho aqui, e não num `if` por aba dentro do componente, é o que
  * mantém "qual seleção interessa nesta aba" numa tela só de leitura — a mesma
  * razão de o `bloco` do stepper morar no SCHEMA.
- *
- *   'coluna'  — a própria linha traz o vínculo (`cidade_id`, `sistema_id`, ou o
- *               `sistema_name` quando o id vem vazio da fonte, que é o caso das
- *               1.047 linhas de Sub-bacias).
- *   'via-sistema' — resolve o sistema da linha primeiro e pergunta a
- *               `cidade-sistema` quais cidades ele atende. É indireto porque o
- *               vínculo cidade↔sistema é de cadastro, não de linha.
  */
+
 /**
  * DE ONDE SAI A EMPRESA DE UMA LINHA — o eixo grosso da barra de escopo.
  *

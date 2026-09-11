@@ -9,8 +9,7 @@ import {
   opcoesEscopo,
   sistemaDaLinhaEscopo,
   sistemaPadraoDoFluxo,
-  sistemasVisiveis,
-} from '../../../domain/escopo'
+  sistemasVisiveis, barraDeEscopoVisivel, MIN_LINHAS_PARA_ESCOPO } from '../../../domain/escopo'
 import { ADMIN_UNIDADE } from '../../../auth/papeis'
 import { BLOCOS } from '../../../data/cadastroUnidade/blocos'
 import { espelharColunas, opcoesDaCelula } from '../../../domain/fluxo'
@@ -516,5 +515,25 @@ describe('opcoesDaCelula — as células que escolhem entidade', () => {
     expect(espelharColunas(DADOS, 'subbacia-cts', 'cts_id', 't001')).toEqual({
       cts_name: 'CTS Leste',
     })
+  })
+})
+
+describe('quando a barra de escopo aparece', () => {
+  it('uma aba comum espera o mínimo de linhas', () => {
+    const sub = aba('subbacia-operacional')
+    expect(barraDeEscopoVisivel(sub, MIN_LINHAS_PARA_ESCOPO - 1)).toBe(false)
+    expect(barraDeEscopoVisivel(sub, MIN_LINHAS_PARA_ESCOPO)).toBe(true)
+  })
+
+  it('as abas da CTS e a do Fluxo não esperam: com a macrorregião marcada há UMA CTS por sistema', () => {
+    // Dois testes de abertura reescreviam a regra dos 15 à mão, e passavam
+    // mesmo se as abas da CTS perdessem a barra. Este prende a exceção.
+    for (const k of ['sistema-topologia', 'cts-operacional', 'componentes-cts-capex']) {
+      expect(barraDeEscopoVisivel(aba(k), 2)).toBe(true)
+    }
+  })
+
+  it('aba sem eixo declarado nunca tem barra, por mais linhas que tenha', () => {
+    expect(barraDeEscopoVisivel(aba('unidade-regional'), 1000)).toBe(false)
   })
 })

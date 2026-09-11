@@ -12,12 +12,11 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { lerCadastro } from '@/lib/cadastroApi'
 import { SCHEMA } from '@/data/cadastroUnidade/schema'
-import { casaComEscopo, escopoInicial, opcoesEscopo } from '@/domain/escopo'
+import { casaComEscopo, escopoInicial, opcoesEscopo, barraDeEscopoVisivel } from '@/domain/escopo'
 import type { Dados } from '@/domain/fluxo'
 import type { Row } from '@/data/cadastroUnidade/types'
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
-const MIN_LINHAS_PARA_ESCOPO = 15
 
 let noAr = false
 let dados: Dados
@@ -37,7 +36,7 @@ beforeAll(async () => {
 function linhasAoAbrir(abaKey: string): { total: number; recortada: number } {
   const aba = SCHEMA.find((a) => a.key === abaKey)!
   const rows = ((dados as unknown as Record<string, Row[]>)[abaKey] ?? []) as Row[]
-  const temBarra = !!aba.escopo && rows.length >= MIN_LINHAS_PARA_ESCOPO
+  const temBarra = barraDeEscopoVisivel(aba, rows.length)
   const escopo = escopoInicial(opcoesEscopo(dados, aba, rows), temBarra)
   const recortada = rows.filter((r) => casaComEscopo(dados, aba, r, escopo)).length
   return { total: rows.length, recortada }

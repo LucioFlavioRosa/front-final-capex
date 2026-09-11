@@ -394,7 +394,8 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
     // decidir em que sistema ela entra, e escondê-la faria a tela dizer que ela
     // não existe. A lista já vem recortada PELA UNIDADE (o servidor sabe onde
     // cada CTS está desde a migração 018); o seletor do Fluxo estreita mais uma
-    // vez, para a cidade do sistema.
+    // vez, para as EMPRESAS do sistema — cidade deixou de ser a régua quando o
+    // sistema passou a poder estar em várias (migração 022).
     'sistema-topologia': [
       ...hier.topo.map((t) => ({
         sistema_id: t.sis,

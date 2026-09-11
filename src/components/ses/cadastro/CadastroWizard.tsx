@@ -30,8 +30,7 @@ import {
   escopoAtivo,
   escopoInicial,
   opcoesEscopo,
-  sistemaPadraoDoFluxo,
-} from '../../../domain/escopo'
+  sistemaPadraoDoFluxo, barraDeEscopoVisivel } from '../../../domain/escopo'
 import { useCadastro } from './CadastroContext'
 import { Button } from '../../ui/Button'
 import { useToast } from '../../ui/Toaster'
@@ -88,29 +87,8 @@ function AvisoSemCts() {
  */
 const ABA_DO_FLUXO = 'sistema-topologia'
 
-/**
- * ABAIXO DISTO A BARRA DE ESCOPO NAO APARECE — mesmo numero e mesma razao do
- * `MIN_LINHAS_PARA_FILTRO` do funil de coluna: numa aba que se le inteira de uma
- * vez, filtrar da mais trabalho que ler.
- *
- * A aba do Fluxo e a excecao e ganha a barra sempre: nela o controle nao recorta
- * so a tabela, ele escolhe qual sistema o desenho ao lado mostra.
- */
-const MIN_LINHAS_PARA_ESCOPO = 15
-
-/**
- * AS ABAS DA CTS NÃO ESPERAM AS 15 LINHAS, como a do Fluxo — e por uma razão da
- * mesma família. O mínimo protege quem lê uma aba inteira de uma vez; mas a
- * unidade de trabalho da CTS é o SISTEMA: o sistema dela é decidido na aba do
- * Fluxo, e quem chega aqui vem procurar "a CTS do sistema X". Com a macrorregião
- * marcada há UMA por sistema, então a aba nunca chegaria a 15 linhas — e a barra
- * que responde à pergunta de quem chega nunca apareceria.
- *
- * "Sempre" tem um limite que não é daqui: `FiltroEscopo` ainda se esconde quando
- * o eixo tem UMA opção só — com uma CTS colocada não há sistema para escolher, e
- * um seletor de uma opção é decoração. A barra aparece a partir da segunda.
- */
-const ABAS_COM_BARRA_SEMPRE = new Set(['sistema-topologia', 'cts-operacional', 'componentes-cts-capex'])
+// A regra da barra de escopo — o mínimo de linhas e as abas que não o esperam —
+// mora em `domain/escopo.ts`, junto do resto do escopo, e os testes a leem de lá.
 
 /**
  * O CROMO DA GRADE — 20px que não são folga estética.
@@ -351,8 +329,7 @@ export function CadastroWizard() {
     // de quando a barra existe é a mesma de `mostrarBarra` abaixo, e precisa
     // ser: recortar sem oferecer como trocar o recorte esconderia linhas.
     const linhas = unidade.data[aba.key] ?? []
-    const temBarra =
-      !!aba.escopo && (ABAS_COM_BARRA_SEMPRE.has(aba.key) || linhas.length >= MIN_LINHAS_PARA_ESCOPO)
+    const temBarra = barraDeEscopoVisivel(aba, linhas.length)
     return escopoInicial(opcoesEscopo(unidade.data, aba, linhas), temBarra)
     // `unidade?.id` e não `unidade`: esta última muda a cada tecla digitada, e o
     // recorte se refaria no meio do preenchimento. É a mesma dependência que o
@@ -403,13 +380,6 @@ export function CadastroWizard() {
     ).length
   }, [topoDoCadastro, dadosDoCadastro, escopo.sistemaId])
 
-  /**
-   * O NOME DA CIDADE DO SISTEMA ESCOLHIDO — o recorte do seletor de CTS.
-   *
-   * A CTS só pode entrar num sistema da MESMA cidade, e o seletor diz de qual
-   * cidade a lista é. Cai no id quando o nome não veio: um recorte sem rótulo
-   * seria uma lista curta sem explicação.
-   */
   /**
    * A EMPRESA do sistema escolhido, pela cidade dele: `cidade-empresa` é o vínculo,
    * e toda cidade tem uma empresa. É por ela que o seletor recorta as
@@ -679,8 +649,7 @@ export function CadastroWizard() {
   const ultimaDoBloco = abaAtualIdx === bloco.abas.length - 1
   const ultimoBloco = blocoIdx === BLOCOS.length - 1
 
-  const mostrarBarra =
-    !!aba.escopo && (ABAS_COM_BARRA_SEMPRE.has(aba.key) || rows.length >= MIN_LINHAS_PARA_ESCOPO)
+  const mostrarBarra = barraDeEscopoVisivel(aba, rows.length)
 
   /** A coluna da esquerda no layout de duas colunas — ver `CROMO_DA_GRADE`. */
   // `ehFluxo` porque é a única aba com ação de linha sem `addRow` — ver

@@ -408,3 +408,40 @@ export function colunasDoEscopo(aba: AbaDef): Set<string> {
   }
   return fora
 }
+
+
+/**
+ * ABAIXO DISTO A BARRA DE ESCOPO NÃO APARECE — mesmo número e mesma razão do
+ * `MIN_LINHAS_PARA_FILTRO` do funil de coluna: numa aba que se lê inteira de
+ * uma vez, filtrar dá mais trabalho que ler.
+ */
+export const MIN_LINHAS_PARA_ESCOPO = 15
+
+/**
+ * AS ABAS QUE NÃO ESPERAM AS 15 LINHAS.
+ *
+ * A do Fluxo, porque nela a barra não recorta só a tabela: escolhe qual sistema
+ * o desenho ao lado mostra. As duas da CTS, porque a unidade de trabalho da CTS
+ * é o SISTEMA — decidido no Fluxo — e quem chega nelas vem procurar "a CTS do
+ * sistema X"; com a macrorregião marcada há UMA por sistema, então a aba nunca
+ * chegaria a 15 linhas e a barra que responde à pergunta nunca apareceria.
+ *
+ * "Sempre" tem um limite que não é daqui: `FiltroEscopo` ainda se esconde quando
+ * o eixo tem UMA opção só — um seletor de uma opção é decoração.
+ */
+export const ABAS_COM_BARRA_SEMPRE: ReadonlySet<string> = new Set([
+  'sistema-topologia',
+  'cts-operacional',
+  'componentes-cts-capex',
+])
+
+/**
+ * A aba mostra a barra de escopo com este tanto de linhas?
+ *
+ * UMA REGRA, num lugar só: a tela a usa para decidir o recorte inicial e para
+ * desenhar a barra, e os testes de abertura a usam para medir o que a grade
+ * monta. Dois testes já a tinham reescrito à mão — e passavam mesmo se as abas
+ * da CTS perdessem a barra.
+ */
+export const barraDeEscopoVisivel = (aba: AbaDef, linhas: number): boolean =>
+  !!aba.escopo && (ABAS_COM_BARRA_SEMPRE.has(aba.key) || linhas >= MIN_LINHAS_PARA_ESCOPO)

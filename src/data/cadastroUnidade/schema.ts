@@ -1063,7 +1063,8 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
   },
   {
     key: 'componentes-cts-capex', icone: Wrench, titulo: 'CAPEX da CTS',
-    // 5 linhas por CTS, e nenhuma coluna de hierarquia além de `cts_id`.
+    // 4 linhas por CTS, e nenhuma coluna de hierarquia além de `cts_id`: os
+    // dois eixos chegam pelo sistema da CTS.
     escopo: { empresa: 'via-sistema', sistema: 'via-cts' },
     // Mesmo formato da `desc` da aba irmã: os componentes nomeados primeiro, a
     // regra do CAPEX depois, e só então a ressalva de procedência. A diferença
