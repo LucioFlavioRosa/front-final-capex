@@ -542,8 +542,10 @@ export function CadastroWizard() {
       // GRAVA NA HORA — ver `gravarUsaCts`. A célula local só muda depois que o
       // servidor aceitou: hidratar já a traz certa, e mexer antes faria a caixa
       // pular e voltar numa recusa.
-      const recusa = await gravarUsaCts(marcado)
-      setRecusaUsaCts(recusa)
+      // `gravarUsaCts` devolve string em qualquer falha e nunca rejeita — mas
+      // um `await` sem guarda numa callback de evento vira erro não tratado no
+      // console se um dia rejeitar. A guarda custa uma linha.
+      setRecusaUsaCts(await gravarUsaCts(marcado).catch((e) => String(e)))
     },
     [gravarUsaCts],
   )

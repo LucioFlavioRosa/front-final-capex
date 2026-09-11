@@ -82,10 +82,11 @@ export function AdicionarCts({
     [topo, dados],
   )
   /**
-   * DUAS LISTAS, e não uma filtrada: as CTS da cidade do sistema, e as que ainda
-   * não têm cidade na base. A segunda é rara e some quando a carga completar —
-   * mas enquanto existir, ela precisa ficar visível e SEPARADA, para ninguém
-   * colocar às cegas uma CTS que pode ser de outro município.
+   * DUAS LISTAS, e não uma filtrada: as CTS das empresas do sistema, e as que
+   * ainda não têm empresa (porque a carga não as situou em cidade nenhuma). A
+   * segunda é rara e some quando a carga completar — mas enquanto existir, ela
+   * precisa ficar visível e SEPARADA, para ninguém colocar às cegas uma CTS que
+   * pode ser de outra operadora.
    */
   /**
    * UMA RÉGUA SÓ: a empresa. Coletor e macrorregião entram se a empresa deles é

@@ -55,6 +55,7 @@ type Action =
   | { type: 'IR_FASE'; fase: Fase }
   | { type: 'GARANTIR_FAIXA_ZERO' }
   | { type: 'HIDRATAR'; unidadeId: string; dados: UnidadeState['data'] }
+  | { type: 'HIDRATAR_ABAS'; unidadeId: string; dados: UnidadeState['data']; abas: string[] }
   | { type: 'IMPORTAR_PLANILHA'; dados: UnidadeState['data'] }
 
 /**
@@ -267,6 +268,23 @@ function reducer(state: CadastroState, action: Action): CadastroState {
         ...state,
         unidade: { ...state.unidade, data: action.dados, cidades: cidadesDoCadastro(action.dados) },
       }
+    }
+
+    /**
+     * HIDRATA SÓ AS ABAS NOMEADAS, e deixa o resto como está.
+     *
+     * É o que a caixa da macrorregião usa. `HIDRATAR` substitui `data` inteiro
+     * pelo retrato do servidor — certo depois de um Salvar, quando o servidor tem
+     * tudo que a tela tinha. No clique da caixa não: a pessoa pode ter digitado
+     * em outras abas e ainda não salvo, e substituir tudo apagaria isso sem
+     * aviso. O que a caixa muda é o que o servidor recalcula a partir dela — a
+     * lista de disponíveis do Fluxo e as fichas de CTS —, e é só isso que entra.
+     */
+    case 'HIDRATAR_ABAS': {
+      if (!state.unidade || state.unidade.id !== action.unidadeId) return state
+      const data = { ...state.unidade.data }
+      for (const aba of action.abas) data[aba] = action.dados[aba] ?? []
+      return { ...state, unidade: { ...state.unidade, data } }
     }
 
     /**
@@ -501,20 +519,57 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
     }
   }, [unidadeAtual])
 
+  /**
+   * O que o servidor recalcula quando a caixa muda: a própria caixa (a linha da
+   * unidade), a lista de disponíveis do Fluxo (`semSistema` vira linhas da aba
+   * de topologia) e as fichas de CTS — uma por macrorregião, ou uma por coletor.
+   */
+  const ABAS_DA_CAIXA = ['unidade-regional', 'sistema-topologia', 'cts-operacional', 'componentes-cts-capex']
+
   const gravarUsaCts = useCallback(
     async (marcado: boolean): Promise<string | null> => {
       if (!unidadeAtual) return null
       try {
         await api.put(`/api/unidades/${unidadeAtual.id}`, { usaCts: marcado })
       } catch (erro) {
+        // A RECUSA (422) vem com a frase do servidor. Qualquer outra falha —
+        // rede, proxy, timeout — também vira mensagem ao lado da caixa: a caixa
+        // ficou onde estava, e quem clicou precisa saber que nada foi gravado.
         if (erro instanceof ApiError) return erro.message
-        throw erro
+        return `Não foi possível gravar: ${erro instanceof Error ? erro.message : String(erro)}`
       }
-      // O MESMO reler-e-hidratar do Salvar: a lista de disponíveis e as fichas
-      // de CTS vêm do servidor, e é ele que sabe o que a caixa mudou.
-      const registro = await lerCadastro(unidadeAtual.id)
-      base.current = registro.base
-      dispatch({ type: 'HIDRATAR', unidadeId: unidadeAtual.id, dados: registro.dados })
+      // RELÊ, MAS HIDRATA SÓ O QUE A CAIXA MUDA. A lista de disponíveis do
+      // Fluxo e as fichas de CTS vêm do servidor — é ele que sabe o que a caixa
+      // mudou. As outras abas ficam como a pessoa as deixou, digitadas ou não:
+      // `HIDRATAR` inteiro aqui apagaria trabalho não salvo sem aviso.
+      let registro
+      try {
+        registro = await lerCadastro(unidadeAtual.id)
+      } catch (erro) {
+        return `Gravou, mas não foi possível reler o cadastro: ${
+          erro instanceof Error ? erro.message : String(erro)
+        }. Recarregue a página.`
+      }
+      // A base acompanha SÓ as abas rehidratadas: as demais continuam sendo
+      // comparadas com o retrato anterior, senão o Salvar deixaria de ver como
+      // mudança o que a pessoa digitou nelas antes do clique.
+      base.current = {
+        ...base.current!,
+        // `cts` é o retrato cru das fichas de CTS, com que `gravarColeta` compara
+        // no Salvar — acompanha as abas de CTS, senão o Salvar reenviaria como
+        // mudança tudo que a rehidratação trouxe.
+        cts: registro.base.cts,
+        dados: {
+          ...base.current!.dados,
+          ...Object.fromEntries(ABAS_DA_CAIXA.map((aba) => [aba, registro.dados[aba] ?? []])),
+        },
+      }
+      dispatch({
+        type: 'HIDRATAR_ABAS',
+        unidadeId: unidadeAtual.id,
+        dados: registro.dados,
+        abas: ABAS_DA_CAIXA,
+      })
       return null
     },
     [unidadeAtual],
