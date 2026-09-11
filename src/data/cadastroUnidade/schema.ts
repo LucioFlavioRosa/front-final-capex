@@ -665,7 +665,7 @@ export const SCHEMA: AbaDef[] = [
   {
     key: 'metas-cobertura', icone: ChartLineUp, titulo: 'Metas de cobertura',
     // A meta é por cidade e ano; sistema não aparece e não faria sentido.
-    escopo: { cidade: 'coluna' },
+    escopo: { empresa: 'via-cidade' },
     desc: 'Meta de cobertura (%) por cidade e ano — o que a otimização precisa alcançar. Uma linha por par cidade/ano.',
     addRow: true,
     novo: () => ({ cidade_id: '', cidade_name: '', ano: '', cobertura_pct: '' }),
@@ -683,7 +683,7 @@ export const SCHEMA: AbaDef[] = [
     // Mesma razão da aba de metas. ATENÇÃO: esta aba CRIA a faixa 0 ao ser
     // aberta (`garantirFaixaZeroParidade`) — ver o efeito no CadastroWizard, que
     // limpa o recorte junto para a linha nova não nascer escondida.
-    escopo: { cidade: 'coluna' },
+    escopo: { empresa: 'via-cidade' },
     /**
      * A DESCRIÇÃO EXPLICA A FAIXA ZERO em palavras, e não pela regra: "uma faixa
      * (cobertura 0) já vale como paridade constante" é correto e ilegível para
@@ -796,7 +796,7 @@ export const SCHEMA: AbaDef[] = [
     key: 'sistema-topologia', icone: Graph, titulo: 'Fluxo de escoamento',
     // A aba do print: os dois eixos, e o sistema pelo caminho 'fluxo' porque a
     // linha de CTS chega sem `sistema_id` — ele vem do destino dela.
-    escopo: { cidade: 'via-sistema', sistema: 'fluxo' },
+    escopo: { empresa: 'via-sistema', sistema: 'fluxo' },
     /**
      * A ÚLTIMA FRASE DA DESCRIÇÃO é a que importa: o destino não tem fonte, é a
      * informação mais crítica da base, e errá-lo não produz erro — produz um
@@ -899,7 +899,7 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
     // 1.047 linhas — a aba que mais ganha com o recorte. O sistema vem por
     // `via-subbacia` e não por 'coluna': o `sistema_id` desta aba chega VAZIO da
     // fonte (ver a própria coluna abaixo), e o vínculo real está no nome.
-    escopo: { cidade: 'via-sistema', sistema: 'via-subbacia' },
+    escopo: { empresa: 'via-sistema', sistema: 'via-subbacia' },
     desc: 'Base comercial (Databricks) + parâmetros da unidade: preço/ligação, prazos, vazão, população e potencial de crescimento.',
     // Sistema antes de sub-bacia: a leitura natural é de cima para baixo na
     // hierarquia, e é assim que a unidade procura a linha na tabela.
@@ -918,7 +918,7 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
     key: 'componentes-subbacias-capex', icone: Wrench, titulo: 'CAPEX de componentes de sub-bacias',
     // 5 linhas por sub-bacia. Sem um terceiro eixo de recorte (sub-bacia): a
     // listra de `zebraPor` já dá a leitura por bloco sem custar controle.
-    escopo: { cidade: 'via-sistema', sistema: 'coluna' },
+    escopo: { empresa: 'via-sistema', sistema: 'coluna' },
     desc: 'Os 5 componentes de obra de cada sub-bacia real do sistema: Ligação, Rede, Coletor Tronco, EEE e Linha de recalque. O CAPEX é calculado (quantidade × preço unitário) e a unidade de medida é o padrão do componente.',
     // Tabela única, sem accordion: a leitura é de planilha — ver e editar tudo
     // de uma vez, não abrir bloco por bloco.
@@ -981,7 +981,7 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
     ocultaNoWizard: true,
     // Só tem `sub_bacia_id` e `cts_id`: o sistema vem do join. Cidade sai por
     // ser terceiro grau — sub-bacia → sistema → cidade.
-    escopo: { sistema: 'via-subbacia' },
+    escopo: { empresa: 'via-sistema', sistema: 'via-subbacia' },
     desc: 'O Coletor de Tempo Seco (CTS) capta o esgoto que escoa em dias sem chuva e o leva até a ETE — é a "irmã" da sub-bacia, pareada 1:1 e opcional. Aqui é o de-para entre a sub-bacia e o CTS que a atende: os dois lados são reais, mas o pareamento entre eles é exemplo — nenhuma fonte diz qual CTS atende qual sub-bacia.',
     /**
      * OS DOIS CÓDIGOS SÃO 'un' PORQUE O PAREAMENTO É O PROPÓSITO DA ABA.
@@ -1010,7 +1010,7 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
     key: 'cts-operacional', icone: Drop, titulo: 'Dados da CTS',
     // A aba com o join mais curto dos dois eixos: tem `sistema_id`,
     // `sistema_name` e `emp_codigo` na própria linha.
-    escopo: { cidade: 'via-sistema', sistema: 'coluna' },
+    escopo: { empresa: 'via-sistema', sistema: 'coluna' },
     desc: 'Mesmos parâmetros da sub-bacia (preço, prazos, vazão, população), aplicados ao CTS.',
     addRow: true,
     novo: () => ({ cts_id: '', cts_name: '', sistema_id: '', sistema_name: '' }),
@@ -1064,7 +1064,7 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
   {
     key: 'componentes-cts-capex', icone: Wrench, titulo: 'CAPEX da CTS',
     // 5 linhas por CTS, e nenhuma coluna de hierarquia além de `cts_id`.
-    escopo: { sistema: 'via-cts' },
+    escopo: { empresa: 'via-sistema', sistema: 'via-cts' },
     // Mesmo formato da `desc` da aba irmã: os componentes nomeados primeiro, a
     // regra do CAPEX depois, e só então a ressalva de procedência. A diferença
     // entre as duas listas — 5 e 4 — é o que explica a CTS, e por isso a ausência

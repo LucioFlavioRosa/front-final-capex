@@ -59,7 +59,7 @@ function abrir(abaKey: string): { ms: number; pintadas: number; total: number } 
   const aba = SCHEMA.find((a) => a.key === abaKey)!
   const rows = ((dados as unknown as Record<string, Row[]>)[abaKey] ?? []) as Row[]
   const temBarra = !!aba.escopo && rows.length >= MIN_LINHAS_PARA_ESCOPO
-  const escopo = escopoInicial(opcoesEscopo(dados, cidades, aba, rows), temBarra)
+  const escopo = escopoInicial(opcoesEscopo(dados, aba, rows), temBarra)
   const filtro = (row: Row) => casaComEscopo(dados, aba, row, escopo)
 
   const t0 = performance.now()

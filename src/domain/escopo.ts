@@ -1,5 +1,5 @@
 /**
- * O ESCOPO DAS ABAS — cidade + sistema, o par de filtros que recorta toda a grade.
+ * O ESCOPO DAS ABAS — empresa + sistema, o par de filtros que recorta toda a grade.
  *
  * A barra recorta TODAS as abas do cadastro, e este arquivo é a parte que não é
  * tela — dado a resolver, sem React.
@@ -23,7 +23,7 @@
  * uma linha — então escolher qualquer coisa na barra nunca devolve tabela vazia.
  */
 
-import type { AbaDef, Cidade, EscopoAba, FonteCidade, FonteSistema, Row } from '../data/cadastroUnidade/types'
+import type { AbaDef, EscopoAba, FonteEmpresa, FonteSistema, Row } from '../data/cadastroUnidade/types'
 import { type Dados, type Sistema, sistemaDoNo, sistemasDoFluxo } from './fluxo'
 
 const txt = (v: unknown): string => String(v ?? '').trim()
@@ -32,13 +32,13 @@ const SEM_SISTEMA: Sistema = { id: '', nome: '' }
 
 /** O recorte escolhido na barra. `''` em qualquer eixo = "todos". */
 export interface Escopo {
-  cidadeId: string
+  empresaId: string
   sistemaId: string
 }
 
-export const SEM_ESCOPO: Escopo = { cidadeId: '', sistemaId: '' }
+export const SEM_ESCOPO: Escopo = { empresaId: '', sistemaId: '' }
 
-export const escopoAtivo = (e: Escopo): boolean => !!e.cidadeId || !!e.sistemaId
+export const escopoAtivo = (e: Escopo): boolean => !!e.empresaId || !!e.sistemaId
 
 /**
  * A chave de um sistema no escopo — ver o comentário do topo sobre ela ser opaca.
@@ -58,6 +58,10 @@ interface IndiceEscopo {
    * consulta não pode falhar por a aba ter resolvido o sistema pelo nome.
    */
   cidadesPorSistema: Map<string, Set<string>>
+  /** Cidade → empresa que a opera (`cidade-empresa`; toda cidade tem uma). */
+  empresaPorCidade: Map<string, string>
+  /** Empresa → nome legível (`empresa`), para o rótulo da opção. */
+  nomePorEmpresa: Map<string, string>
   /**
    * `sub_bacia_id` → chave de sistema, pelo CAPEX de componentes. Complementa
    * `sistemaDoNo`: ele resolve a sub-bacia pelo `sistema_name` da linha dela, e
@@ -119,7 +123,21 @@ function indice(dados: Dados): IndiceEscopo {
     if (chave && nome && !nomePorSistema.has(chave)) nomePorSistema.set(chave, nome)
   }
 
-  const novo: IndiceEscopo = { nomePorSistema, cidadesPorSistema, sistemaPorSubbaciaCapex }
+  const empresaPorCidade = new Map<string, string>()
+  for (const r of dados['cidade-empresa'] ?? []) {
+    const c = txt(r.cidade_id)
+    const e = txt(r.emp_codigo)
+    if (c && e && !empresaPorCidade.has(c)) empresaPorCidade.set(c, e)
+  }
+  const nomePorEmpresa = new Map<string, string>()
+  for (const r of dados['empresa'] ?? []) {
+    const e = txt(r.emp_codigo)
+    if (e && !nomePorEmpresa.has(e)) nomePorEmpresa.set(e, txt(r.empresa) || e)
+  }
+
+  const novo: IndiceEscopo = {
+    nomePorSistema, cidadesPorSistema, sistemaPorSubbaciaCapex, empresaPorCidade, nomePorEmpresa,
+  }
   cache.set(dados, novo)
   return novo
 }
@@ -178,20 +196,37 @@ export function cidadesDoSistema(dados: Dados, s: Sistema): string[] {
   return [...uniao]
 }
 
-/** As cidades de uma linha. Mais de uma é normal: um sistema pode atender várias. */
-export function cidadesDaLinhaEscopo(
+/** A empresa de uma cidade, ou `''` se a carga não a vinculou. */
+const empresaDaCidade = (dados: Dados, cidade: string): string =>
+  indice(dados).empresaPorCidade.get(cidade) ?? ''
+
+/**
+ * As empresas de uma linha. Mais de uma é normal: um sistema pode estar em
+ * cidades de empresas diferentes (Saracuruna: Duque de Caxias e Magé).
+ */
+export function empresasDaLinhaEscopo(
   dados: Dados,
   escopo: EscopoAba,
-  fonte: FonteCidade,
+  fonte: FonteEmpresa,
   row: Row,
 ): string[] {
   if (fonte === 'coluna') {
-    const c = txt(row.cidade_id)
-    return c ? [c] : []
+    const e = txt(row.emp_codigo)
+    return e ? [e] : []
   }
-  // 'via-sistema': o vínculo cidade↔sistema é de cadastro, não de linha.
+  if (fonte === 'via-cidade') {
+    const e = empresaDaCidade(dados, txt(row.cidade_id))
+    return e ? [e] : []
+  }
+  // 'via-sistema': as empresas das cidades do sistema — o vínculo
+  // cidade↔sistema é de cadastro, não de linha.
   if (!escopo.sistema) return []
-  return cidadesDoSistema(dados, sistemaDaLinhaEscopo(dados, escopo.sistema, row))
+  const uniao = new Set<string>()
+  for (const c of cidadesDoSistema(dados, sistemaDaLinhaEscopo(dados, escopo.sistema, row))) {
+    const e = empresaDaCidade(dados, c)
+    if (e) uniao.add(e)
+  }
+  return [...uniao]
 }
 
 /** A linha entra no recorte? Eixo em `''` não filtra nada. */
@@ -202,8 +237,8 @@ export function casaComEscopo(dados: Dados, aba: AbaDef, row: Row, escopo: Escop
   if (escopo.sistemaId && def.sistema) {
     if (chaveSistema(sistemaDaLinhaEscopo(dados, def.sistema, row)) !== escopo.sistemaId) return false
   }
-  if (escopo.cidadeId && def.cidade) {
-    if (!cidadesDaLinhaEscopo(dados, def, def.cidade, row).includes(escopo.cidadeId)) return false
+  if (escopo.empresaId && def.empresa) {
+    if (!empresasDaLinhaEscopo(dados, def, def.empresa, row).includes(escopo.empresaId)) return false
   }
   return true
 }
@@ -216,13 +251,13 @@ export interface OpcaoEscopo {
 }
 
 export interface OpcoesEscopo {
-  /** `[]` quando a aba não declara o eixo de cidade. */
-  cidades: OpcaoEscopo[]
+  /** `[]` quando a aba não declara o eixo de empresa. */
+  empresas: OpcaoEscopo[]
   /** `[]` quando a aba não declara o eixo de sistema. */
-  sistemas: (OpcaoEscopo & { cidades: Set<string> })[]
+  sistemas: (OpcaoEscopo & { empresas: Set<string> })[]
 }
 
-const VAZIAS: OpcoesEscopo = { cidades: [], sistemas: [] }
+const VAZIAS: OpcoesEscopo = { empresas: [], sistemas: [] }
 
 /**
  * As opções da barra, montadas a partir das LINHAS da aba — ver a invariante no
@@ -231,51 +266,46 @@ const VAZIAS: OpcoesEscopo = { cidades: [], sistemas: [] }
  * Uma passada só pelas linhas, resolvendo os dois eixos de cada uma. O eixo que a
  * aba não declara sai como lista vazia, e a barra não desenha o controle.
  */
-export function opcoesEscopo(
-  dados: Dados,
-  cidadesDaUnidade: Cidade[],
-  aba: AbaDef,
-  rows: Row[],
-): OpcoesEscopo {
+export function opcoesEscopo(dados: Dados, aba: AbaDef, rows: Row[]): OpcoesEscopo {
   const def = aba.escopo
   if (!def) return VAZIAS
 
-  const cidadesVistas = new Set<string>()
-  const sistemas = new Map<string, { nome: string; cidades: Set<string> }>()
+  const empresasVistas = new Set<string>()
+  const sistemas = new Map<string, { nome: string; empresas: Set<string> }>()
 
   for (const row of rows) {
-    // O sistema é resolvido UMA vez por linha e reaproveitado pela cidade: com
+    // O sistema é resolvido UMA vez por linha e reaproveitado pela empresa: com
     // 'via-sistema' as duas perguntas têm a mesma resposta no meio, e a aba de
     // CAPEX de componentes tem 5 linhas por sub-bacia — resolver duas vezes
     // dobraria o custo de uma passada que roda a cada tecla digitada.
     const s = def.sistema ? sistemaDaLinhaEscopo(dados, def.sistema, row) : null
-    const cidadesDaLinha = !def.cidade
+    const empresasDaLinha = !def.empresa
       ? []
-      : def.cidade === 'coluna'
-        ? (txt(row.cidade_id) ? [txt(row.cidade_id)] : [])
-        : s
-          ? cidadesDoSistema(dados, s)
+      : def.empresa === 'via-sistema'
+        ? s
+          ? [...new Set(cidadesDoSistema(dados, s).map((c) => empresaDaCidade(dados, c)).filter(Boolean))]
           : []
+        : empresasDaLinhaEscopo(dados, def, def.empresa, row)
 
     if (s) {
       const k = chaveSistema(s)
       if (k) {
         let alvo = sistemas.get(k)
-        if (!alvo) sistemas.set(k, (alvo = { nome: s.nome, cidades: new Set() }))
+        if (!alvo) sistemas.set(k, (alvo = { nome: s.nome, empresas: new Set() }))
         else if (!alvo.nome && s.nome) alvo.nome = s.nome
-        for (const c of cidadesDaLinha) alvo.cidades.add(c)
+        for (const e of empresasDaLinha) alvo.empresas.add(e)
       }
     }
-    for (const c of cidadesDaLinha) cidadesVistas.add(c)
+    for (const e of empresasDaLinha) empresasVistas.add(e)
   }
 
-  const nomeCidade = new Map(cidadesDaUnidade.map((c) => [c.id, c.name]))
+  const nomeEmpresa = indice(dados).nomePorEmpresa
 
-  const opcCidades: OpcaoEscopo[] = def.cidade
+  const opcEmpresas: OpcaoEscopo[] = def.empresa
     ? [
-        { value: '', label: 'Todas as cidades' },
-        ...[...cidadesVistas]
-          .map((id) => ({ value: id, label: nomeCidade.get(id) ?? id }))
+        { value: '', label: 'Todas as empresas' },
+        ...[...empresasVistas]
+          .map((id) => ({ value: id, label: nomeEmpresa.get(id) ?? id }))
           .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR')),
       ]
     : []
@@ -289,35 +319,35 @@ export function opcoesEscopo(
    * de qual sistema cada uma era. Nas abas de dados ela era pior ainda: é
    * exatamente o modo que monta 3.755 linhas e leva 4 segundos para abrir.
    *
-   * A cidade MANTÉM o "todas", e a assimetria é proposital: a cidade é o filtro
-   * grosso que encurta a lista de sistemas, e escolher uma antes de escolher o
-   * sistema é conveniência, não obrigação.
+   * A empresa MANTÉM o "todas", e a assimetria é proposital: a empresa é o
+   * filtro grosso que encurta a lista de sistemas, e escolher uma antes de
+   * escolher o sistema é conveniência, não obrigação.
    */
   const opcSistemas = def.sistema
     ? [
         ...[...sistemas.entries()]
-          .map(([value, { nome, cidades }]) => ({
+          .map(([value, { nome, empresas }]) => ({
             // 's01 · Alegria' quando a chave é o código; só o nome quando a
             // chave já É o nome — repetir 'Alegria · Alegria' seria ruído.
             value,
             label: nome && nome !== value ? `${value} · ${nome}` : value,
-            cidades,
+            empresas,
           }))
           .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR', { numeric: true })),
       ]
     : []
 
-  return { cidades: opcCidades, sistemas: opcSistemas }
+  return { empresas: opcEmpresas, sistemas: opcSistemas }
 }
 
 /**
- * Os sistemas que sobram depois da cidade escolhida.
+ * Os sistemas que sobram depois da empresa escolhida.
  *
- * "Todos os sistemas" fica sempre; um sistema sem cidade declarada sai quando há
- * cidade escolhida, e é a mesma regra documentada em `indice`.
+ * "Todos os sistemas" fica sempre; um sistema sem empresa (sem cidade declarada)
+ * sai quando há empresa escolhida, e é a mesma regra documentada em `indice`.
  */
-export const sistemasVisiveis = (opcoes: OpcoesEscopo, cidadeId: string) =>
-  cidadeId ? opcoes.sistemas.filter((s) => !s.value || s.cidades.has(cidadeId)) : opcoes.sistemas
+export const sistemasVisiveis = (opcoes: OpcoesEscopo, empresaId: string) =>
+  empresaId ? opcoes.sistemas.filter((s) => !s.value || s.empresas.has(empresaId)) : opcoes.sistemas
 
 /**
  * O SISTEMA COM QUE A ABA DO FLUXO ABRE — e não é o primeiro da lista.
@@ -342,8 +372,8 @@ export function sistemaPadraoDoFluxo(dados: Dados): string {
  * mede 3.940ms para aparecer e 601ms por tecla digitada. Recortada num sistema
  * são ~25 linhas: 24ms e 4ms. Duas ordens de grandeza, medidas.
  *
- * Escolhe o eixo MAIS FINO que a aba declara: sistema quando existe, cidade
- * quando não. É a mesma navegação que o cadastro por fichas já fazia — cidade,
+ * Escolhe o eixo MAIS FINO que a aba declara: sistema quando existe, empresa
+ * quando não. É a mesma navegação que o cadastro por fichas já fazia — empresa,
  * depois sistema — e a barra continua lá para trocar ou abrir para todos.
  *
  * DEVOLVE VAZIO quando a aba não tem barra: recortar sem oferecer como mudar o
@@ -358,9 +388,9 @@ export function escopoInicial(opcoes: OpcoesEscopo, temBarra: boolean): Escopo {
   const real = (opcoes: OpcaoEscopo[]) => opcoes.find((o) => o.value)?.value ?? ''
 
   const sistema = real(opcoes.sistemas)
-  if (sistema) return { cidadeId: '', sistemaId: sistema }
-  const cidade = real(opcoes.cidades)
-  if (cidade) return { cidadeId: cidade, sistemaId: '' }
+  if (sistema) return { empresaId: '', sistemaId: sistema }
+  const empresa = real(opcoes.empresas)
+  if (empresa) return { empresaId: empresa, sistemaId: '' }
   return SEM_ESCOPO
 }
 
@@ -368,9 +398,9 @@ export function escopoInicial(opcoes: OpcoesEscopo, temBarra: boolean): Escopo {
 export function colunasDoEscopo(aba: AbaDef): Set<string> {
   const fora = new Set<string>()
   if (!aba.escopo) return fora
-  if (aba.escopo.cidade === 'coluna') {
-    fora.add('cidade_id')
-    fora.add('cidade_name')
+  if (aba.escopo.empresa === 'coluna') {
+    fora.add('emp_codigo')
+    fora.add('empresa')
   }
   if (aba.escopo.sistema === 'coluna' || aba.escopo.sistema === 'fluxo') {
     fora.add('sistema_id')

@@ -88,10 +88,24 @@ export interface ColDef {
  *               `cidade-sistema` quais cidades ele atende. É indireto porque o
  *               vínculo cidade↔sistema é de cadastro, não de linha.
  */
-export type FonteCidade = 'coluna' | 'via-sistema'
+/**
+ * DE ONDE SAI A EMPRESA DE UMA LINHA — o eixo grosso da barra de escopo.
+ *
+ * Era a cidade. Deixou de ser quando o sistema passou a poder estar em várias
+ * (migração 022): recortar por cidade escondia, num sistema de duas, as linhas
+ * da outra. A empresa é o nível que sobrevive a isso — sub-bacia, coletor e
+ * macrorregião carregam `emp_codigo`, e é a chave que agrupa a macrorregião.
+ *
+ *   'coluna'       — a linha tem `emp_codigo`.
+ *   'via-cidade'   — a linha tem `cidade_id`; a empresa é a da cidade
+ *                    (`cidade-empresa`, e toda cidade tem uma).
+ *   'via-sistema'  — pelo sistema da linha: as empresas das cidades dele. Um
+ *                    sistema pode estar em cidades de empresas diferentes.
+ */
+export type FonteEmpresa = 'coluna' | 'via-cidade' | 'via-sistema'
 
 /**
- * DE ONDE SAI O SISTEMA DE UMA LINHA. Ver `FonteCidade` para o porquê da
+ * DE ONDE SAI O SISTEMA DE UMA LINHA. Ver `FonteEmpresa` para o porquê da
  * declaração.
  *
  *   'coluna'       — `sistema_id`, ou `sistema_name` quando o id vem vazio.
@@ -108,7 +122,7 @@ export type FonteSistema = 'coluna' | 'fluxo' | 'via-subbacia' | 'via-cts'
  * oferece aquele controle nesta aba.
  */
 export interface EscopoAba {
-  cidade?: FonteCidade
+  empresa?: FonteEmpresa
   sistema?: FonteSistema
 }
 

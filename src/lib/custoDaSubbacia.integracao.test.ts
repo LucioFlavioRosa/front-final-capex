@@ -20,7 +20,6 @@ const ABA = 'subbacia-operacional'
 
 let noAr = false
 let dados: Dados
-let cidades: { id: string; name: string }[] = []
 
 beforeAll(async () => {
   try {
@@ -31,10 +30,6 @@ beforeAll(async () => {
   if (!noAr) return
   const lido = await lerCadastro('uB1')
   dados = lido.dados as unknown as Dados
-  cidades = (lido.dados['cidade-operacional'] ?? []).map((c) => ({
-    id: c.cidade_id,
-    name: c.cidade_name,
-  }))
 }, 120_000)
 
 const cron = (rotulo: string, fn: () => unknown) => {
@@ -54,7 +49,7 @@ describe('abrir a aba de Sub-bacias', () => {
     console.log(`[custo] linhas na aba: ${rows.length}`)
 
     const { r: opcoes } = cron('opcoesEscopo (monta os dois dropdowns)', () =>
-      opcoesEscopo(dados, cidades, aba, rows),
+      opcoesEscopo(dados, aba, rows),
     )
     const { r: escopo } = cron('escopoInicial', () =>
       escopoInicial(opcoes as ReturnType<typeof opcoesEscopo>, true),
@@ -70,6 +65,6 @@ describe('abrir a aba de Sub-bacias', () => {
       'componentes-subbacias-capex'
     ] ?? []) as Row[]
     console.log(`[custo] --- comparação: obras, ${rowsObras.length} linhas ---`)
-    cron('opcoesEscopo (obras)', () => opcoesEscopo(dados, cidades, abaObras, rowsObras))
+    cron('opcoesEscopo (obras)', () => opcoesEscopo(dados, abaObras, rowsObras))
   }, 180_000)
 })

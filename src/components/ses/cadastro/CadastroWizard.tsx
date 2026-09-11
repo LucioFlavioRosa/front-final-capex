@@ -345,7 +345,7 @@ export function CadastroWizard() {
     if (escolhido) return escolhido
     if (!unidade) return SEM_ESCOPO
     if (aba.key === ABA_DO_FLUXO) {
-      return { cidadeId: '', sistemaId: sistemaPadraoDoFluxo(unidade.data) }
+      return { empresaId: '', sistemaId: sistemaPadraoDoFluxo(unidade.data) }
     }
     // TODA aba grande abre RECORTADA, no eixo mais fino que ela declara. A regra
     // de quando a barra existe é a mesma de `mostrarBarra` abaixo, e precisa
@@ -353,7 +353,7 @@ export function CadastroWizard() {
     const linhas = unidade.data[aba.key] ?? []
     const temBarra =
       !!aba.escopo && (ABAS_COM_BARRA_SEMPRE.has(aba.key) || linhas.length >= MIN_LINHAS_PARA_ESCOPO)
-    return escopoInicial(opcoesEscopo(unidade.data, unidade.cidades, aba, linhas), temBarra)
+    return escopoInicial(opcoesEscopo(unidade.data, aba, linhas), temBarra)
     // `unidade?.id` e não `unidade`: esta última muda a cada tecla digitada, e o
     // recorte se refaria no meio do preenchimento. É a mesma dependência que o
     // efeito antigo usava, pelo mesmo motivo.
@@ -553,8 +553,8 @@ export function CadastroWizard() {
   const opcoes = useMemo(
     () =>
       unidade && aba.escopo
-        ? opcoesEscopo(unidade.data, unidade.cidades, aba, rows)
-        : { cidades: [], sistemas: [] },
+        ? opcoesEscopo(unidade.data, aba, rows)
+        : { empresas: [], sistemas: [] },
     [unidade, aba, rows],
   )
 
