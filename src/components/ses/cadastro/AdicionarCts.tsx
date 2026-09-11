@@ -21,26 +21,33 @@ import { ehCts, type Dados } from '../../../domain/fluxo'
  * aparece: um componente está em um sistema só, e levá-la para outro é tirá-la
  * de lá primeiro.
  *
- * E É RECORTADA PELA CIDADE DO SISTEMA. Dizia-se aqui que não poderia ser —
- * "CTS fora de sistema não tem cidade, nem empresa, nem unidade" —, e a lista
- * oferecia a base inteira. A premissa era falsa: a fonte sempre soube onde cada
- * CTS está, e a migração 018 devolveu isso ao esquema. Como a cidade determina
- * empresa, unidade, diretoria e regional, recortar por ela recorta pelos cinco
- * níveis de uma vez.
+ * E É RECORTADA PELA EMPRESA DO SISTEMA — coletor e macrorregião, a mesma régua.
  *
- * O que a lista sem recorte custava: 151 candidatas, quase todas de outra
- * unidade, e duas CTS efetivamente colocadas em sistema de outra cidade.
+ * Já foi pela cidade. Dizia-se aqui que nem isso poderia ser ("CTS fora de
+ * sistema não tem cidade, nem empresa, nem unidade"), a lista oferecia a base
+ * inteira, e a migração 018 devolveu a cidade ao esquema. O que a lista sem
+ * recorte custava: 151 candidatas, quase todas de outra unidade, e duas CTS
+ * colocadas em sistema de outra cidade.
  *
- * SEM CIDADE CADASTRADA VAI NUM GRUPO À PARTE, e não some. `cidade_id` é
- * nulável, e esconder essas deixaria uma CTS que existe no banco sem forma
- * nenhuma de ser colocada — trocaria uma lista grande demais por uma que mente.
+ * A CIDADE DEIXOU DE SER A RÉGUA quando o sistema passou a poder estar em várias
+ * (migração 022): um coletor de Mesquita pertence ao Sarapuí tanto quanto um de
+ * Belford Roxo, e recortar pela cidade o esconderia de metade dos sistemas em que
+ * ele cabe. A empresa é o nível que sobrevive a isso — sub-bacia, coletor e
+ * macrorregião carregam `emp_codigo`, e é a mesma chave que agrupa a
+ * macrorregião (`sistema_cts`, `emp_codigo`). Um sistema pode estar em cidades
+ * de empresas diferentes (Saracuruna: Duque de Caxias e Magé), por isso o
+ * recorte é por CONJUNTO de empresas.
+ *
+ * SEM EMPRESA VAI NUM GRUPO À PARTE, e não some: é o coletor que a carga não
+ * situou em cidade nenhuma (e portanto em empresa nenhuma). Esconder esses
+ * deixaria uma CTS que existe no banco sem forma nenhuma de ser colocada —
+ * trocaria uma lista grande demais por uma que mente.
  */
 export function AdicionarCts({
   sistemaId,
   sistemaNome,
-  cidadesDoSistema,
   empresasDoSistema,
-  cidadeNome,
+  empresasNome,
   topo,
   dados,
   limitada,
@@ -48,12 +55,10 @@ export function AdicionarCts({
 }: {
   sistemaId: string
   sistemaNome: string
-  /** As cidades do sistema — o recorte da lista, para os COLETORES. Um sistema pode estar em várias. */
-  cidadesDoSistema: Set<string>
-  /** As empresas do sistema — o recorte da lista, para as MACRORREGIÕES. Podem ser mais de uma. */
+  /** As empresas do sistema — o recorte da lista. Um sistema pode estar em cidades de mais de uma. */
   empresasDoSistema: Set<string>
-  /** O nome dela, para o texto. Cai no id quando o nome não veio. */
-  cidadeNome: string
+  /** Os nomes delas, para o texto. Caem no código quando o nome não veio. */
+  empresasNome: string
   /** As linhas da aba do Fluxo — é delas que sai quem está sem sistema. */
   topo: Row[]
   /**
@@ -83,52 +88,27 @@ export function AdicionarCts({
    * colocar às cegas uma CTS que pode ser de outro município.
    */
   /**
-   * A MACRORREGIÃO SE RECORTA PELA EMPRESA, e o coletor pela cidade.
-   *
-   * O recorte por cidade protege quem coloca um COLETOR: um de outro município
-   * no seletor é um erro esperando acontecer. Uma macrorregião cruza município
-   * por definição, então cidade não é a régua dela — e as duas tentativas de
-   * usá-la erraram para lados opostos. Recortar pela cidade dominante a escondia
-   * dos sistemas dos outros municípios dela (`Bandeirantes` atende 4 e aparecia
-   * em 1). Não recortar nada a oferecia a duas cidades de distância, e a lista do
-   * modo macrorregião ficava MAIOR que a do modo coletor — quando a intuição de
-   * quem opera é que "uma CTS por sistema" dê MENOS opções, não mais.
-   *
-   * A régua certa é a que a chave `(sistema_cts, emp_codigo)` sempre disse: a
-   * macrorregião é ofertável nos sistemas da empresa que a opera.
+   * UMA RÉGUA SÓ: a empresa. Coletor e macrorregião entram se a empresa deles é
+   * uma das do sistema. O que a macrorregião ensinou vale para o coletor — a
+   * cidade esconde quem cabe, e a empresa é a chave que os três compartilham.
+   * `Set` vazio (sistema sem cidade, logo sem empresa) não casa com nada: quem
+   * não tem empresa vai para o grupo à parte, e não para as duas listas.
    */
   const ehMacro = (t: Row) => t.macro === 'true'
   const daEmpresa = (t: Row) => empresasDoSistema.has(t.emp_codigo)
-  const daCidadeDoSistema = (t: Row) => cidadesDoSistema.has(t.cidade_id)
-  const temCidade = cidadesDoSistema.size > 0
+  const temEmpresa = empresasDoSistema.size > 0
 
-  const daCidade = useMemo(
-    // UM SISTEMA SEM CIDADE NÃO CASA COM NADA: `Set` vazio não tem `''` dentro,
-    // então a CTS sem cidade não entra aqui — ela vai para o grupo à parte, que
-    // `semCidade` colhe. Com a versão anterior (`'' === ''`) ela entrava nas duas
-    // listas, com a mesma `key`, e o contador dizia o dobro.
-    () => livres.filter((t) => (ehMacro(t) ? daEmpresa(t) : daCidadeDoSistema(t))),
-    // Sets são comparados por referência; os dois vêm de `useMemo` no wizard e só
-    // mudam quando o sistema escolhido muda.
+  const daEmpresaDoSistema = useMemo(
+    () => livres.filter(daEmpresa),
+    // O Set vem de `useMemo` no wizard e só muda quando o sistema escolhido muda.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [livres, cidadesDoSistema, empresasDoSistema],
+    [livres, empresasDoSistema],
   )
-  // As sem cidade, que continuam saindo à parte — a macrorregião já foi colhida
-  // acima, e sem esta exclusão uma sem cidade dominante apareceria nas duas
-  // listas, com a mesma `key`.
-  // SEM ONDE RECORTAR, num caso ou no outro: o coletor que a carga não situou,
-  // e a macrorregião cujos membros não têm cidade (e portanto nem empresa). Os
-  // dois vão para o grupo à parte em vez de sumir.
-  const semCidade = useMemo(
-    () => livres.filter((t) => (ehMacro(t) ? !t.emp_codigo : !t.cidade_id)),
-    [livres],
-  )
-  // O RÓTULO TEM DE CONTAR A MESMA HISTÓRIA QUE A LISTA. "Só aparecem CTS de X"
-  // deixa de ser verdade no instante em que uma macrorregião de outra cidade
-  // entra por exceção, e um recorte que a tela descreve errado é pior que
-  // recorte nenhum: quem procura entende que a lista está completa.
-  const temMacro = useMemo(() => daCidade.some(ehMacro), [daCidade])
-  const quantas = daCidade.length + semCidade.length
+  // SEM EMPRESA VAI À PARTE, e não some: é o coletor que a carga não situou em
+  // cidade nenhuma — e a macrorregião cujos membros também não.
+  const semEmpresa = useMemo(() => livres.filter((t) => !t.emp_codigo), [livres])
+  const temMacro = useMemo(() => daEmpresaDoSistema.some(ehMacro), [daEmpresaDoSistema])
+  const quantas = daEmpresaDoSistema.length + semEmpresa.length
 
   if (!sistemaId) return null
 
@@ -156,26 +136,26 @@ export function AdicionarCts({
           className="min-w-0 flex-1 rounded-[8px] border border-ink-200 bg-white px-2.5 py-1.5 text-[12.5px]"
         >
           <option value="">
-            {!temCidade
-              ? /* O SISTEMA AINDA NAO TEM CIDADE: prometer um recorte por cidade
-                   aqui seria mentir sobre o que a lista é. */
+            {!temEmpresa
+              ? /* O SISTEMA AINDA NAO TEM CIDADE, logo nem empresa: prometer um
+                   recorte aqui seria mentir sobre o que a lista é. */
                 quantas
-                ? `Escolha uma CTS… (${quantas} sem cidade cadastrada)`
+                ? `Escolha uma CTS… (${quantas} sem empresa cadastrada)`
                 : 'Este sistema ainda não tem cidade'
               : quantas
-                ? `Escolha uma CTS… (${quantas} livre${quantas > 1 ? 's' : ''} em ${cidadeNome})`
-                : `Nenhuma CTS livre em ${cidadeNome}`}
+                ? `Escolha uma CTS… (${quantas} livre${quantas > 1 ? 's' : ''} de ${empresasNome})`
+                : `Nenhuma CTS livre de ${empresasNome}`}
           </option>
-          {daCidade.map((c) => (
+          {daEmpresaDoSistema.map((c) => (
             <option key={c.componente_sistema_id} value={c.componente_sistema_id}>
               {c.componente_sistema_nome || c.componente_sistema_id}
             </option>
           ))}
           {/* Agrupadas e rotuladas: sem o rótulo elas se misturariam às da
-              cidade, e a lista voltaria a afirmar um lugar que não sabe. */}
-          {semCidade.length > 0 && (
-            <optgroup label="Sem cidade cadastrada">
-              {semCidade.map((c) => (
+              empresa, e a lista voltaria a afirmar um dono que não sabe. */}
+          {semEmpresa.length > 0 && (
+            <optgroup label="Sem empresa cadastrada">
+              {semEmpresa.map((c) => (
                 <option key={c.componente_sistema_id} value={c.componente_sistema_id}>
                   {c.componente_sistema_nome || c.componente_sistema_id}
                 </option>
@@ -196,29 +176,16 @@ export function AdicionarCts({
         </button>
       </div>
       <div className="mt-1.5 text-[11.5px] leading-snug text-ink-water">
-        {temCidade ? (
+        {temEmpresa ? (
           <>
-            Só aparecem CTS de <strong>{cidadeNome}</strong> que não estão em nenhum outro
-            sistema
-            {temMacro ? (
-              <>
-                , mais as <strong>macrorregiões</strong> da unidade, que atendem a mais de
-                um município
-              </>
-            ) : null}
-            .
+            Só aparecem {temMacro ? 'macrorregiões' : 'CTS'} de{' '}
+            <strong>{empresasNome}</strong> que não estão em nenhum outro sistema — a
+            empresa, e não a cidade: um sistema pode estar em mais de um município.
           </>
         ) : (
           <>
-            Este sistema não tem cidade cadastrada, então a lista{' '}
-            <strong>não é recortada por município</strong>
-            {livres.some(ehMacro) ? (
-              <>
-                {' '}— e as <strong>macrorregiões</strong> não aparecem: sem a cidade não
-                se sabe a empresa do sistema, e é por ela que elas se recortam
-              </>
-            ) : null}
-            .
+            Este sistema não tem cidade cadastrada, então não se sabe a empresa dele e a
+            lista <strong>não é recortada</strong> — só as CTS sem empresa aparecem.
           </>
         )}{' '}
         Depois de adicionar, defina para onde ela escoa na tabela e salve.

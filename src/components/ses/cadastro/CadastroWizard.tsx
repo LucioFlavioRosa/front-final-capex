@@ -410,13 +410,6 @@ export function CadastroWizard() {
    * cidade a lista é. Cai no id quando o nome não veio: um recorte sem rótulo
    * seria uma lista curta sem explicação.
    */
-  const cidadeDoSistemaEscolhido = useMemo(() => {
-    const cid = sistemaEscolhido?.cidade_id
-    if (!cid) return '—'
-    const linha = (dadosDoCadastro?.['cidade-operacional'] ?? []).find((r) => r.cidade_id === cid)
-    return linha?.cidade_name || cid
-  }, [sistemaEscolhido, dadosDoCadastro])
-
   /**
    * A EMPRESA do sistema escolhido, pela cidade dele: `cidade-empresa` é o vínculo,
    * e toda cidade tem uma empresa. É por ela que o seletor recorta as
@@ -430,6 +423,14 @@ export function CadastroWizard() {
       vinculos.filter((r) => cidadesDoSistemaEscolhido.has(r.cidade_id)).map((r) => r.emp_codigo),
     )
   }, [cidadesDoSistemaEscolhido, dadosDoCadastro])
+
+  /** Os nomes das empresas do sistema, para o texto do seletor. */
+  const empresasNomeDoSistemaEscolhido = useMemo(() => {
+    const nomes = dadosDoCadastro?.['empresa'] ?? []
+    return [...empresasDoSistemaEscolhido]
+      .map((cod) => nomes.find((e) => e.emp_codigo === cod)?.empresa || cod)
+      .join(' e ')
+  }, [empresasDoSistemaEscolhido, dadosDoCadastro])
 
   /** A linha de `unidade-regional` — onde moram o WACC e a macrorregião de CTS. */
   const linhaDaUnidade = unidade?.data['unidade-regional']?.[0]
@@ -1064,9 +1065,8 @@ export function CadastroWizard() {
                   <AdicionarCts
                     sistemaId={escopo.sistemaId}
                     sistemaNome={sistemaEscolhido?.sistema_name ?? ''}
-                    cidadesDoSistema={cidadesDoSistemaEscolhido}
                     empresasDoSistema={empresasDoSistemaEscolhido}
-                    cidadeNome={cidadeDoSistemaEscolhido}
+                    empresasNome={empresasNomeDoSistemaEscolhido}
                     topo={topoDoCadastro ?? []}
                     dados={unidade.data}
                     limitada={unidadeUsaCts && ctsDoSistema > 0}
