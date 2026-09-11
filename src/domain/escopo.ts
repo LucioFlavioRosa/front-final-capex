@@ -60,6 +60,12 @@ interface IndiceEscopo {
   cidadesPorSistema: Map<string, Set<string>>
   /** Cidade → empresa que a opera (`cidade-empresa`; toda cidade tem uma). */
   empresaPorCidade: Map<string, string>
+  /**
+   * Chave de sistema → empresas das cidades dele. Derivado de `cidadesPorSistema`
+   * e `empresaPorCidade`, uma vez: é a pergunta que a barra faz por linha e o
+   * seletor de CTS faz por sistema, e as duas a faziam refazendo o cruzamento.
+   */
+  empresasPorSistema: Map<string, Set<string>>
   /** Empresa → nome legível (`empresa`), para o rótulo da opção. */
   nomePorEmpresa: Map<string, string>
   /**
@@ -135,8 +141,19 @@ function indice(dados: Dados): IndiceEscopo {
     if (e && !nomePorEmpresa.has(e)) nomePorEmpresa.set(e, txt(r.empresa) || e)
   }
 
+  const empresasPorSistema = new Map<string, Set<string>>()
+  for (const [chave, cidades] of cidadesPorSistema) {
+    const empresas = new Set<string>()
+    for (const c of cidades) {
+      const e = empresaPorCidade.get(c)
+      if (e) empresas.add(e)
+    }
+    empresasPorSistema.set(chave, empresas)
+  }
+
   const novo: IndiceEscopo = {
     nomePorSistema, cidadesPorSistema, sistemaPorSubbaciaCapex, empresaPorCidade, nomePorEmpresa,
+    empresasPorSistema,
   }
   cache.set(dados, novo)
   return novo
@@ -201,19 +218,33 @@ const empresaDaCidade = (dados: Dados, cidade: string): string =>
   indice(dados).empresaPorCidade.get(cidade) ?? ''
 
 /**
- * As empresas de uma linha. Mais de uma é normal: um sistema pode estar em
- * cidades de empresas diferentes (Saracuruna: Duque de Caxias e Magé).
+ * AS EMPRESAS DE UM SISTEMA — as das cidades dele, procuradas pelo id E pelo
+ * nome como em `cidadesDoSistema`. Mais de uma é normal: um sistema pode estar
+ * em cidades de empresas diferentes (Saracuruna: Duque de Caxias e Magé). É a
+ * régua do seletor de CTS do Fluxo e do eixo `via-sistema` da barra — a outra
+ * metade da chave `(sistema_cts, emp_codigo)` da macrorregião.
  */
+export function empresasDoSistema(dados: Dados, s: Sistema): string[] {
+  const ix = indice(dados)
+  const uniao = new Set<string>()
+  for (const k of [s.id, s.nome]) {
+    if (!k) continue
+    for (const e of ix.empresasPorSistema.get(k) ?? []) uniao.add(e)
+  }
+  return [...uniao]
+}
+
+/** O nome legível de uma empresa (`empresa`), ou o código quando não veio. */
+export const nomeDaEmpresa = (dados: Dados, empresaId: string): string =>
+  indice(dados).nomePorEmpresa.get(empresaId) ?? empresaId
+
+/** As empresas de uma linha, pelo caminho que a aba declarou. */
 export function empresasDaLinhaEscopo(
   dados: Dados,
   escopo: EscopoAba,
   fonte: FonteEmpresa,
   row: Row,
 ): string[] {
-  if (fonte === 'coluna') {
-    const e = txt(row.emp_codigo)
-    return e ? [e] : []
-  }
   if (fonte === 'via-cidade') {
     const e = empresaDaCidade(dados, txt(row.cidade_id))
     return e ? [e] : []
@@ -221,12 +252,7 @@ export function empresasDaLinhaEscopo(
   // 'via-sistema': as empresas das cidades do sistema — o vínculo
   // cidade↔sistema é de cadastro, não de linha.
   if (!escopo.sistema) return []
-  const uniao = new Set<string>()
-  for (const c of cidadesDoSistema(dados, sistemaDaLinhaEscopo(dados, escopo.sistema, row))) {
-    const e = empresaDaCidade(dados, c)
-    if (e) uniao.add(e)
-  }
-  return [...uniao]
+  return empresasDoSistema(dados, sistemaDaLinhaEscopo(dados, escopo.sistema, row))
 }
 
 /** A linha entra no recorte? Eixo em `''` não filtra nada. */
@@ -283,7 +309,7 @@ export function opcoesEscopo(dados: Dados, aba: AbaDef, rows: Row[]): OpcoesEsco
       ? []
       : def.empresa === 'via-sistema'
         ? s
-          ? [...new Set(cidadesDoSistema(dados, s).map((c) => empresaDaCidade(dados, c)).filter(Boolean))]
+          ? empresasDoSistema(dados, s)
           : []
         : empresasDaLinhaEscopo(dados, def, def.empresa, row)
 
@@ -299,13 +325,11 @@ export function opcoesEscopo(dados: Dados, aba: AbaDef, rows: Row[]): OpcoesEsco
     for (const e of empresasDaLinha) empresasVistas.add(e)
   }
 
-  const nomeEmpresa = indice(dados).nomePorEmpresa
-
   const opcEmpresas: OpcaoEscopo[] = def.empresa
     ? [
         { value: '', label: 'Todas as empresas' },
         ...[...empresasVistas]
-          .map((id) => ({ value: id, label: nomeEmpresa.get(id) ?? id }))
+          .map((id) => ({ value: id, label: nomeDaEmpresa(dados, id) }))
           .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR')),
       ]
     : []
@@ -398,10 +422,6 @@ export function escopoInicial(opcoes: OpcoesEscopo, temBarra: boolean): Escopo {
 export function colunasDoEscopo(aba: AbaDef): Set<string> {
   const fora = new Set<string>()
   if (!aba.escopo) return fora
-  if (aba.escopo.empresa === 'coluna') {
-    fora.add('emp_codigo')
-    fora.add('empresa')
-  }
   if (aba.escopo.sistema === 'coluna' || aba.escopo.sistema === 'fluxo') {
     fora.add('sistema_id')
     fora.add('sistema_name')
@@ -418,30 +438,16 @@ export function colunasDoEscopo(aba: AbaDef): Set<string> {
 export const MIN_LINHAS_PARA_ESCOPO = 15
 
 /**
- * AS ABAS QUE NÃO ESPERAM AS 15 LINHAS.
- *
- * A do Fluxo, porque nela a barra não recorta só a tabela: escolhe qual sistema
- * o desenho ao lado mostra. As duas da CTS, porque a unidade de trabalho da CTS
- * é o SISTEMA — decidido no Fluxo — e quem chega nelas vem procurar "a CTS do
- * sistema X"; com a macrorregião marcada há UMA por sistema, então a aba nunca
- * chegaria a 15 linhas e a barra que responde à pergunta nunca apareceria.
- *
- * "Sempre" tem um limite que não é daqui: `FiltroEscopo` ainda se esconde quando
- * o eixo tem UMA opção só — um seletor de uma opção é decoração.
- */
-export const ABAS_COM_BARRA_SEMPRE: ReadonlySet<string> = new Set([
-  'sistema-topologia',
-  'cts-operacional',
-  'componentes-cts-capex',
-])
-
-/**
  * A aba mostra a barra de escopo com este tanto de linhas?
  *
  * UMA REGRA, num lugar só: a tela a usa para decidir o recorte inicial e para
  * desenhar a barra, e os testes de abertura a usam para medir o que a grade
  * monta. Dois testes já a tinham reescrito à mão — e passavam mesmo se as abas
- * da CTS perdessem a barra.
+ * da CTS perdessem a barra. Quais abas não esperam as linhas é declaração da
+ * própria aba (`EscopoAba.barraSempre`), como o resto do escopo dela.
+ *
+ * "Sempre" tem um limite que não é daqui: `FiltroEscopo` ainda se esconde quando
+ * o eixo tem UMA opção só — um seletor de uma opção é decoração.
  */
 export const barraDeEscopoVisivel = (aba: AbaDef, linhas: number): boolean =>
-  !!aba.escopo && (ABAS_COM_BARRA_SEMPRE.has(aba.key) || linhas >= MIN_LINHAS_PARA_ESCOPO)
+  !!aba.escopo && (!!aba.escopo.barraSempre || linhas >= MIN_LINHAS_PARA_ESCOPO)

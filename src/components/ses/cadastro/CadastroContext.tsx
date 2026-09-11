@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState, type ReactNode, useRef} from 'react'
 import { SCHEMA, cidadesDoCadastro, nomeCidade } from '../../../data/cadastroUnidade/schema'
-import { lerCadastro, salvarCadastro, CadastroSemLeitura } from '../../../lib/cadastroApi'
+import { lerCadastro, salvarCadastro, gravarUnidade, CadastroSemLeitura } from '../../../lib/cadastroApi'
 import type { BaseDoCadastro } from '../../../lib/cadastroApi'
-import { ApiError, api } from '../../../lib/api'
+import { ApiError } from '../../../lib/api'
 import { garantirFaixaZero } from '../../../domain/calc'
 import { espelharColunas } from '../../../domain/fluxo'
 import type { UnidadeState } from '../../../data/cadastroUnidade/types'
@@ -386,6 +386,19 @@ interface CadastroContextValue {
 
 const CadastroCtx = createContext<CadastroContextValue | null>(null)
 
+/**
+ * O que o servidor recalcula quando a caixa "usa macrorregião de CTS" muda: a
+ * própria caixa (a linha da unidade), a lista de disponíveis do Fluxo
+ * (`semSistema` vira linhas da aba de topologia) e as fichas de CTS — uma por
+ * macrorregião, ou uma por coletor. São as abas que `gravarUsaCts` rehidrata, e
+ * só elas: as outras ficam como a pessoa as deixou.
+ */
+const ABAS_DA_CAIXA = ['unidade-regional', 'sistema-topologia', 'cts-operacional', 'componentes-cts-capex']
+
+/** As `abas` de `dados`, com `[]` onde o servidor não mandou a aba. */
+const soAsAbas = (dados: UnidadeState['data'], abas: string[]): UnidadeState['data'] =>
+  Object.fromEntries(abas.map((aba) => [aba, dados[aba] ?? []]))
+
 export function CadastroProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState)
 
@@ -520,18 +533,11 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
     }
   }, [unidadeAtual])
 
-  /**
-   * O que o servidor recalcula quando a caixa muda: a própria caixa (a linha da
-   * unidade), a lista de disponíveis do Fluxo (`semSistema` vira linhas da aba
-   * de topologia) e as fichas de CTS — uma por macrorregião, ou uma por coletor.
-   */
-  const ABAS_DA_CAIXA = ['unidade-regional', 'sistema-topologia', 'cts-operacional', 'componentes-cts-capex']
-
   const gravarUsaCts = useCallback(
     async (marcado: boolean): Promise<string | null> => {
       if (!unidadeAtual) return null
       try {
-        await api.put(`/api/unidades/${unidadeAtual.id}`, { usaCts: marcado })
+        await gravarUnidade(unidadeAtual.id, { usaCts: marcado })
       } catch (erro) {
         // A RECUSA (422) vem com a frase do servidor. Qualquer outra falha —
         // rede, proxy, timeout — também vira mensagem ao lado da caixa: a caixa
@@ -560,10 +566,7 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
         // no Salvar — acompanha as abas de CTS, senão o Salvar reenviaria como
         // mudança tudo que a rehidratação trouxe.
         cts: registro.base.cts,
-        dados: {
-          ...base.current!.dados,
-          ...Object.fromEntries(ABAS_DA_CAIXA.map((aba) => [aba, registro.dados[aba] ?? []])),
-        },
+        dados: { ...base.current!.dados, ...soAsAbas(registro.dados, ABAS_DA_CAIXA) },
       }
       dispatch({
         type: 'HIDRATAR_ABAS',

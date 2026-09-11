@@ -16,7 +16,7 @@ import { render, screen, within } from '@testing-library/react'
 import { AdicionarCts } from './AdicionarCts'
 import type { Row } from '../../../data/cadastroUnidade/types'
 
-const cts = (id: string, empresa: string, macro = 'false'): Row => ({
+const cts = (id: string, empresa: string, macro = 'Nao'): Row => ({
   sistema_id: '',
   componente_sistema_id: id,
   componente_sistema_nome: `CTS ${id}`,
@@ -91,7 +91,7 @@ describe('o seletor de CTS é recortado pela empresa do sistema', () => {
 })
 
 describe('a macrorregião segue a mesma régua', () => {
-  const MACRO = cts('MACRO_A', 'e1', 'true')
+  const MACRO = cts('MACRO_A', 'e1', 'Sim')
 
   it('é oferecida num sistema da empresa dela', () => {
     abrir([MACRO, cts('de-fora', 'e2')], ['e1'])

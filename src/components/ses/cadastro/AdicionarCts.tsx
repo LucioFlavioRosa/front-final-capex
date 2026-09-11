@@ -87,28 +87,22 @@ export function AdicionarCts({
    * segunda é rara e some quando a carga completar — mas enquanto existir, ela
    * precisa ficar visível e SEPARADA, para ninguém colocar às cegas uma CTS que
    * pode ser de outra operadora.
-   */
-  /**
+   *
    * UMA RÉGUA SÓ: a empresa. Coletor e macrorregião entram se a empresa deles é
    * uma das do sistema. O que a macrorregião ensinou vale para o coletor — a
    * cidade esconde quem cabe, e a empresa é a chave que os três compartilham.
    * `Set` vazio (sistema sem cidade, logo sem empresa) não casa com nada: quem
    * não tem empresa vai para o grupo à parte, e não para as duas listas.
    */
-  const ehMacro = (t: Row) => t.macro === 'true'
-  const daEmpresa = (t: Row) => empresasDoSistema.has(t.emp_codigo)
-  const temEmpresa = empresasDoSistema.size > 0
-
   const daEmpresaDoSistema = useMemo(
-    () => livres.filter(daEmpresa),
-    // O Set vem de `useMemo` no wizard e só muda quando o sistema escolhido muda.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () => livres.filter((t) => empresasDoSistema.has(t.emp_codigo)),
     [livres, empresasDoSistema],
   )
   // SEM EMPRESA VAI À PARTE, e não some: é o coletor que a carga não situou em
   // cidade nenhuma — e a macrorregião cujos membros também não.
   const semEmpresa = useMemo(() => livres.filter((t) => !t.emp_codigo), [livres])
-  const temMacro = useMemo(() => daEmpresaDoSistema.some(ehMacro), [daEmpresaDoSistema])
+  const temEmpresa = empresasDoSistema.size > 0
+  const temMacro = daEmpresaDoSistema.some((t) => t.macro === 'Sim')
   const quantas = daEmpresaDoSistema.length + semEmpresa.length
 
   if (!sistemaId) return null

@@ -30,7 +30,11 @@ import {
   escopoAtivo,
   escopoInicial,
   opcoesEscopo,
-  sistemaPadraoDoFluxo, barraDeEscopoVisivel } from '../../../domain/escopo'
+  sistemaPadraoDoFluxo,
+  barraDeEscopoVisivel,
+  empresasDoSistema,
+  nomeDaEmpresa,
+} from '../../../domain/escopo'
 import { useCadastro } from './CadastroContext'
 import { Button } from '../../ui/Button'
 import { useToast } from '../../ui/Toaster'
@@ -354,21 +358,6 @@ export function CadastroWizard() {
     () => sistemasDoCadastro?.find((r) => r.sistema_id === escopo.sistemaId),
     [sistemasDoCadastro, escopo.sistemaId],
   )
-  /**
-   * AS CIDADES DO SISTEMA ESCOLHIDO — todas. Um sistema pode estar em várias
-   * (`cidade-sistema` tem uma linha por cidade), e `sistemaEscolhido` é só a
-   * primeira dessas linhas. Recortar o seletor de CTS pela primeira esconderia
-   * o coletor que está na segunda cidade do mesmo sistema.
-   */
-  const cidadesDoSistemaEscolhido = useMemo(
-    () =>
-      new Set(
-        (sistemasDoCadastro ?? [])
-          .filter((r) => r.sistema_id === escopo.sistemaId && r.cidade_id)
-          .map((r) => r.cidade_id),
-      ),
-    [sistemasDoCadastro, escopo.sistemaId],
-  )
   const topoDoCadastro = unidade?.data[ABA_DO_FLUXO]
   const dadosDoCadastro = unidade?.data
   const ctsDoSistema = useMemo(() => {
@@ -381,26 +370,31 @@ export function CadastroWizard() {
   }, [topoDoCadastro, dadosDoCadastro, escopo.sistemaId])
 
   /**
-   * A EMPRESA do sistema escolhido, pela cidade dele: `cidade-empresa` é o vínculo,
-   * e toda cidade tem uma empresa. É por ela que o seletor recorta as
-   * macrorregiões — a outra metade da chave `(sistema_cts, emp_codigo)`.
+   * AS EMPRESAS do sistema escolhido — TODAS as cidades dele (um sistema pode
+   * estar em várias, e `sistemaEscolhido` é só a primeira linha), e um CONJUNTO
+   * porque as cidades podem ser de empresas diferentes (Saracuruna está em
+   * Duque de Caxias, da 57, e em Magé, da 56). É por elas que o seletor recorta
+   * as macrorregiões — a outra metade da chave `(sistema_cts, emp_codigo)` — e
+   * a resposta é a mesma que a barra de escopo dá para o eixo `via-sistema`.
    */
-  const empresasDoSistemaEscolhido = useMemo(() => {
-    // UM CONJUNTO: as cidades do sistema podem ser de empresas diferentes
-    // (Saracuruna está em Duque de Caxias, da 57, e em Magé, da 56).
-    const vinculos = dadosDoCadastro?.['cidade-empresa'] ?? []
-    return new Set(
-      vinculos.filter((r) => cidadesDoSistemaEscolhido.has(r.cidade_id)).map((r) => r.emp_codigo),
-    )
-  }, [cidadesDoSistemaEscolhido, dadosDoCadastro])
+  const empresasDoSistemaEscolhido = useMemo(
+    () =>
+      new Set(
+        dadosDoCadastro && escopo.sistemaId
+          ? empresasDoSistema(dadosDoCadastro, { id: escopo.sistemaId, nome: '' })
+          : [],
+      ),
+    [dadosDoCadastro, escopo.sistemaId],
+  )
 
   /** Os nomes das empresas do sistema, para o texto do seletor. */
-  const empresasNomeDoSistemaEscolhido = useMemo(() => {
-    const nomes = dadosDoCadastro?.['empresa'] ?? []
-    return [...empresasDoSistemaEscolhido]
-      .map((cod) => nomes.find((e) => e.emp_codigo === cod)?.empresa || cod)
-      .join(' e ')
-  }, [empresasDoSistemaEscolhido, dadosDoCadastro])
+  const empresasNomeDoSistemaEscolhido = useMemo(
+    () =>
+      [...empresasDoSistemaEscolhido]
+        .map((cod) => (dadosDoCadastro ? nomeDaEmpresa(dadosDoCadastro, cod) : cod))
+        .join(' e '),
+    [empresasDoSistemaEscolhido, dadosDoCadastro],
+  )
 
   /** A linha de `unidade-regional` — onde moram o WACC e a macrorregião de CTS. */
   const linhaDaUnidade = unidade?.data['unidade-regional']?.[0]

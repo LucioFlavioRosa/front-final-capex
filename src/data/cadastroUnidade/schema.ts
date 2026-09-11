@@ -795,8 +795,9 @@ export const SCHEMA: AbaDef[] = [
     // arquivo v8 — ver ponto (1) no comentário do topo do arquivo.
     key: 'sistema-topologia', icone: Graph, titulo: 'Fluxo de escoamento',
     // A aba do print: os dois eixos, e o sistema pelo caminho 'fluxo' porque a
-    // linha de CTS chega sem `sistema_id` — ele vem do destino dela.
-    escopo: { empresa: 'via-sistema', sistema: 'fluxo' },
+    // linha de CTS chega sem `sistema_id` — ele vem do destino dela. A barra
+    // não espera linhas: é ela que escolhe qual sistema o desenho mostra.
+    escopo: { empresa: 'via-sistema', sistema: 'fluxo', barraSempre: true },
     /**
      * A ÚLTIMA FRASE DA DESCRIÇÃO é a que importa: o destino não tem fonte, é a
      * informação mais crítica da base, e errá-lo não produz erro — produz um
@@ -1008,9 +1009,11 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
   },
   {
     key: 'cts-operacional', icone: Drop, titulo: 'Dados da CTS',
-    // A aba com o join mais curto dos dois eixos: tem `sistema_id`,
-    // `sistema_name` e `emp_codigo` na própria linha.
-    escopo: { empresa: 'via-sistema', sistema: 'coluna' },
+    // A aba com o join mais curto dos dois eixos: tem `sistema_id` e
+    // `sistema_name` na própria linha. A barra não espera linhas: a unidade de
+    // trabalho da CTS é o sistema, e com a macrorregião marcada há UMA por
+    // sistema — a aba nunca chegaria às linhas que a fariam aparecer.
+    escopo: { empresa: 'via-sistema', sistema: 'coluna', barraSempre: true },
     desc: 'Mesmos parâmetros da sub-bacia (preço, prazos, vazão, população), aplicados ao CTS.',
     addRow: true,
     novo: () => ({ cts_id: '', cts_name: '', sistema_id: '', sistema_name: '' }),
@@ -1064,8 +1067,9 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
   {
     key: 'componentes-cts-capex', icone: Wrench, titulo: 'CAPEX da CTS',
     // 4 linhas por CTS, e nenhuma coluna de hierarquia além de `cts_id`: os
-    // dois eixos chegam pelo sistema da CTS.
-    escopo: { empresa: 'via-sistema', sistema: 'via-cts' },
+    // dois eixos chegam pelo sistema da CTS. A barra não espera linhas, pela
+    // mesma razão da aba irmã.
+    escopo: { empresa: 'via-sistema', sistema: 'via-cts', barraSempre: true },
     // Mesmo formato da `desc` da aba irmã: os componentes nomeados primeiro, a
     // regra do CAPEX depois, e só então a ressalva de procedência. A diferença
     // entre as duas listas — 5 e 4 — é o que explica a CTS, e por isso a ausência

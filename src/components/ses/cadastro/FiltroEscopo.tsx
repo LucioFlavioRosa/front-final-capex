@@ -76,7 +76,7 @@ export function FiltroEscopo({ opcoes, escopo, onEscopo }: Props) {
       {/* SEM CONTADOR AQUI — o rodapé da grade já mostra "84 de 1.047", e ele é o
           número CERTO: soma o recorte da barra com os filtros de coluna. Um
           segundo contador contando só metade discordaria do primeiro. */}
-      {/* LIMPA A CIDADE, e não o recorte inteiro: não há "todos os sistemas"
+      {/* LIMPA A EMPRESA, e não o recorte inteiro: não há "todos os sistemas"
           (ver `opcoesEscopo`), então zerar os dois deixaria a barra num estado
           que a lista não oferece — e a grade voltaria a montar tudo. Some
           quando não há empresa escolhida, porque aí não há o que limpar. */}
