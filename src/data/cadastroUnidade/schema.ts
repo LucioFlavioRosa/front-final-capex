@@ -1038,6 +1038,17 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
        * "origem sem destino", que é o problema de verdade.
        */
       { coluna: 'sistema_id', origem: 'calc', procedencia: 'regra', oque: 'Sistema de esgotamento sanitário a que este CTS pertence. Não se digita: é o sistema do nó para onde a CTS deságua, lido do Fluxo de escoamento.', porque: 'Nenhuma fonte liga CTS a sistema de sub-bacias — o vínculo só existe pelo destino. Derivar evita que o mesmo fato fique gravado em dois lugares que podem discordar.' }, { coluna: 'sistema_name', origem: 'calc', procedencia: 'regra', oque: 'Nome do sistema de esgotamento sanitário, derivado do destino da CTS no Fluxo de escoamento.' },
+      /**
+       * O SISTEMA CTS — a macrorregião. É a coluna da origem pela qual os
+       * coletores são agrupados quando a unidade trabalha em macrorregião, e é
+       * ela que diz de onde uma ficha somada veio. Num coletor membro é o nome
+       * da macrorregião dele; na linha da macrorregião é o próprio nome; vazia
+       * num coletor que a origem não pôs em macrorregião nenhuma.
+       *
+       * 'db': vem do Databricks e a tela só mostra — o agrupamento não se edita
+       * aqui, ele é decidido na origem.
+       */
+      { coluna: 'sistema_cts', origem: 'db', procedencia: 'cts', oque: 'Sistema CTS (macrorregião) a que este coletor pertence na base comercial. Quando a unidade usa macrorregião, os coletores com o mesmo sistema CTS e a mesma empresa são somados numa ficha só — e esta coluna é o que diz qual.', porque: 'É a chave do agrupamento. Sem ela, a ficha somada aparece com um nome e nada diz de onde a soma veio.', exemplo: 'SarapuíNL' },
       ...colsOperacionalComercial('cts'),
     ],
   },

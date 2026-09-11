@@ -122,6 +122,10 @@ interface FichaColeta {
   db: Record<string, string>
   params: Record<string, string>
   obrasOverride: Record<string, Obra>
+  /** SÓ NA CTS: a macrorregião a que a ficha pertence, ou o próprio id quando ela É a macrorregião. */
+  sistemaCts?: string
+  /** SÓ NA CTS: `"true"` quando a ficha é a linha da macrorregião. */
+  macro?: string
 }
 
 interface SubBacias {
@@ -478,6 +482,11 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
       ...linhaDeColeta(id, f, 'cts_id', 'cts_name'),
       sistema_id: f.sisId ?? '',
       sistema_name: f.sistema ?? '',
+      // O SISTEMA CTS — a macrorregião — vem da origem e a tela só mostra. É a
+      // coluna pela qual os coletores foram agrupados; sem ela, a ficha somada
+      // aparece com um nome e nada diz de onde a soma veio.
+      sistema_cts: f.sistemaCts ?? '',
+      macro: f.macro ?? 'false',
     })),
 
     'componentes-cts-capex': Object.entries(cts.ctss).flatMap(([id, f]) =>

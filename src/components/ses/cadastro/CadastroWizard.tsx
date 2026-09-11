@@ -99,6 +99,16 @@ const ABA_DO_FLUXO = 'sistema-topologia'
 const MIN_LINHAS_PARA_ESCOPO = 15
 
 /**
+ * AS ABAS DA CTS GANHAM A BARRA SEMPRE, como a do Fluxo — e por uma razão da
+ * mesma família. O mínimo de linhas protege quem lê uma aba inteira de uma vez;
+ * mas a unidade de trabalho da CTS é o SISTEMA: o sistema dela é decidido na aba
+ * do Fluxo, e quem chega aqui vem procurar "a CTS do sistema X". Com a
+ * macrorregião marcada há UMA por sistema, então a aba nunca chegaria a 15
+ * linhas — e a barra que responde à pergunta de quem chega nunca apareceria.
+ */
+const ABAS_COM_BARRA_SEMPRE = new Set(['sistema-topologia', 'cts-operacional', 'componentes-cts-capex'])
+
+/**
  * O CROMO DA GRADE — 20px que não são folga estética.
  *
  * A coluna da esquerda tem de ser mais larga que a TABELA, não igual a ela: o
@@ -337,7 +347,8 @@ export function CadastroWizard() {
     // de quando a barra existe é a mesma de `mostrarBarra` abaixo, e precisa
     // ser: recortar sem oferecer como trocar o recorte esconderia linhas.
     const linhas = unidade.data[aba.key] ?? []
-    const temBarra = !!aba.escopo && linhas.length >= MIN_LINHAS_PARA_ESCOPO
+    const temBarra =
+      !!aba.escopo && (ABAS_COM_BARRA_SEMPRE.has(aba.key) || linhas.length >= MIN_LINHAS_PARA_ESCOPO)
     return escopoInicial(opcoesEscopo(unidade.data, unidade.cidades, aba, linhas), temBarra)
     // `unidade?.id` e não `unidade`: esta última muda a cada tecla digitada, e o
     // recorte se refaria no meio do preenchimento. É a mesma dependência que o
@@ -637,7 +648,8 @@ export function CadastroWizard() {
   const ultimaDoBloco = abaAtualIdx === bloco.abas.length - 1
   const ultimoBloco = blocoIdx === BLOCOS.length - 1
 
-  const mostrarBarra = !!aba.escopo && (ehFluxo || rows.length >= MIN_LINHAS_PARA_ESCOPO)
+  const mostrarBarra =
+    !!aba.escopo && (ABAS_COM_BARRA_SEMPRE.has(aba.key) || rows.length >= MIN_LINHAS_PARA_ESCOPO)
 
   /** A coluna da esquerda no layout de duas colunas — ver `CROMO_DA_GRADE`. */
   // `ehFluxo` porque é a única aba com ação de linha sem `addRow` — ver
