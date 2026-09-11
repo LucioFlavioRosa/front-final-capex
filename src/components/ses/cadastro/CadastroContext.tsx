@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import { SCHEMA, cidadesDoCadastro, nomeCidade } from '../../../data/cadastroUnidade/schema'
 import { lerCadastro, salvarCadastro, CadastroSemLeitura } from '../../../lib/cadastroApi'
 import type { BaseDoCadastro } from '../../../lib/cadastroApi'
-import { ApiError } from '../../../lib/api'
+import { ApiError, api } from '../../../lib/api'
 import { garantirFaixaZero } from '../../../domain/calc'
 import { espelharColunas } from '../../../domain/fluxo'
 import type { UnidadeState } from '../../../data/cadastroUnidade/types'
@@ -346,6 +346,21 @@ interface CadastroContextValue {
    */
   salvar: () => Promise<void>
   salvando: boolean
+  /**
+   * A CAIXA DA MACRORREGIÃO GRAVA NA HORA, e não no Salvar.
+   *
+   * Ela não é um campo de ficha: é o REGIME da unidade, e o que ela muda é o que
+   * o Fluxo oferece — coletores soltos ou macrorregiões. Esperar o Salvar deixava
+   * a caixa marcada e a lista antiga na tela, e quem via as duas juntas concluía
+   * que a caixa não fazia nada. Grava, relê o cadastro e hidrata; a lista muda
+   * com o clique.
+   *
+   * Devolve a mensagem do servidor quando ele RECUSA (422): marcar com sistema de
+   * duas CTS, ou desmarcar com macrorregião colocada. A caixa então não se mexe —
+   * um controle que muda de posição para depois voltar sozinho é pior que um que
+   * fica e diz por quê. `null` quando gravou.
+   */
+  gravarUsaCts: (marcado: boolean) => Promise<string | null>
   /** Momento do último salvamento bem-sucedido nesta sessão, ou null. */
   salvoEm: Date | null
 }
@@ -486,6 +501,25 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
     }
   }, [unidadeAtual])
 
+  const gravarUsaCts = useCallback(
+    async (marcado: boolean): Promise<string | null> => {
+      if (!unidadeAtual) return null
+      try {
+        await api.put(`/api/unidades/${unidadeAtual.id}`, { usaCts: marcado })
+      } catch (erro) {
+        if (erro instanceof ApiError) return erro.message
+        throw erro
+      }
+      // O MESMO reler-e-hidratar do Salvar: a lista de disponíveis e as fichas
+      // de CTS vêm do servidor, e é ele que sabe o que a caixa mudou.
+      const registro = await lerCadastro(unidadeAtual.id)
+      base.current = registro.base
+      dispatch({ type: 'HIDRATAR', unidadeId: unidadeAtual.id, dados: registro.dados })
+      return null
+    },
+    [unidadeAtual],
+  )
+
   const value = useMemo<CadastroContextValue>(() => ({
     state,
     selecionarRegional: (regionalId) => dispatch({ type: 'SELECT_REGIONAL', regionalId }),
@@ -504,7 +538,8 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
     salvar,
     salvando,
     salvoEm,
-  }), [state, garantirFaixaZeroParidade, salvar, salvando, salvoEm])
+    gravarUsaCts,
+  }), [state, garantirFaixaZeroParidade, salvar, salvando, salvoEm, gravarUsaCts])
 
   return <CadastroCtx.Provider value={value}>{children}</CadastroCtx.Provider>
 }

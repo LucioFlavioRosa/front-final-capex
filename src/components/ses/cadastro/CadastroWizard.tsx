@@ -232,7 +232,7 @@ function useDuasColunas(larguraNaturalDaTabela: number, minimoDoDesenho: number)
 export function CadastroWizard() {
   const {
     state, irFase, setCell, setCells, addRow, delRow, importarPlanilha,
-    garantirFaixaZeroParidade, salvar, salvando,
+    garantirFaixaZeroParidade, salvar, salvando, gravarUsaCts,
   } = useCadastro()
   const { toast } = useToast()
   const unidade = state.unidade
@@ -534,10 +534,17 @@ export function CadastroWizard() {
    * guardasse estado próprio, tela, contagem de completude e payload passariam a
    * discordar.
    */
+  /** A recusa do servidor ao mudar a caixa — a caixa fica onde estava e diz por quê. */
+  const [recusaUsaCts, setRecusaUsaCts] = useState<string | null>(null)
   const aoMudarUsaCts = useCallback(
-    (marcado: boolean) =>
-      setCell('unidade-regional', 0, 'usa_macrorregiao_cts', marcado ? 'Sim' : 'Nao'),
-    [setCell],
+    async (marcado: boolean) => {
+      // GRAVA NA HORA — ver `gravarUsaCts`. A célula local só muda depois que o
+      // servidor aceitou: hidratar já a traz certa, e mexer antes faria a caixa
+      // pular e voltar numa recusa.
+      const recusa = await gravarUsaCts(marcado)
+      setRecusaUsaCts(recusa)
+    },
+    [gravarUsaCts],
   )
 
   const opcoes = useMemo(
@@ -1018,6 +1025,7 @@ export function CadastroWizard() {
               {/* LOGO ABAIXO DO WACC: as duas são o que a unidade declara sobre
                   si inteira, e ficam juntas por isso. */}
               <UsaMacrorregiaoCts
+                recusa={recusaUsaCts}
                 linha={linhaDaUnidade}
                 sistemasCheios={sistemasCheios}
                 onMudar={aoMudarUsaCts}
