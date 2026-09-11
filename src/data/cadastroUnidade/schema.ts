@@ -1049,6 +1049,15 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
        * aqui, ele é decidido na origem.
        */
       { coluna: 'sistema_cts', origem: 'db', procedencia: 'cts', oque: 'Sistema CTS (macrorregião) a que este coletor pertence na base comercial. Quando a unidade usa macrorregião, os coletores com o mesmo sistema CTS e a mesma empresa são somados numa ficha só — e esta coluna é o que diz qual.', porque: 'É a chave do agrupamento. Sem ela, a ficha somada aparece com um nome e nada diz de onde a soma veio.', exemplo: 'SarapuíNL' },
+      /**
+       * OS COLETORES DENTRO DA MACRORREGIÃO. Sem eles a ficha somada é um número,
+       * e uma macrorregião de 29 coletores é indistinguível de uma de 1 — não há
+       * como conferir o agrupamento, só acreditar nele. Cada coletor vem com as
+       * ligações atuais dele, para a soma poder ser refeita à mão contra a
+       * coluna `ligacoes_atuais` desta mesma linha.
+       */
+      { coluna: 'qtd_coletores', origem: 'db', procedencia: 'cts', oque: 'Quantos coletores formam esta macrorregião. Vazio numa CTS comum.', exemplo: '29' },
+      { coluna: 'coletores', origem: 'db', procedencia: 'cts', oque: 'Os coletores que formam esta macrorregião, cada um com as ligações atuais dele entre parênteses. A soma deles é a coluna de ligações atuais desta linha.', porque: 'É o que permite conferir a soma em vez de acreditar nela.', exemplo: 'CTS 003 (86), CTS 004 (161), CTS 005 (82), CTS 011 (155)' },
       ...colsOperacionalComercial('cts'),
     ],
   },

@@ -99,12 +99,16 @@ const ABA_DO_FLUXO = 'sistema-topologia'
 const MIN_LINHAS_PARA_ESCOPO = 15
 
 /**
- * AS ABAS DA CTS GANHAM A BARRA SEMPRE, como a do Fluxo — e por uma razão da
- * mesma família. O mínimo de linhas protege quem lê uma aba inteira de uma vez;
- * mas a unidade de trabalho da CTS é o SISTEMA: o sistema dela é decidido na aba
- * do Fluxo, e quem chega aqui vem procurar "a CTS do sistema X". Com a
- * macrorregião marcada há UMA por sistema, então a aba nunca chegaria a 15
- * linhas — e a barra que responde à pergunta de quem chega nunca apareceria.
+ * AS ABAS DA CTS NÃO ESPERAM AS 15 LINHAS, como a do Fluxo — e por uma razão da
+ * mesma família. O mínimo protege quem lê uma aba inteira de uma vez; mas a
+ * unidade de trabalho da CTS é o SISTEMA: o sistema dela é decidido na aba do
+ * Fluxo, e quem chega aqui vem procurar "a CTS do sistema X". Com a macrorregião
+ * marcada há UMA por sistema, então a aba nunca chegaria a 15 linhas — e a barra
+ * que responde à pergunta de quem chega nunca apareceria.
+ *
+ * "Sempre" tem um limite que não é daqui: `FiltroEscopo` ainda se esconde quando
+ * o eixo tem UMA opção só — com uma CTS colocada não há sistema para escolher, e
+ * um seletor de uma opção é decoração. A barra aparece a partir da segunda.
  */
 const ABAS_COM_BARRA_SEMPRE = new Set(['sistema-topologia', 'cts-operacional', 'componentes-cts-capex'])
 

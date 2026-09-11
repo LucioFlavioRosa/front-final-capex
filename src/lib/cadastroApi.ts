@@ -126,6 +126,8 @@ interface FichaColeta {
   sistemaCts?: string
   /** SÓ NA CTS: `"true"` quando a ficha é a linha da macrorregião. */
   macro?: string
+  /** SÓ NA MACRORREGIÃO: os coletores que a soma contém, com as ligações de cada um. */
+  membros?: { id: string; nome: string; cidId: string; ligA: string }[]
 }
 
 interface SubBacias {
@@ -487,6 +489,11 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
       // aparece com um nome e nada diz de onde a soma veio.
       sistema_cts: f.sistemaCts ?? '',
       macro: f.macro ?? 'false',
+      // OS COLETORES DENTRO DA SOMA, como texto — é o que permite conferir a
+      // macrorregião em vez de acreditar nela. Cada um com as ligações atuais,
+      // para a soma poder ser refeita à mão contra a coluna `ligacoes_atuais`.
+      qtd_coletores: f.membros?.length ? String(f.membros.length) : '',
+      coletores: (f.membros ?? []).map((m) => `${m.nome} (${m.ligA})`).join(', '),
     })),
 
     'componentes-cts-capex': Object.entries(cts.ctss).flatMap(([id, f]) =>

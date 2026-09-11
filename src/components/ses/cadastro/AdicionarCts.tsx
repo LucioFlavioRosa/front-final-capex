@@ -210,7 +210,14 @@ export function AdicionarCts({
         ) : (
           <>
             Este sistema não tem cidade cadastrada, então a lista{' '}
-            <strong>não é recortada por município</strong>.
+            <strong>não é recortada por município</strong>
+            {livres.some(ehMacro) ? (
+              <>
+                {' '}— e as <strong>macrorregiões</strong> não aparecem: sem a cidade não
+                se sabe a empresa do sistema, e é por ela que elas se recortam
+              </>
+            ) : null}
+            .
           </>
         )}{' '}
         Depois de adicionar, defina para onde ela escoa na tabela e salve.
