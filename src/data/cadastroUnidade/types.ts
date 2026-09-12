@@ -70,9 +70,9 @@ export interface ColDef {
 }
 
 /**
- * DE ONDE SAI A CIDADE DE UMA LINHA — e por que isso é declaração, não código.
+ * POR QUE OS EIXOS DA BARRA SÃO DECLARAÇÃO, e não código.
  *
- * A barra de escopo (cidade + sistema) recorta TODAS as abas, e nenhuma aba tem
+ * A barra de escopo (empresa + sistema) recorta TODAS as abas, e nenhuma aba tem
  * as duas colunas: a de metas tem `cidade_id` e nenhum sistema; a de CAPEX da
  * CTS não tem nem um nem outro, só `cts_id`. Cada aba chega ao mesmo par por um
  * caminho diferente.
@@ -80,18 +80,28 @@ export interface ColDef {
  * Declarar o caminho aqui, e não num `if` por aba dentro do componente, é o que
  * mantém "qual seleção interessa nesta aba" numa tela só de leitura — a mesma
  * razão de o `bloco` do stepper morar no SCHEMA.
- *
- *   'coluna'  — a própria linha traz o vínculo (`cidade_id`, `sistema_id`, ou o
- *               `sistema_name` quando o id vem vazio da fonte, que é o caso das
- *               1.047 linhas de Sub-bacias).
- *   'via-sistema' — resolve o sistema da linha primeiro e pergunta a
- *               `cidade-sistema` quais cidades ele atende. É indireto porque o
- *               vínculo cidade↔sistema é de cadastro, não de linha.
  */
-export type FonteCidade = 'coluna' | 'via-sistema'
 
 /**
- * DE ONDE SAI O SISTEMA DE UMA LINHA. Ver `FonteCidade` para o porquê da
+ * DE ONDE SAI A EMPRESA DE UMA LINHA — o eixo grosso da barra de escopo.
+ *
+ * Era a cidade. Deixou de ser quando o sistema passou a poder estar em várias
+ * (migração 022): recortar por cidade escondia, num sistema de duas, as linhas
+ * da outra. A empresa é o nível que sobrevive a isso — sub-bacia, coletor e
+ * macrorregião carregam `emp_codigo`, e é a chave que agrupa a macrorregião.
+ *
+ *   'via-cidade'   — a linha tem `cidade_id`; a empresa é a da cidade
+ *                    (`cidade-empresa`, e toda cidade tem uma).
+ *   'via-sistema'  — pelo sistema da linha: as empresas das cidades dele. Um
+ *                    sistema pode estar em cidades de empresas diferentes.
+ *
+ * Não há 'coluna': nenhuma aba com barra tem `emp_codigo` na linha, e um caminho
+ * que ninguém declara é um ramo que ninguém testa.
+ */
+export type FonteEmpresa = 'via-cidade' | 'via-sistema'
+
+/**
+ * DE ONDE SAI O SISTEMA DE UMA LINHA. Ver `FonteEmpresa` para o porquê da
  * declaração.
  *
  *   'coluna'       — `sistema_id`, ou `sistema_name` quando o id vem vazio.
@@ -108,8 +118,17 @@ export type FonteSistema = 'coluna' | 'fluxo' | 'via-subbacia' | 'via-cts'
  * oferece aquele controle nesta aba.
  */
 export interface EscopoAba {
-  cidade?: FonteCidade
+  empresa?: FonteEmpresa
   sistema?: FonteSistema
+  /**
+   * A BARRA APARECE MESMO COM POUCAS LINHAS. O padrão é esperar
+   * `MIN_LINHAS_PARA_ESCOPO`: numa aba que se lê inteira de uma vez, filtrar dá
+   * mais trabalho que ler. A aba que declara isto tem outra razão para a barra —
+   * o Fluxo, porque nela a barra escolhe qual sistema o desenho mostra; as da
+   * CTS, porque com a macrorregião marcada há UMA por sistema, e a aba nunca
+   * chegaria às linhas que a fariam aparecer.
+   */
+  barraSempre?: true
 }
 
 export interface AbaDef {

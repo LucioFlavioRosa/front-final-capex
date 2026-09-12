@@ -665,7 +665,7 @@ export const SCHEMA: AbaDef[] = [
   {
     key: 'metas-cobertura', icone: ChartLineUp, titulo: 'Metas de cobertura',
     // A meta é por cidade e ano; sistema não aparece e não faria sentido.
-    escopo: { cidade: 'coluna' },
+    escopo: { empresa: 'via-cidade' },
     desc: 'Meta de cobertura (%) por cidade e ano — o que a otimização precisa alcançar. Uma linha por par cidade/ano.',
     addRow: true,
     novo: () => ({ cidade_id: '', cidade_name: '', ano: '', cobertura_pct: '' }),
@@ -683,7 +683,7 @@ export const SCHEMA: AbaDef[] = [
     // Mesma razão da aba de metas. ATENÇÃO: esta aba CRIA a faixa 0 ao ser
     // aberta (`garantirFaixaZeroParidade`) — ver o efeito no CadastroWizard, que
     // limpa o recorte junto para a linha nova não nascer escondida.
-    escopo: { cidade: 'coluna' },
+    escopo: { empresa: 'via-cidade' },
     /**
      * A DESCRIÇÃO EXPLICA A FAIXA ZERO em palavras, e não pela regra: "uma faixa
      * (cobertura 0) já vale como paridade constante" é correto e ilegível para
@@ -795,8 +795,9 @@ export const SCHEMA: AbaDef[] = [
     // arquivo v8 — ver ponto (1) no comentário do topo do arquivo.
     key: 'sistema-topologia', icone: Graph, titulo: 'Fluxo de escoamento',
     // A aba do print: os dois eixos, e o sistema pelo caminho 'fluxo' porque a
-    // linha de CTS chega sem `sistema_id` — ele vem do destino dela.
-    escopo: { cidade: 'via-sistema', sistema: 'fluxo' },
+    // linha de CTS chega sem `sistema_id` — ele vem do destino dela. A barra
+    // não espera linhas: é ela que escolhe qual sistema o desenho mostra.
+    escopo: { empresa: 'via-sistema', sistema: 'fluxo', barraSempre: true },
     /**
      * A ÚLTIMA FRASE DA DESCRIÇÃO é a que importa: o destino não tem fonte, é a
      * informação mais crítica da base, e errá-lo não produz erro — produz um
@@ -899,7 +900,7 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
     // 1.047 linhas — a aba que mais ganha com o recorte. O sistema vem por
     // `via-subbacia` e não por 'coluna': o `sistema_id` desta aba chega VAZIO da
     // fonte (ver a própria coluna abaixo), e o vínculo real está no nome.
-    escopo: { cidade: 'via-sistema', sistema: 'via-subbacia' },
+    escopo: { empresa: 'via-sistema', sistema: 'via-subbacia' },
     desc: 'Base comercial (Databricks) + parâmetros da unidade: preço/ligação, prazos, vazão, população e potencial de crescimento.',
     // Sistema antes de sub-bacia: a leitura natural é de cima para baixo na
     // hierarquia, e é assim que a unidade procura a linha na tabela.
@@ -918,7 +919,7 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
     key: 'componentes-subbacias-capex', icone: Wrench, titulo: 'CAPEX de componentes de sub-bacias',
     // 5 linhas por sub-bacia. Sem um terceiro eixo de recorte (sub-bacia): a
     // listra de `zebraPor` já dá a leitura por bloco sem custar controle.
-    escopo: { cidade: 'via-sistema', sistema: 'coluna' },
+    escopo: { empresa: 'via-sistema', sistema: 'coluna' },
     desc: 'Os 5 componentes de obra de cada sub-bacia real do sistema: Ligação, Rede, Coletor Tronco, EEE e Linha de recalque. O CAPEX é calculado (quantidade × preço unitário) e a unidade de medida é o padrão do componente.',
     // Tabela única, sem accordion: a leitura é de planilha — ver e editar tudo
     // de uma vez, não abrir bloco por bloco.
@@ -981,7 +982,7 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
     ocultaNoWizard: true,
     // Só tem `sub_bacia_id` e `cts_id`: o sistema vem do join. Cidade sai por
     // ser terceiro grau — sub-bacia → sistema → cidade.
-    escopo: { sistema: 'via-subbacia' },
+    escopo: { empresa: 'via-sistema', sistema: 'via-subbacia' },
     desc: 'O Coletor de Tempo Seco (CTS) capta o esgoto que escoa em dias sem chuva e o leva até a ETE — é a "irmã" da sub-bacia, pareada 1:1 e opcional. Aqui é o de-para entre a sub-bacia e o CTS que a atende: os dois lados são reais, mas o pareamento entre eles é exemplo — nenhuma fonte diz qual CTS atende qual sub-bacia.',
     /**
      * OS DOIS CÓDIGOS SÃO 'un' PORQUE O PAREAMENTO É O PROPÓSITO DA ABA.
@@ -1008,9 +1009,11 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
   },
   {
     key: 'cts-operacional', icone: Drop, titulo: 'Dados da CTS',
-    // A aba com o join mais curto dos dois eixos: tem `sistema_id`,
-    // `sistema_name` e `emp_codigo` na própria linha.
-    escopo: { cidade: 'via-sistema', sistema: 'coluna' },
+    // A aba com o join mais curto dos dois eixos: tem `sistema_id` e
+    // `sistema_name` na própria linha. A barra não espera linhas: a unidade de
+    // trabalho da CTS é o sistema, e com a macrorregião marcada há UMA por
+    // sistema — a aba nunca chegaria às linhas que a fariam aparecer.
+    escopo: { empresa: 'via-sistema', sistema: 'coluna', barraSempre: true },
     desc: 'Mesmos parâmetros da sub-bacia (preço, prazos, vazão, população), aplicados ao CTS.',
     addRow: true,
     novo: () => ({ cts_id: '', cts_name: '', sistema_id: '', sistema_name: '' }),
@@ -1038,13 +1041,35 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
        * "origem sem destino", que é o problema de verdade.
        */
       { coluna: 'sistema_id', origem: 'calc', procedencia: 'regra', oque: 'Sistema de esgotamento sanitário a que este CTS pertence. Não se digita: é o sistema do nó para onde a CTS deságua, lido do Fluxo de escoamento.', porque: 'Nenhuma fonte liga CTS a sistema de sub-bacias — o vínculo só existe pelo destino. Derivar evita que o mesmo fato fique gravado em dois lugares que podem discordar.' }, { coluna: 'sistema_name', origem: 'calc', procedencia: 'regra', oque: 'Nome do sistema de esgotamento sanitário, derivado do destino da CTS no Fluxo de escoamento.' },
+      /**
+       * O SISTEMA CTS — a macrorregião. É a coluna da origem pela qual os
+       * coletores são agrupados quando a unidade trabalha em macrorregião, e é
+       * ela que diz de onde uma ficha somada veio. Num coletor membro é o nome
+       * da macrorregião dele; na linha da macrorregião é o próprio nome; vazia
+       * num coletor que a origem não pôs em macrorregião nenhuma.
+       *
+       * 'db': vem do Databricks e a tela só mostra — o agrupamento não se edita
+       * aqui, ele é decidido na origem.
+       */
+      { coluna: 'sistema_cts', origem: 'db', procedencia: 'cts', oque: 'Sistema CTS (macrorregião) a que este coletor pertence na base comercial. Quando a unidade usa macrorregião, os coletores com o mesmo sistema CTS e a mesma empresa são somados numa ficha só — e esta coluna é o que diz qual.', porque: 'É a chave do agrupamento. Sem ela, a ficha somada aparece com um nome e nada diz de onde a soma veio.', exemplo: 'SarapuíNL' },
+      /**
+       * OS COLETORES DENTRO DA MACRORREGIÃO. Sem eles a ficha somada é um número,
+       * e uma macrorregião de 29 coletores é indistinguível de uma de 1 — não há
+       * como conferir o agrupamento, só acreditar nele. Cada coletor vem com as
+       * ligações atuais dele, para a soma poder ser refeita à mão contra a
+       * coluna `ligacoes_atuais` desta mesma linha.
+       */
+      { coluna: 'qtd_coletores', origem: 'db', procedencia: 'cts', oque: 'Quantos coletores formam esta macrorregião. Vazio numa CTS comum.', exemplo: '29' },
+      { coluna: 'coletores', origem: 'db', procedencia: 'cts', oque: 'Os coletores que formam esta macrorregião, cada um com as ligações atuais dele entre parênteses. A soma deles é a coluna de ligações atuais desta linha.', porque: 'É o que permite conferir a soma em vez de acreditar nela.', exemplo: 'CTS 003 (86), CTS 004 (161), CTS 005 (82), CTS 011 (155)' },
       ...colsOperacionalComercial('cts'),
     ],
   },
   {
     key: 'componentes-cts-capex', icone: Wrench, titulo: 'CAPEX da CTS',
-    // 5 linhas por CTS, e nenhuma coluna de hierarquia além de `cts_id`.
-    escopo: { sistema: 'via-cts' },
+    // 4 linhas por CTS, e nenhuma coluna de hierarquia além de `cts_id`: os
+    // dois eixos chegam pelo sistema da CTS. A barra não espera linhas, pela
+    // mesma razão da aba irmã.
+    escopo: { empresa: 'via-sistema', sistema: 'via-cts', barraSempre: true },
     // Mesmo formato da `desc` da aba irmã: os componentes nomeados primeiro, a
     // regra do CAPEX depois, e só então a ressalva de procedência. A diferença
     // entre as duas listas — 5 e 4 — é o que explica a CTS, e por isso a ausência

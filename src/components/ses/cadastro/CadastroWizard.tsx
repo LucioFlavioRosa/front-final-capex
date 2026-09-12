@@ -31,6 +31,9 @@ import {
   escopoInicial,
   opcoesEscopo,
   sistemaPadraoDoFluxo,
+  barraDeEscopoVisivel,
+  empresasDoSistema,
+  nomeDaEmpresa,
 } from '../../../domain/escopo'
 import { useCadastro } from './CadastroContext'
 import { Button } from '../../ui/Button'
@@ -88,15 +91,8 @@ function AvisoSemCts() {
  */
 const ABA_DO_FLUXO = 'sistema-topologia'
 
-/**
- * ABAIXO DISTO A BARRA DE ESCOPO NAO APARECE — mesmo numero e mesma razao do
- * `MIN_LINHAS_PARA_FILTRO` do funil de coluna: numa aba que se le inteira de uma
- * vez, filtrar da mais trabalho que ler.
- *
- * A aba do Fluxo e a excecao e ganha a barra sempre: nela o controle nao recorta
- * so a tabela, ele escolhe qual sistema o desenho ao lado mostra.
- */
-const MIN_LINHAS_PARA_ESCOPO = 15
+// A regra da barra de escopo — o mínimo de linhas e as abas que não o esperam —
+// mora em `domain/escopo.ts`, junto do resto do escopo, e os testes a leem de lá.
 
 /**
  * O CROMO DA GRADE — 20px que não são folga estética.
@@ -218,7 +214,7 @@ function useDuasColunas(larguraNaturalDaTabela: number, minimoDoDesenho: number)
 export function CadastroWizard() {
   const {
     state, irFase, setCell, setCells, addRow, delRow, importarPlanilha,
-    garantirFaixaZeroParidade, salvar, salvando,
+    garantirFaixaZeroParidade, salvar, salvando, gravarUsaCts,
   } = useCadastro()
   const { toast } = useToast()
   const unidade = state.unidade
@@ -331,14 +327,14 @@ export function CadastroWizard() {
     if (escolhido) return escolhido
     if (!unidade) return SEM_ESCOPO
     if (aba.key === ABA_DO_FLUXO) {
-      return { cidadeId: '', sistemaId: sistemaPadraoDoFluxo(unidade.data) }
+      return { empresaId: '', sistemaId: sistemaPadraoDoFluxo(unidade.data) }
     }
     // TODA aba grande abre RECORTADA, no eixo mais fino que ela declara. A regra
     // de quando a barra existe é a mesma de `mostrarBarra` abaixo, e precisa
     // ser: recortar sem oferecer como trocar o recorte esconderia linhas.
     const linhas = unidade.data[aba.key] ?? []
-    const temBarra = !!aba.escopo && linhas.length >= MIN_LINHAS_PARA_ESCOPO
-    return escopoInicial(opcoesEscopo(unidade.data, unidade.cidades, aba, linhas), temBarra)
+    const temBarra = barraDeEscopoVisivel(aba, linhas.length)
+    return escopoInicial(opcoesEscopo(unidade.data, aba, linhas), temBarra)
     // `unidade?.id` e não `unidade`: esta última muda a cada tecla digitada, e o
     // recorte se refaria no meio do preenchimento. É a mesma dependência que o
     // efeito antigo usava, pelo mesmo motivo.
@@ -374,18 +370,31 @@ export function CadastroWizard() {
   }, [topoDoCadastro, dadosDoCadastro, escopo.sistemaId])
 
   /**
-   * O NOME DA CIDADE DO SISTEMA ESCOLHIDO — o recorte do seletor de CTS.
-   *
-   * A CTS só pode entrar num sistema da MESMA cidade, e o seletor diz de qual
-   * cidade a lista é. Cai no id quando o nome não veio: um recorte sem rótulo
-   * seria uma lista curta sem explicação.
+   * AS EMPRESAS do sistema escolhido — TODAS as cidades dele (um sistema pode
+   * estar em várias, e `sistemaEscolhido` é só a primeira linha), e um CONJUNTO
+   * porque as cidades podem ser de empresas diferentes (Saracuruna está em
+   * Duque de Caxias, da 57, e em Magé, da 56). É por elas que o seletor recorta
+   * as macrorregiões — a outra metade da chave `(sistema_cts, emp_codigo)` — e
+   * a resposta é a mesma que a barra de escopo dá para o eixo `via-sistema`.
    */
-  const cidadeDoSistemaEscolhido = useMemo(() => {
-    const cid = sistemaEscolhido?.cidade_id
-    if (!cid) return '—'
-    const linha = (dadosDoCadastro?.['cidade-operacional'] ?? []).find((r) => r.cidade_id === cid)
-    return linha?.cidade_name || cid
-  }, [sistemaEscolhido, dadosDoCadastro])
+  const empresasDoSistemaEscolhido = useMemo(
+    () =>
+      new Set(
+        dadosDoCadastro && escopo.sistemaId
+          ? empresasDoSistema(dadosDoCadastro, { id: escopo.sistemaId, nome: '' })
+          : [],
+      ),
+    [dadosDoCadastro, escopo.sistemaId],
+  )
+
+  /** Os nomes das empresas do sistema, para o texto do seletor. */
+  const empresasNomeDoSistemaEscolhido = useMemo(
+    () =>
+      [...empresasDoSistemaEscolhido]
+        .map((cod) => (dadosDoCadastro ? nomeDaEmpresa(dadosDoCadastro, cod) : cod))
+        .join(' e '),
+    [empresasDoSistemaEscolhido, dadosDoCadastro],
+  )
 
   /** A linha de `unidade-regional` — onde moram o WACC e a macrorregião de CTS. */
   const linhaDaUnidade = unidade?.data['unidade-regional']?.[0]
@@ -490,17 +499,26 @@ export function CadastroWizard() {
    * guardasse estado próprio, tela, contagem de completude e payload passariam a
    * discordar.
    */
+  /** A recusa do servidor ao mudar a caixa — a caixa fica onde estava e diz por quê. */
+  const [recusaUsaCts, setRecusaUsaCts] = useState<string | null>(null)
   const aoMudarUsaCts = useCallback(
-    (marcado: boolean) =>
-      setCell('unidade-regional', 0, 'usa_macrorregiao_cts', marcado ? 'Sim' : 'Nao'),
-    [setCell],
+    async (marcado: boolean) => {
+      // GRAVA NA HORA — ver `gravarUsaCts`. A célula local só muda depois que o
+      // servidor aceitou: hidratar já a traz certa, e mexer antes faria a caixa
+      // pular e voltar numa recusa.
+      // `gravarUsaCts` devolve string em qualquer falha e nunca rejeita — mas
+      // um `await` sem guarda numa callback de evento vira erro não tratado no
+      // console se um dia rejeitar. A guarda custa uma linha.
+      setRecusaUsaCts(await gravarUsaCts(marcado).catch((e) => String(e)))
+    },
+    [gravarUsaCts],
   )
 
   const opcoes = useMemo(
     () =>
       unidade && aba.escopo
-        ? opcoesEscopo(unidade.data, unidade.cidades, aba, rows)
-        : { cidades: [], sistemas: [] },
+        ? opcoesEscopo(unidade.data, aba, rows)
+        : { empresas: [], sistemas: [] },
     [unidade, aba, rows],
   )
 
@@ -625,7 +643,7 @@ export function CadastroWizard() {
   const ultimaDoBloco = abaAtualIdx === bloco.abas.length - 1
   const ultimoBloco = blocoIdx === BLOCOS.length - 1
 
-  const mostrarBarra = !!aba.escopo && (ehFluxo || rows.length >= MIN_LINHAS_PARA_ESCOPO)
+  const mostrarBarra = barraDeEscopoVisivel(aba, rows.length)
 
   /** A coluna da esquerda no layout de duas colunas — ver `CROMO_DA_GRADE`. */
   // `ehFluxo` porque é a única aba com ação de linha sem `addRow` — ver
@@ -973,6 +991,7 @@ export function CadastroWizard() {
               {/* LOGO ABAIXO DO WACC: as duas são o que a unidade declara sobre
                   si inteira, e ficam juntas por isso. */}
               <UsaMacrorregiaoCts
+                recusa={recusaUsaCts}
                 linha={linhaDaUnidade}
                 sistemasCheios={sistemasCheios}
                 onMudar={aoMudarUsaCts}
@@ -1011,8 +1030,8 @@ export function CadastroWizard() {
                   <AdicionarCts
                     sistemaId={escopo.sistemaId}
                     sistemaNome={sistemaEscolhido?.sistema_name ?? ''}
-                    cidadeDoSistema={sistemaEscolhido?.cidade_id ?? ''}
-                    cidadeNome={cidadeDoSistemaEscolhido}
+                    empresasDoSistema={empresasDoSistemaEscolhido}
+                    empresasNome={empresasNomeDoSistemaEscolhido}
                     topo={topoDoCadastro ?? []}
                     dados={unidade.data}
                     limitada={unidadeUsaCts && ctsDoSistema > 0}

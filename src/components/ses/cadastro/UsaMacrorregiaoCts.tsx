@@ -41,12 +41,15 @@ import type { Row } from '../../../data/cadastroUnidade/types'
 export function UsaMacrorregiaoCts({
   linha,
   sistemasCheios,
+  recusa,
   onMudar,
 }: {
   /** A linha de `unidade-regional` — `undefined` enquanto carrega. */
   linha: Row | undefined
   /** Nomes dos sistemas que hoje têm mais de uma CTS. Vazio: nada impede. */
   sistemasCheios: string[]
+  /** O que o servidor disse ao recusar a última mudança — `null` quando aceitou. */
+  recusa: string | null
   onMudar: (marcado: boolean) => void
 }) {
   const id = useId()
@@ -70,6 +73,14 @@ export function UsaMacrorregiaoCts({
           Esta unidade usa macrorregião de CTS
         </span>
       </label>
+      {recusa ? (
+        <p
+          role="alert"
+          className="mt-2 max-w-xl pl-[26px] text-[12.5px] leading-relaxed text-red-700"
+        >
+          {recusa}
+        </p>
+      ) : null}
       <p className="mt-2 max-w-xl pl-[26px] text-[12.5px] leading-relaxed text-ink-600">
         {impedido ? (
           <>

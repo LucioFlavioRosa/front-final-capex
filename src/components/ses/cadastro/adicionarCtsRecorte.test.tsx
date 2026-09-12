@@ -1,51 +1,41 @@
 /**
- * A CTS OFERECIDA TEM DE SER DA CIDADE DO SISTEMA.
+ * O SELETOR DE CTS É RECORTADO PELA EMPRESA DO SISTEMA.
  *
- * O seletor oferecia TODAS as CTS livres da base — e o código dizia, em
- * comentário, que não poderia ser diferente: *"CTS fora de sistema não tem
- * cidade, nem empresa, nem unidade"*. A premissa era falsa. A fonte sempre soube
- * onde cada CTS está (o extrato de portfólio traz CIDADE e CTS na mesma linha);
- * quem tinha perdido o dado era o esquema, e a migração 018 o devolveu.
+ * Já foi pela cidade, e a história está no cabeçalho de `AdicionarCts`. Em
+ * resumo: sem recorte a lista oferecia a base inteira (151 candidatas, duas
+ * efetivamente colocadas em sistema de outra cidade); por cidade ela escondia
+ * quem cabe, porque um sistema pode estar em mais de um município (migração 022)
+ * — um coletor de Mesquita pertence ao Sarapuí tanto quanto um de Belford Roxo.
  *
- * O QUE ISSO CUSTAVA, medido na base: 151 CTS livres, TODAS de uma unidade só,
- * oferecidas às cinco. E duas CTS (`cts_001`, `cts_002`) efetivamente colocadas
- * num sistema de outra cidade — o erro que este recorte impede.
- *
- * Como a cidade determina empresa, unidade, diretoria e regional, recortar por
- * ela recorta pelos cinco níveis de uma vez.
- *
- * O SEGUNDO TESTE é o que evita trocar um defeito por outro: `cidade_id` é
- * nulável, e um filtro que só olhasse a igualdade esconderia a CTS sem cidade —
- * que existe no banco e ficaria sem forma nenhuma de ser colocada. Ela aparece,
- * separada e rotulada.
+ * A empresa é a régua que sobrevive: sub-bacia, coletor e macrorregião carregam
+ * `emp_codigo`, e é a mesma chave que agrupa a macrorregião. E é um CONJUNTO,
+ * porque um sistema pode estar em cidades de empresas diferentes.
  */
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { AdicionarCts } from './AdicionarCts'
 import type { Row } from '../../../data/cadastroUnidade/types'
 
-const cts = (id: string, cidade: string): Row => ({
+const cts = (id: string, empresa: string, macro = 'Nao'): Row => ({
   sistema_id: '',
   componente_sistema_id: id,
   componente_sistema_nome: `CTS ${id}`,
   componente_tipo: 'cts',
-  cidade_id: cidade,
+  emp_codigo: empresa,
+  macro,
 })
-
-/** As três livres: uma na cidade do sistema, uma noutra, uma sem cidade. */
-const TOPO: Row[] = [cts('daqui', 'c1'), cts('de-fora', 'c2'), cts('sem-lugar', '')]
 
 /** `ehCts` cai em `componente_tipo` quando o id não tem ficha — é o caso aqui. */
 const DADOS = { 'cts-operacional': [] } as never
 
-function abrir() {
+function abrir(topo: Row[], empresas: string[], nome = 'Empresa 1') {
   return render(
     <AdicionarCts
       sistemaId="s1"
       sistemaNome="Sistema 1"
-      cidadeDoSistema="c1"
-      cidadeNome="Belford Roxo"
-      topo={TOPO}
+      empresasDoSistema={new Set(empresas)}
+      empresasNome={nome}
+      topo={topo}
       dados={DADOS}
       limitada={false}
       onAdicionar={vi.fn()}
@@ -53,70 +43,70 @@ function abrir() {
   )
 }
 
-describe('o seletor de CTS é recortado pela cidade do sistema', () => {
-  it('oferece a CTS da cidade e NÃO a de outra cidade', () => {
-    abrir()
+describe('o seletor de CTS é recortado pela empresa do sistema', () => {
+  const TOPO: Row[] = [cts('daqui', 'e1'), cts('de-fora', 'e2'), cts('sem-dono', '')]
 
+  it('oferece a CTS da empresa e NÃO a de outra empresa', () => {
+    abrir(TOPO, ['e1'])
     const opcoes = within(screen.getByRole('combobox'))
     expect(opcoes.getByRole('option', { name: 'CTS daqui' })).toBeInTheDocument()
     expect(opcoes.queryByRole('option', { name: 'CTS de-fora' })).not.toBeInTheDocument()
-
-    // E DIZ DE QUE CIDADE A LISTA É: um recorte sem rótulo é uma lista curta sem
+    // E DIZ DE QUE EMPRESA A LISTA É: um recorte sem rótulo é uma lista curta sem
     // explicação, e quem não achar a CTS que procura não sabe por quê.
-    expect(screen.getByRole('option', { name: /livres em Belford Roxo/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /livres? de Empresa 1/ })).toBeInTheDocument()
   })
 
-  it('a CTS sem cidade continua ofertada, num grupo à parte', () => {
-    abrir()
+  it('um sistema em cidades de DUAS empresas oferece as CTS das duas', () => {
+    // Saracuruna: Duque de Caxias é a 57, Magé é a 56. O recorte é um conjunto.
+    abrir(TOPO, ['e1', 'e2'], 'Empresa 1 e Empresa 2')
+    const opcoes = within(screen.getByRole('combobox'))
+    expect(opcoes.getByRole('option', { name: 'CTS daqui' })).toBeInTheDocument()
+    expect(opcoes.getByRole('option', { name: 'CTS de-fora' })).toBeInTheDocument()
+  })
 
-    const grupo = screen.getByRole('group', { name: 'Sem cidade cadastrada' })
-    expect(within(grupo).getByRole('option', { name: 'CTS sem-lugar' })).toBeInTheDocument()
-
-    // Fora do grupo, e não solta no meio das da cidade: misturada, a lista
-    // voltaria a afirmar um lugar que ela não sabe.
+  it('a CTS sem empresa continua ofertada, num grupo à parte', () => {
+    abrir(TOPO, ['e1'])
+    const grupo = screen.getByRole('group', { name: 'Sem empresa cadastrada' })
+    expect(within(grupo).getByRole('option', { name: 'CTS sem-dono' })).toBeInTheDocument()
+    // Fora do grupo, e não solta no meio das da empresa: misturada, a lista
+    // voltaria a afirmar um dono que ela não sabe.
     expect(within(grupo).queryByRole('option', { name: 'CTS daqui' })).not.toBeInTheDocument()
   })
 
-  it('sistema sem cidade não duplica a lista nem promete um recorte', () => {
-    // `cidadeDoSistema` vazio casava com as CTS de cidade vazia por igualdade
-    // (`'' === ''`), e elas entravam NAS DUAS listas: as mesmas opções duas
-    // vezes, com a mesma `key`, e o contador dizendo o dobro. O recorte sumia
-    // justamente quando não havia por onde recortar.
-    render(
-      <AdicionarCts
-        sistemaId="s1"
-        sistemaNome="Sistema 1"
-        cidadeDoSistema=""
-        cidadeNome="—"
-        topo={TOPO}
-        dados={DADOS}
-        limitada={false}
-        onAdicionar={vi.fn()}
-      />,
-    )
-
-    // A CTS sem lugar aparece UMA vez só.
-    expect(screen.getAllByRole('option', { name: 'CTS sem-lugar' })).toHaveLength(1)
-    // E a tela não promete um município que não tem.
-    expect(screen.getByRole('option', { name: /sem cidade cadastrada/ })).toBeInTheDocument()
-    expect(screen.getByText(/não é recortada por município/)).toBeInTheDocument()
+  it('sistema sem cidade (logo sem empresa) não duplica a lista nem promete recorte', () => {
+    abrir(TOPO, [])
+    // A CTS sem dono aparece UMA vez só.
+    expect(screen.getAllByRole('option', { name: 'CTS sem-dono' })).toHaveLength(1)
+    // E as das empresas não aparecem — não há como saber se cabem.
+    expect(screen.queryByRole('option', { name: 'CTS daqui' })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /sem empresa cadastrada/ })).toBeInTheDocument()
+    expect(screen.getByText(/não é recortada/)).toBeInTheDocument()
   })
 
-  it('sem nenhuma CTS na cidade, o seletor diz qual cidade está vazia', () => {
-    render(
-      <AdicionarCts
-        sistemaId="s1"
-        sistemaNome="Sistema 1"
-        cidadeDoSistema="c9"
-        cidadeNome="Mesquita"
-        topo={[cts('de-fora', 'c2')]}
-        dados={DADOS}
-        limitada={false}
-        onAdicionar={vi.fn()}
-      />,
-    )
-
+  it('sem nenhuma CTS da empresa, o seletor diz qual empresa está vazia', () => {
+    abrir([cts('de-fora', 'e2')], ['e9'], 'Empresa 9')
     expect(screen.getByRole('combobox')).toBeDisabled()
-    expect(screen.getByRole('option', { name: 'Nenhuma CTS livre em Mesquita' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Nenhuma CTS livre de Empresa 9' })).toBeInTheDocument()
+  })
+})
+
+describe('a macrorregião segue a mesma régua', () => {
+  const MACRO = cts('MACRO_A', 'e1', 'Sim')
+
+  it('é oferecida num sistema da empresa dela', () => {
+    abrir([MACRO, cts('de-fora', 'e2')], ['e1'])
+    const opcoes = within(screen.getByRole('combobox'))
+    expect(opcoes.getByRole('option', { name: 'CTS MACRO_A' })).toBeInTheDocument()
+    expect(opcoes.queryByRole('option', { name: 'CTS de-fora' })).not.toBeInTheDocument()
+  })
+
+  it('NÃO é oferecida num sistema de outra empresa', () => {
+    abrir([MACRO], ['e2'])
+    expect(screen.queryByRole('option', { name: 'CTS MACRO_A' })).not.toBeInTheDocument()
+  })
+
+  it('o rótulo diz "macrorregiões" quando é isso que a lista tem', () => {
+    abrir([MACRO], ['e1'])
+    expect(screen.getByText(/Só aparecem macrorregiões de/)).toBeInTheDocument()
   })
 })
