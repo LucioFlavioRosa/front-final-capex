@@ -518,7 +518,7 @@ export function CadastroWizard() {
     () =>
       unidade && aba.escopo
         ? opcoesEscopo(unidade.data, aba, rows)
-        : { empresas: [], sistemas: [] },
+        : { empresas: [], sistemas: [], cidades: [] },
     [unidade, aba, rows],
   )
 
@@ -533,7 +533,11 @@ export function CadastroWizard() {
     return (row: Row) => casaComEscopo(dados, aba, row, escopo)
   }, [unidade, aba, escopo])
 
-  const limparEscopo = useCallback(() => setEscopo(SEM_ESCOPO), [])
+  // `[setEscopo]`, e não `[]`: `setEscopo` fecha sobre `aba.key`, e com a lista
+  // vazia este callback ficava preso na aba em que nasceu — "Nova linha" com
+  // recorte ativo limpava o escopo da aba ERRADA, e a linha nova (que nasce com
+  // `cidade_id` vazio) continuava escondida pelo filtro da aba certa.
+  const limparEscopo = useCallback(() => setEscopo(SEM_ESCOPO), [setEscopo])
 
   // ------------------------------------------------ o elo tabela <-> desenho
   /**

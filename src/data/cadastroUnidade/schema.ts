@@ -679,8 +679,10 @@ export const SCHEMA: AbaDef[] = [
   },
   {
     key: 'metas-cobertura', icone: ChartLineUp, titulo: 'Metas de cobertura',
-    // A meta é por cidade e ano; sistema não aparece e não faria sentido.
-    escopo: { empresa: 'via-cidade' },
+    // A meta é por cidade e ano; sistema não aparece e não faria sentido. A
+    // CIDADE é o eixo fino aqui: é a unidade de trabalho da aba — e a barra não
+    // espera 15 linhas, senão uma unidade de duas cidades nunca veria o filtro.
+    escopo: { empresa: 'via-cidade', cidade: 'coluna', barraSempre: true },
     desc: 'Meta de cobertura (%) por cidade e ano — o que a otimização precisa alcançar. Uma linha por par cidade/ano.',
     addRow: true,
     novo: () => ({ cidade_id: '', cidade_name: '', ano: '', cobertura_pct: '' }),
@@ -698,7 +700,7 @@ export const SCHEMA: AbaDef[] = [
     // Mesma razão da aba de metas. ATENÇÃO: esta aba CRIA a faixa 0 ao ser
     // aberta (`garantirFaixaZeroParidade`) — ver o efeito no CadastroWizard, que
     // limpa o recorte junto para a linha nova não nascer escondida.
-    escopo: { empresa: 'via-cidade' },
+    escopo: { empresa: 'via-cidade', cidade: 'coluna', barraSempre: true },
     /**
      * A DESCRIÇÃO EXPLICA A FAIXA ZERO em palavras, e não pela regra: "uma faixa
      * (cobertura 0) já vale como paridade constante" é correto e ilegível para

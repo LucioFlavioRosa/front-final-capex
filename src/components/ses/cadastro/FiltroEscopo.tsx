@@ -1,6 +1,6 @@
 /**
- * A BARRA DE ESCOPO — empresa + sistema, acima da grade de toda aba que declara os
- * eixos (`AbaDef.escopo`).
+ * A BARRA DE ESCOPO — empresa + sistema (+ cidade, nas abas do Município), acima
+ * da grade de toda aba que declara os eixos (`AbaDef.escopo`).
  *
  * Ela é a barra que vivia dentro de `Unifilar.tsx`, extraída sem mudar um pixel:
  * mesmo rótulo em maiúsculas de 11px, mesmo `Combobox` com busca, mesma largura
@@ -21,7 +21,7 @@
 
 import { X } from '@phosphor-icons/react'
 import { Combobox } from '../../ui/Combobox'
-import { type Escopo, type OpcoesEscopo, sistemasVisiveis } from '../../../domain/escopo'
+import { type Escopo, type OpcoesEscopo, cidadesVisiveis, sistemasVisiveis } from '../../../domain/escopo'
 
 interface Props {
   opcoes: OpcoesEscopo
@@ -34,10 +34,13 @@ const MIN_OPCOES = 2
 
 export function FiltroEscopo({ opcoes, escopo, onEscopo }: Props) {
   const sistemas = sistemasVisiveis(opcoes, escopo.empresaId)
+  const cidades = cidadesVisiveis(opcoes, escopo.empresaId)
 
   const temEmpresa = opcoes.empresas.length >= MIN_OPCOES
   const temSistema = opcoes.sistemas.length >= MIN_OPCOES
-  if (!temEmpresa && !temSistema) return null
+  // A cidade tem o "todas" na lista, então o mínimo conta as cidades REAIS.
+  const temCidade = opcoes.cidades.filter((c) => c.value).length >= MIN_OPCOES
+  if (!temEmpresa && !temSistema && !temCidade) return null
 
 
   /**
@@ -46,14 +49,20 @@ export function FiltroEscopo({ opcoes, escopo, onEscopo }: Props) {
    * mostrar "0 linhas" logo depois de um clique que devia MOSTRAR algo.
    */
   function trocarEmpresa(empresaId: string) {
+    // A CIDADE SEGUE A MESMA REGRA, com uma diferença: ela tem "todas", então a
+    // cidade que não é da empresa nova volta para "todas" em vez de pular para
+    // outra — trocar de município sem ninguém pedir seria pior que mostrar todos.
+    const cidadeVale = !empresaId || !escopo.cidadeId
+      || opcoes.cidades.some((c) => c.value === escopo.cidadeId && c.empresa === empresaId)
+    const cidadeId = cidadeVale ? escopo.cidadeId : ''
     const aindaVale = !empresaId || !escopo.sistemaId
       || opcoes.sistemas.some((s) => s.value === escopo.sistemaId && s.empresas.has(empresaId))
-    if (aindaVale) return onEscopo({ empresaId, sistemaId: escopo.sistemaId })
+    if (aindaVale) return onEscopo({ empresaId, sistemaId: escopo.sistemaId, cidadeId })
     // O SISTEMA ANTERIOR NÃO É DESTA EMPRESA — troca para o primeiro dela, em vez
     // de esvaziar. Esvaziar deixava a barra num estado que a lista não oferece
     // (não há "todos os sistemas") e a grade voltava a montar tudo, calada.
     const primeiro = sistemasVisiveis(opcoes, empresaId).find((s) => s.value)?.value ?? ''
-    onEscopo({ empresaId, sistemaId: primeiro })
+    onEscopo({ empresaId, sistemaId: primeiro, cidadeId })
   }
 
   return (
@@ -72,22 +81,32 @@ export function FiltroEscopo({ opcoes, escopo, onEscopo }: Props) {
           />
         </Campo>
       )}
+      {temCidade && (
+        <Campo rotulo="Cidade">
+          <Combobox
+            options={cidades}
+            value={escopo.cidadeId ?? ''}
+            onChange={(cidadeId) => onEscopo({ ...escopo, cidadeId })}
+          />
+        </Campo>
+      )}
 
       {/* SEM CONTADOR AQUI — o rodapé da grade já mostra "84 de 1.047", e ele é o
           número CERTO: soma o recorte da barra com os filtros de coluna. Um
           segundo contador contando só metade discordaria do primeiro. */}
-      {/* LIMPA A EMPRESA, e não o recorte inteiro: não há "todos os sistemas"
-          (ver `opcoesEscopo`), então zerar os dois deixaria a barra num estado
-          que a lista não oferece — e a grade voltaria a montar tudo. Some
-          quando não há empresa escolhida, porque aí não há o que limpar. */}
-      {escopo.empresaId && (
+      {/* LIMPA A EMPRESA E A CIDADE, e não o recorte inteiro: não há "todos os
+          sistemas" (ver `opcoesEscopo`), então zerar o sistema deixaria a barra
+          num estado que a lista não oferece — e a grade voltaria a montar tudo.
+          Some quando não há nada escolhido nos dois, porque aí não há o que
+          limpar. */}
+      {(escopo.empresaId || escopo.cidadeId) && (
         <button
           type="button"
-          onClick={() => onEscopo({ ...escopo, empresaId: '' })}
+          onClick={() => onEscopo({ ...escopo, empresaId: '', cidadeId: '' })}
           className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-water-50 px-3 py-1.5 text-[12.5px] font-semibold text-water-700 transition-colors duration-hover ease-saida hover:bg-water-100"
         >
           <X weight="bold" className="text-[11px]" />
-          Limpar empresa
+          {escopo.cidadeId ? 'Limpar cidade' : 'Limpar empresa'}
         </button>
       )}
     </div>
