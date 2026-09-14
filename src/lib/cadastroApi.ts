@@ -192,6 +192,35 @@ const DB_DERIVADO: Record<string, string> = {
   ticket: 'ticket_medio',
 }
 
+/**
+ * SÓ NA SUB-BACIA, E SÓ LEITURA — as colunas `*_com_cts`.
+ *
+ * A base comercial traz cada medida da sub-bacia em duas versões: a sem sufixo é
+ * a sub-bacia INTEIRA, sem considerar a CTS (a área do coletor está dentro); a
+ * `_com_cts` é a sub-bacia com a CTS considerada à parte — só o que não é área do
+ * coletor, vazia quando ele levou tudo. O motor lê a `_com_cts` na rodada com
+ * CTS e a sem sufixo na rodada sem. A tela mostra as duas lado a lado para se
+ * poder conferir quanto da sub-bacia é área do coletor.
+ *
+ * Fora do `DB` pela mesma razão do `ticket`: aquele mapa serve os dois sentidos,
+ * e estas não voltam no `PUT` — `gravarColeta` as tira do bloco `db` antes de
+ * enviar, e o servidor não as exige nem as grava (`campos.SO_DA_SUBBACIA`). A
+ * CTS não as tem: `linhaDeColeta` lê `''` nela, e a aba da CTS não declara as
+ * colunas.
+ */
+const DB_SO_DA_SUBBACIA: Record<string, string> = {
+  fatCts: 'receita_faturada_media_mensal_com_cts',
+  arrCts: 'receita_arrecadada_media_mensal_com_cts',
+  ligUCts: 'universo_ligacoes_com_cts',
+  ligACts: 'ligacoes_atuais_com_cts',
+  ecoUCts: 'universo_economias_com_cts',
+  ecoACts: 'economias_atuais_com_cts',
+  ligUResCts: 'universo_ligacoes_residencial_com_cts',
+  ligAResCts: 'ligacoes_atuais_residencial_com_cts',
+  ecoUResCts: 'universo_economias_residencial_com_cts',
+  ecoAResCts: 'economias_atuais_residencial_com_cts',
+}
+
 /** Obra: índice do backend ↔ colunas de `componentes-*-capex`. */
 const OBRA: Record<string, string> = {
   nome: 'componente',
@@ -524,6 +553,9 @@ function linhaDeColeta(id: string, f: FichaColeta, colId: string, colNome: strin
   }
   for (const [curto, coluna] of Object.entries(DB)) linha[coluna] = f.db?.[curto] ?? ''
   for (const [curto, coluna] of Object.entries(DB_DERIVADO)) linha[coluna] = f.db?.[curto] ?? ''
+  // Só a sub-bacia as traz; na CTS a chave não vem e a coluna nem existe na aba.
+  if (colId === 'sub_bacia_id')
+    for (const [curto, coluna] of Object.entries(DB_SO_DA_SUBBACIA)) linha[coluna] = f.db?.[curto] ?? ''
   for (const [curto, coluna] of Object.entries(PARAMS)) linha[coluna] = f.params?.[curto] ?? ''
   return linha
 }
@@ -817,7 +849,13 @@ async function gravarColeta(
     // Nem a ficha nem as obras dela mudaram: não há o que gravar.
     if (igual(linha, fichaBase.get(id)) && listasIguais(obras.get(id), obrasBase.get(id))) continue
 
-    const db = { ...anterior.db }
+    // O `db` sai do que o servidor mandou, MENOS o que é só de leitura: o `ticket`
+    // (conta do servidor) e as `_com_cts` (medida que a CTS não tem). O servidor
+    // ignora as duas se voltarem, mas o contrato do `PUT` é a ficha que se grava
+    // — mandar o que não se grava é declarar uma intenção que não existe.
+    const db = Object.fromEntries(
+      Object.entries(anterior.db).filter(([k]) => !(k in DB_DERIVADO) && !(k in DB_SO_DA_SUBBACIA)),
+    )
     const params = { ...anterior.params }
     for (const [coluna, valor] of Object.entries(linha)) {
       if (inv.dbInv[coluna]) db[inv.dbInv[coluna]] = valor

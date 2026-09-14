@@ -263,6 +263,21 @@ export const COLUNA_LABELS: Record<string, string> = {
   universo_populacao: 'Universo de população',
   populacao_atual: 'População atual',
   populacao_novas_obras: 'População nova (obras)',
+  /**
+   * AS DEZ `_com_cts` — "(com CTS à parte)": é a sub-bacia com a CTS considerada
+   * uma entidade separada, ou seja, sem a área do coletor. O rótulo repete o da
+   * coluna sem sufixo para o par ler igual: a diferença é a CTS, não a medida.
+   */
+  receita_faturada_media_mensal_com_cts: 'Receita faturada média mensal (com CTS à parte)',
+  receita_arrecadada_media_mensal_com_cts: 'Receita arrecadada média mensal (com CTS à parte)',
+  universo_ligacoes_com_cts: 'Universo de ligações (com CTS à parte)',
+  ligacoes_atuais_com_cts: 'Ligações atuais (com CTS à parte)',
+  universo_economias_com_cts: 'Universo de economias (com CTS à parte)',
+  economias_atuais_com_cts: 'Economias atuais (com CTS à parte)',
+  universo_ligacoes_residencial_com_cts: 'Universo de ligações (residencial, com CTS à parte)',
+  ligacoes_atuais_residencial_com_cts: 'Ligações atuais (residencial, com CTS à parte)',
+  universo_economias_residencial_com_cts: 'Universo de economias (residencial, com CTS à parte)',
+  economias_atuais_residencial_com_cts: 'Economias atuais (residencial, com CTS à parte)',
   potencial_crescimento: 'Potencial de crescimento',
   componente: 'Componente',
   quantidade: 'Quantidade',
@@ -664,8 +679,10 @@ export const SCHEMA: AbaDef[] = [
   },
   {
     key: 'metas-cobertura', icone: ChartLineUp, titulo: 'Metas de cobertura',
-    // A meta é por cidade e ano; sistema não aparece e não faria sentido.
-    escopo: { empresa: 'via-cidade' },
+    // A meta é por cidade e ano; sistema não aparece e não faria sentido. A
+    // CIDADE é o eixo fino aqui: é a unidade de trabalho da aba — e a barra não
+    // espera 15 linhas, senão uma unidade de duas cidades nunca veria o filtro.
+    escopo: { empresa: 'via-cidade', cidade: 'coluna', barraSempre: true },
     desc: 'Meta de cobertura (%) por cidade e ano — o que a otimização precisa alcançar. Uma linha por par cidade/ano.',
     addRow: true,
     novo: () => ({ cidade_id: '', cidade_name: '', ano: '', cobertura_pct: '' }),
@@ -683,7 +700,7 @@ export const SCHEMA: AbaDef[] = [
     // Mesma razão da aba de metas. ATENÇÃO: esta aba CRIA a faixa 0 ao ser
     // aberta (`garantirFaixaZeroParidade`) — ver o efeito no CadastroWizard, que
     // limpa o recorte junto para a linha nova não nascer escondida.
-    escopo: { empresa: 'via-cidade' },
+    escopo: { empresa: 'via-cidade', cidade: 'coluna', barraSempre: true },
     /**
      * A DESCRIÇÃO EXPLICA A FAIXA ZERO em palavras, e não pela regra: "uma faixa
      * (cobertura 0) já vale como paridade constante" é correto e ilegível para
@@ -911,6 +928,32 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
       { coluna: 'sistema_id', origem: 'db', procedencia: 'vazio', oque: 'Sistema de esgotamento sanitário a que esta sub-bacia pertence. Vazio aqui porque esse vínculo vive na aba Fluxo de escoamento.' }, { coluna: 'sistema_name', origem: 'db', procedencia: 'subbacias', oque: 'Nome do sistema de esgotamento sanitário (SES) da base comercial.', exemplo: 'Alegria' },
       { coluna: 'sub_bacia_id', origem: 'db', procedencia: 'mock', oque: 'Identifica esta sub-bacia — a menor unidade territorial de coleta de esgoto, que escoa até uma ETE.', exemplo: 'b001' }, { coluna: 'sub_bacia_name', origem: 'db', procedencia: 'subbacias', oque: 'Nome da sub-bacia, vindo da base comercial real.', exemplo: 'Canal do Cunha' },
       ...colsOperacionalComercial('subbacias'),
+      /*
+       * A SUB-BACIA COM A CTS À PARTE — as dez `_com_cts`, só nesta aba.
+       *
+       * A base comercial traz cada medida em duas versões: a sem sufixo (acima) é
+       * a sub-bacia INTEIRA, sem considerar a CTS — a área que o coletor atende
+       * está dentro; a `_com_cts` é o que sobra para a sub-bacia quando a CTS é
+       * uma entidade à parte, e vem VAZIA quando o coletor levou tudo. O motor lê
+       * a `_com_cts` na rodada com CTS e a sem sufixo na rodada sem.
+       *
+       * Aparecem para se poder CONFERIR quanto da sub-bacia é área do coletor —
+       * a diferença entre as duas colunas, somada pela cidade, é o total das CTS
+       * dela. São só de leitura: a gravação as tira do corpo antes de enviar, e o
+       * servidor não as exige nem as grava (`DB_SO_DA_SUBBACIA`, em
+       * `lib/cadastroApi.ts`). A CTS não as tem, e por
+       * isso não estão em `colsOperacionalComercial`, que as duas abas dividem.
+       */
+      { coluna: 'receita_faturada_media_mensal_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'A receita faturada média mensal da sub-bacia com a CTS considerada à parte — só o que não é área do coletor. Vazia quando a CTS atende a sub-bacia inteira.', porque: 'É a receita que a sub-bacia gera na rodada com CTS; a da área do coletor está na ficha da CTS. Compare com a coluna sem sufixo para ver quanto é do coletor.' },
+      { coluna: 'receita_arrecadada_media_mensal_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'A receita arrecadada média mensal da sub-bacia com a CTS considerada à parte.', porque: 'Mesma lógica da faturada: é a base do ticket na rodada com CTS.' },
+      { coluna: 'universo_ligacoes_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'Universo de ligações da sub-bacia com a CTS considerada à parte — só o que não é área do coletor.', porque: 'É o denominador da meta desta sub-bacia na rodada com CTS. A diferença para o universo sem sufixo é a área do coletor.' },
+      { coluna: 'ligacoes_atuais_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'Ligações ativas da sub-bacia com a CTS considerada à parte.' },
+      { coluna: 'universo_economias_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'Universo de economias da sub-bacia com a CTS considerada à parte.' },
+      { coluna: 'economias_atuais_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'Economias ativas da sub-bacia com a CTS considerada à parte.' },
+      { coluna: 'universo_ligacoes_residencial_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'Quantas do universo de ligações com a CTS à parte são residenciais.' },
+      { coluna: 'ligacoes_atuais_residencial_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'Quantas das ligações ativas com a CTS à parte são residenciais.' },
+      { coluna: 'universo_economias_residencial_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'Quantas do universo de economias com a CTS à parte são residenciais.' },
+      { coluna: 'economias_atuais_residencial_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'Quantas das economias ativas com a CTS à parte são residenciais.' },
     ],
   },
 

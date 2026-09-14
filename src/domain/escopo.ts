@@ -30,15 +30,22 @@ const txt = (v: unknown): string => String(v ?? '').trim()
 
 const SEM_SISTEMA: Sistema = { id: '', nome: '' }
 
-/** O recorte escolhido na barra. `''` em qualquer eixo = "todos". */
+/**
+ * O recorte escolhido na barra. `''` em qualquer eixo = "todos".
+ *
+ * `cidadeId` é opcional porque o eixo só existe nas abas do Município
+ * (`EscopoAba.cidade`); nas outras ele não é escolhido nem lido, e obrigar todo
+ * recorte a carregá-lo faria cada aba do sistema declarar um eixo que não tem.
+ */
 export interface Escopo {
   empresaId: string
   sistemaId: string
+  cidadeId?: string
 }
 
 export const SEM_ESCOPO: Escopo = { empresaId: '', sistemaId: '' }
 
-export const escopoAtivo = (e: Escopo): boolean => !!e.empresaId || !!e.sistemaId
+export const escopoAtivo = (e: Escopo): boolean => !!e.empresaId || !!e.sistemaId || !!e.cidadeId
 
 /**
  * A chave de um sistema no escopo — ver o comentário do topo sobre ela ser opaca.
@@ -68,6 +75,8 @@ interface IndiceEscopo {
   empresasPorSistema: Map<string, Set<string>>
   /** Empresa → nome legível (`empresa`), para o rótulo da opção. */
   nomePorEmpresa: Map<string, string>
+  /** Cidade → nome legível, pela aba `cidade-operacional` (uma linha por cidade). */
+  nomePorCidade: Map<string, string>
   /**
    * `sub_bacia_id` → chave de sistema, pelo CAPEX de componentes. Complementa
    * `sistemaDoNo`: ele resolve a sub-bacia pelo `sistema_name` da linha dela, e
@@ -140,6 +149,11 @@ function indice(dados: Dados): IndiceEscopo {
     const e = txt(r.emp_codigo)
     if (e && !nomePorEmpresa.has(e)) nomePorEmpresa.set(e, txt(r.empresa) || e)
   }
+  const nomePorCidade = new Map<string, string>()
+  for (const r of dados['cidade-operacional'] ?? []) {
+    const c = txt(r.cidade_id)
+    if (c && !nomePorCidade.has(c)) nomePorCidade.set(c, txt(r.cidade_name) || c)
+  }
 
   const empresasPorSistema = new Map<string, Set<string>>()
   for (const [chave, cidades] of cidadesPorSistema) {
@@ -153,7 +167,7 @@ function indice(dados: Dados): IndiceEscopo {
 
   const novo: IndiceEscopo = {
     nomePorSistema, cidadesPorSistema, sistemaPorSubbaciaCapex, empresaPorCidade, nomePorEmpresa,
-    empresasPorSistema,
+    empresasPorSistema, nomePorCidade,
   }
   cache.set(dados, novo)
   return novo
@@ -266,6 +280,9 @@ export function casaComEscopo(dados: Dados, aba: AbaDef, row: Row, escopo: Escop
   if (escopo.empresaId && def.empresa) {
     if (!empresasDaLinhaEscopo(dados, def, def.empresa, row).includes(escopo.empresaId)) return false
   }
+  if (escopo.cidadeId && def.cidade) {
+    if (txt(row.cidade_id) !== escopo.cidadeId) return false
+  }
   return true
 }
 
@@ -281,9 +298,14 @@ export interface OpcoesEscopo {
   empresas: OpcaoEscopo[]
   /** `[]` quando a aba não declara o eixo de sistema. */
   sistemas: (OpcaoEscopo & { empresas: Set<string> })[]
+  /**
+   * `[]` quando a aba não declara o eixo de cidade. Cada opção sabe a empresa da
+   * cidade, para a lista encolher quando a empresa é escolhida — como os sistemas.
+   */
+  cidades: (OpcaoEscopo & { empresa: string })[]
 }
 
-const VAZIAS: OpcoesEscopo = { empresas: [], sistemas: [] }
+const VAZIAS: OpcoesEscopo = { empresas: [], sistemas: [], cidades: [] }
 
 /**
  * As opções da barra, montadas a partir das LINHAS da aba — ver a invariante no
@@ -298,8 +320,13 @@ export function opcoesEscopo(dados: Dados, aba: AbaDef, rows: Row[]): OpcoesEsco
 
   const empresasVistas = new Set<string>()
   const sistemas = new Map<string, { nome: string; empresas: Set<string> }>()
+  const cidades = new Map<string, string>()
 
   for (const row of rows) {
+    if (def.cidade) {
+      const c = txt(row.cidade_id)
+      if (c && !cidades.has(c)) cidades.set(c, txt(row.cidade_name))
+    }
     // O sistema é resolvido UMA vez por linha e reaproveitado pela empresa: com
     // 'via-sistema' as duas perguntas têm a mesma resposta no meio, e a aba de
     // CAPEX de componentes tem 5 linhas por sub-bacia — resolver duas vezes
@@ -361,8 +388,34 @@ export function opcoesEscopo(dados: Dados, aba: AbaDef, rows: Row[]): OpcoesEsco
       ]
     : []
 
-  return { empresas: opcEmpresas, sistemas: opcSistemas }
+  /**
+   * A CIDADE TEM "TODAS", como a empresa: ela é o eixo fino das abas do
+   * Município, mas a aba inteira se lê — uma meta por cidade e ano cabe numa
+   * tela. Escolher uma é conveniência para conferir um município, não obrigação.
+   */
+  const ix = indice(dados)
+  const opcCidades: (OpcaoEscopo & { empresa: string })[] = def.cidade
+    ? [
+        { value: '', label: 'Todas as cidades', empresa: '' },
+        ...[...cidades.entries()]
+          .map(([value, nome]) => ({
+            value,
+            label: nome || ix.nomePorCidade.get(value) || value,
+            empresa: ix.empresaPorCidade.get(value) ?? '',
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR')),
+      ]
+    : []
+
+  return { empresas: opcEmpresas, sistemas: opcSistemas, cidades: opcCidades }
 }
+
+/**
+ * As cidades que sobram depois da empresa escolhida — "Todas as cidades" fica
+ * sempre; cidade sem empresa (a carga não a vinculou) sai quando há empresa.
+ */
+export const cidadesVisiveis = (opcoes: OpcoesEscopo, empresaId: string) =>
+  empresaId ? opcoes.cidades.filter((c) => !c.value || c.empresa === empresaId) : opcoes.cidades
 
 /**
  * Os sistemas que sobram depois da empresa escolhida.
@@ -425,6 +478,10 @@ export function colunasDoEscopo(aba: AbaDef): Set<string> {
   if (aba.escopo.sistema === 'coluna' || aba.escopo.sistema === 'fluxo') {
     fora.add('sistema_id')
     fora.add('sistema_name')
+  }
+  if (aba.escopo.cidade === 'coluna') {
+    fora.add('cidade_id')
+    fora.add('cidade_name')
   }
   return fora
 }

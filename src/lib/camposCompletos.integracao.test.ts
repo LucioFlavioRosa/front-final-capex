@@ -57,6 +57,8 @@ describe('paridade entre o que o servidor manda e o que a tela mostra', () => {
       'universo_economias_residencial',
       'economias_atuais_residencial',
       'ticket_medio',
+      'universo_ligacoes_com_cts',
+      'receita_faturada_media_mensal_com_cts',
     ]) {
       expect(cols.has(c)).toBe(true)
     }
@@ -78,7 +80,11 @@ describe('paridade entre o que o servidor manda e o que a tela mostra', () => {
     // outra, e é isso que impede a CTS de ficar para trás na próxima mudança.
     const sub = colunasDa('subbacia-operacional')
     const cts = colunasDa('cts-operacional')
-    const comerciais = [...sub].filter((c) => !['sistema_id', 'sistema_name'].includes(c))
+    // As `_com_cts` são a exceção declarada: "a sub-bacia com a CTS à parte" não
+    // tem sentido na ficha da própria CTS, e o servidor só as manda na sub-bacia.
+    const comerciais = [...sub].filter(
+      (c) => !['sistema_id', 'sistema_name'].includes(c) && !c.endsWith('_com_cts'),
+    )
     const soNaSub = comerciais.filter((c) => !cts.has(c) && !c.startsWith('sub_bacia'))
     expect(soNaSub).toEqual([])
   }, 120_000)

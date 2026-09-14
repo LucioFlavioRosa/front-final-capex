@@ -9,7 +9,9 @@ import {
   opcoesEscopo,
   sistemaDaLinhaEscopo,
   sistemaPadraoDoFluxo,
-  sistemasVisiveis, barraDeEscopoVisivel, MIN_LINHAS_PARA_ESCOPO } from '../../../domain/escopo'
+  sistemasVisiveis, barraDeEscopoVisivel, MIN_LINHAS_PARA_ESCOPO,
+  cidadesVisiveis, colunasDoEscopo, escopoAtivo } from '../../../domain/escopo'
+import { FiltroEscopo } from './FiltroEscopo'
 import { ADMIN_UNIDADE } from '../../../auth/papeis'
 import { BLOCOS } from '../../../data/cadastroUnidade/blocos'
 import { espelharColunas, opcoesDaCelula } from '../../../domain/fluxo'
@@ -199,6 +201,64 @@ describe('escopo — a linha resolve o sistema pelo caminho que a aba declara', 
     // s01 e s02 e s03 estão em ordem alfabética por nome (Alegria, Bonsucesso,
     // Pavuna); s01 é o único com destino escolhido em mais de uma linha.
     expect(sistemaPadraoDoFluxo(DADOS)).toBe('s01')
+  })
+})
+
+// ------------------------------------------------ o eixo da cidade, no Município
+
+describe('escopo — a cidade é o eixo fino das abas do Município', () => {
+  const metas = aba('metas-cobertura')
+  const paridade = aba('fator-esgoto')
+  // c002 é da empresa 56 em `cidade-empresa`; as linhas de METAS trazem 57 na
+  // coluna, mas o eixo lê o vínculo do cadastro, não a coluna da linha.
+  const DADOS_METAS: Dados = { ...DADOS, 'metas-cobertura': METAS }
+
+  it('as duas abas do Município declaram o eixo; as do sistema, não', () => {
+    expect(metas.escopo?.cidade).toBe('coluna')
+    expect(paridade.escopo?.cidade).toBe('coluna')
+    expect(aba('sistema-topologia').escopo?.cidade).toBeUndefined()
+    expect(aba('subbacia-operacional').escopo?.cidade).toBeUndefined()
+  })
+
+  it('as opções saem das linhas, com "Todas as cidades" primeiro e a empresa de cada uma', () => {
+    const { cidades } = opcoesEscopo(DADOS_METAS, metas, METAS)
+    expect(cidades.map((c) => c.value)).toEqual(['', 'c001', 'c002'])
+    expect(cidades.map((c) => c.label)).toEqual(['Todas as cidades', 'Belford Roxo', 'Nova Iguaçu'])
+    expect(cidades.map((c) => c.empresa)).toEqual(['', '57', '56'])
+    // aba sem o eixo: lista vazia, e a barra não desenha o controle
+    expect(opcoesEscopo(DADOS, aba('sistema-topologia'), FLUXO).cidades).toEqual([])
+  })
+
+  it('recortar por cidade deixa só as linhas dela; "" não filtra', () => {
+    const deC001 = METAS.filter((r) => casaComEscopo(DADOS_METAS, metas, r, { empresaId: '', sistemaId: '', cidadeId: 'c001' }))
+    expect(deC001.map((r) => r.ano)).toEqual(['2030', '2031'])
+    const todas = METAS.filter((r) => casaComEscopo(DADOS_METAS, metas, r, { empresaId: '', sistemaId: '', cidadeId: '' }))
+    expect(todas).toHaveLength(METAS.length)
+    expect(escopoAtivo({ empresaId: '', sistemaId: '', cidadeId: 'c001' })).toBe(true)
+  })
+
+  it('a empresa escolhida encolhe a lista de cidades, e "todas" fica', () => {
+    const opcoes = opcoesEscopo(DADOS_METAS, metas, METAS)
+    expect(cidadesVisiveis(opcoes, '56').map((c) => c.value)).toEqual(['', 'c002'])
+    expect(cidadesVisiveis(opcoes, '').map((c) => c.value)).toEqual(['', 'c001', 'c002'])
+  })
+
+  it('a barra governa as colunas da cidade: o funil do cabeçalho sai delas', () => {
+    expect(colunasDoEscopo(metas)).toEqual(new Set(['cidade_id', 'cidade_name']))
+  })
+
+  it('trocar de empresa devolve a cidade que não é dela para "todas"', () => {
+    const opcoes = opcoesEscopo(DADOS_METAS, metas, METAS)
+    const onEscopo = vi.fn()
+    render(
+      <FiltroEscopo opcoes={opcoes} escopo={{ empresaId: '', sistemaId: '', cidadeId: 'c002' }} onEscopo={onEscopo} />,
+    )
+    // c002 é da 56; escolher a 57 não pode manter uma cidade que a lista da 57 não oferece.
+    // O primeiro combobox da barra é o da empresa (o de sistema não aparece: a aba não o tem).
+    fireEvent.click(screen.getAllByRole('button', { expanded: false })[0])
+    fireEvent.click(screen.getByRole('option', { name: /Águas do Rio 04/ }))
+    expect(onEscopo).toHaveBeenLastCalledWith({ empresaId: '57', sistemaId: '', cidadeId: '' })
+    cleanup()
   })
 })
 

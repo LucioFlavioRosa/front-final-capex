@@ -121,12 +121,22 @@ export interface EscopoAba {
   empresa?: FonteEmpresa
   sistema?: FonteSistema
   /**
+   * O EIXO FINO DO MUNICÍPIO — a linha tem `cidade_id`, e a barra oferece a
+   * cidade como terceiro controle, abaixo da empresa. Só as abas cuja unidade de
+   * trabalho É a cidade o declaram (metas de cobertura, escala de paridade): nas
+   * outras o sistema já é o eixo fino, e a cidade deixou de ser régua quando o
+   * sistema passou a poder estar em várias (migração 022).
+   */
+  cidade?: 'coluna'
+  /**
    * A BARRA APARECE MESMO COM POUCAS LINHAS. O padrão é esperar
    * `MIN_LINHAS_PARA_ESCOPO`: numa aba que se lê inteira de uma vez, filtrar dá
    * mais trabalho que ler. A aba que declara isto tem outra razão para a barra —
    * o Fluxo, porque nela a barra escolhe qual sistema o desenho mostra; as da
    * CTS, porque com a macrorregião marcada há UMA por sistema, e a aba nunca
-   * chegaria às linhas que a fariam aparecer.
+   * chegaria às linhas que a fariam aparecer; as do Município, porque o filtro
+   * de cidade é o que se pede nelas, e uma unidade de duas cidades tem menos
+   * de 15 linhas de meta.
    */
   barraSempre?: true
 }
