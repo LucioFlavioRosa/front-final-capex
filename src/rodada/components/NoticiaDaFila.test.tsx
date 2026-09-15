@@ -40,16 +40,35 @@ describe('NoticiaDaFila', () => {
       fila: { posicao: 0, motivo: 'NENHUM executor está ativo.', atencao: true, vivos: 0 },
     })
     renderizar(<NoticiaDaFila runId="run_1" status="PENDENTE" />)
-    const caixa = await screen.findByRole('status')
-    expect(caixa.className).toContain('bg-warning/10')
+    // `findByText` da posição, e não do `role`: o "Consultando a fila…" também é
+    // `status`, e apareceria antes da resposta.
+    const frase = await screen.findByText('Próxima a entrar')
+    expect(frase.parentElement?.className).toContain('bg-warning/10')
     expect(screen.getByText(/NENHUM executor/)).toBeInTheDocument()
   })
 
-  it('rodando: mostra o progresso, não a posição', async () => {
+  it('rodando: mostra o progresso com semântica de barra, não a posição', async () => {
     status({ status: 'RODANDO', progresso: 42, fila: { posicao: 0, motivo: 'Em execução.', atencao: false, vivos: 1 } })
     renderizar(<NoticiaDaFila runId="run_1" status="RODANDO" />)
     expect(await screen.findByText('42%')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '42')
     expect(screen.queryByText(/na fila|Próxima/)).not.toBeInTheDocument()
+  })
+
+  it('o MODO segue a etiqueta da lista, não a resposta: PENDENTE na lista e RODANDO no sinal ainda mostra a posição', async () => {
+    // Um ciclo de polling em que `/status` já avançou e a lista não: a tela não
+    // pode dizer "na fila" ao lado de "executando 42%". A posição fica, e a lista
+    // é pedida de novo.
+    status({ status: 'RODANDO', progresso: 42, fila: { posicao: 0, motivo: 'Em execução.', atencao: false, vivos: 1 } })
+    renderizar(<NoticiaDaFila runId="run_1" status="PENDENTE" />)
+    expect(await screen.findByText('Próxima a entrar')).toBeInTheDocument()
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+  })
+
+  it('erro ao consultar: diz que a fila não pôde ser lida, sem esconder a rodada', async () => {
+    servidor.use(http.get('/api/runs/:runId/status', () => HttpResponse.json({ detail: 'x' }, { status: 500 })))
+    renderizar(<NoticiaDaFila runId="run_1" status="PENDENTE" />)
+    expect(await screen.findByText(/Não foi possível consultar a fila/)).toBeInTheDocument()
   })
 
   it('rodada terminada não consulta nada', () => {

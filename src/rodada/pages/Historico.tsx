@@ -61,7 +61,7 @@ const SEM_RESULTADO: Partial<
     tom: 'azul',
   },
   PENDENTE: {
-    texto: 'A rodada está na fila e ainda não começou a rodar. A posição e o motivo estão logo abaixo.',
+    texto: 'A rodada está na fila e ainda não começou a rodar. A posição na fila aparece abaixo assim que o servidor responde.',
     tom: 'azul',
   },
   INFEASIBLE: {
