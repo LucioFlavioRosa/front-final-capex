@@ -196,4 +196,34 @@ describe('Histórico — a rodada com erro diz o MOTIVO, não só o status', () 
     await linhaDaRodada('Orçamento base 2031')
     expect(screen.queryByText('Motivo')).not.toBeInTheDocument()
   })
+
+  it('rodada em voo NÃO mostra o solver da tentativa anterior', async () => {
+    // Reexecutada: o servidor limpa `erro`, mas o diagnóstico do solver da
+    // tentativa que morreu continua na tabela. Em PENDENTE ele leria como "morreu
+    // depois do solver" — e a rodada está só esperando a vez.
+    servidor.use(
+      http.get('/api/runs', () =>
+        HttpResponse.json([
+          {
+            runId: 'reex-0000-0000-0000-000000000010',
+            nome: 'Rodada reexecutada',
+            unidadeId: '56',
+            unidadeNome: 'ÁGUAS DO RIO 01',
+            dataHora: '2026-08-15T10:00:00Z',
+            autor: 'murilo.caires',
+            duracaoS: null,
+            status: 'PENDENTE',
+            favorita: false,
+            publicada: false,
+            comentario: null,
+            erro: null,
+            solver: 'VIAVEL(limite de tempo) | obrig 106/126  VPL=-227.126.290',
+          },
+        ]),
+      ),
+    )
+    renderizar(<Historico />)
+    await linhaDaRodada('Rodada reexecutada')
+    expect(screen.queryByText('Última resposta do solver')).not.toBeInTheDocument()
+  })
 })
