@@ -159,3 +159,41 @@ describe('Histórico — nulo nunca vira número', () => {
     expect(textos.join(' ')).not.toMatch(/R\$\s?0\b/)
   })
 })
+
+describe('Histórico — a rodada com erro diz o MOTIVO, não só o status', () => {
+  it('o painel mostra a causa reportada pelo executor e a última resposta do solver', async () => {
+    servidor.use(
+      http.get('/api/runs', () =>
+        HttpResponse.json([
+          {
+            runId: 'err0-0000-0000-0000-000000000009',
+            nome: 'Rodada que caiu',
+            unidadeId: '56',
+            unidadeNome: 'ÁGUAS DO RIO 01',
+            dataHora: '2026-08-15T10:00:00Z',
+            autor: 'murilo.caires',
+            duracaoS: null,
+            status: 'ERRO',
+            favorita: false,
+            publicada: false,
+            comentario: null,
+            erro: 'O processo desta rodada morreu (falha nativa no solver ou na materialização).',
+            solver: 'VIAVEL(limite de tempo) | obrig 106/126  VPL=-227.126.290',
+          },
+        ]),
+      ),
+    )
+    renderizar(<Historico />)
+    await linhaDaRodada('Rodada que caiu')
+    expect(screen.getByText('Motivo')).toBeInTheDocument()
+    expect(screen.getByText(/O processo desta rodada morreu/)).toBeInTheDocument()
+    expect(screen.getByText('Última resposta do solver')).toBeInTheDocument()
+    expect(screen.getByText(/obrig 106\/126/)).toBeInTheDocument()
+  })
+
+  it('sem causa reportada, o bloco do motivo não aparece', async () => {
+    renderizar(<Historico />)
+    await linhaDaRodada('Orçamento base 2031')
+    expect(screen.queryByText('Motivo')).not.toBeInTheDocument()
+  })
+})

@@ -498,6 +498,31 @@ function PainelDaRodada({
             {/* A posição na fila e o progresso, só enquanto a rodada está em voo:
                 a etiqueta "Na fila" sozinha não diz se é a próxima ou a quinta. */}
             <NoticiaDaFila runId={run.runId} status={run.status} />
+            {/* A CAUSA DA FALHA, quando o executor a reportou. O aviso acima diz
+                que houve erro; isto diz QUAL — o servidor já mandava `erro` na
+                lista e só a análise de sensibilidade o lia. `solver` é a última
+                palavra do solver quando a rodada morreu depois dele: o plano
+                existiu, e o número ajuda a decidir se vale rodar de novo. */}
+            {(run.erro || run.solver) && (
+              <div className="mt-3 rounded-xl border border-ink-200 bg-ink-50 px-3.5 py-3 text-[12px] leading-snug">
+                {run.erro && (
+                  <>
+                    <div className="text-[10.5px] font-bold uppercase tracking-[.09em] text-ink-water">
+                      Motivo
+                    </div>
+                    <p className="mt-1 break-words font-mono text-[11.5px] text-ink-800">{run.erro}</p>
+                  </>
+                )}
+                {run.solver && (
+                  <>
+                    <div className={`text-[10.5px] font-bold uppercase tracking-[.09em] text-ink-water ${run.erro ? 'mt-2.5' : ''}`}>
+                      Última resposta do solver
+                    </div>
+                    <p className="mt-1 break-words font-mono text-[11.5px] text-ink-600">{run.solver}</p>
+                  </>
+                )}
+              </div>
+            )}
             {/* O detalhe importa MAIS aqui do que na rodada que deu certo: sem
                 resultado para abrir, o pedido é a única coisa que explica o que
                 foi tentado — e o que mudar antes de rodar de novo. */}
