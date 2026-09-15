@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useComentarDaRodada } from '@/rodada/api/queries'
 import { Button } from '@/components/ui/Button'
 import { TagStatus } from '@/rodada/components/pecas'
+import { MotivoDaFalha } from '@/rodada/components/MotivoDaFalha'
 import { ordenarParametros, rotuloDoParametro, valorDoParametro } from '@/rodada/domain/pedido'
 import { dataHora } from '@/rodada/lib/formato'
 import type { RunResumo } from '@/rodada/domain/resultado'
@@ -117,6 +118,9 @@ export function DetalhesDaSimulacao({ run, aoFechar }: { run: RunResumo; aoFecha
               valor={run.publicada ? `solver ${run.status}` : String(run.status)}
             />
           </dl>
+          {/* A causa, aqui também: "Ver detalhes" numa rodada com erro não pode
+              tirar da vista justamente o que explica o erro. */}
+          <MotivoDaFalha run={run} />
 
           <h3 className="mt-6 text-[11.5px] font-semibold uppercase tracking-[.05em] text-ink-water">
             Variáveis usadas nesta simulação
