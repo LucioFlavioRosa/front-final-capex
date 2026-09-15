@@ -7,6 +7,7 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { useToast } from '@/components/ui/Toaster'
 import { Estado } from '@/rodada/components/Estado'
 import { DetalhesDaSimulacao } from '@/rodada/components/DetalhesDaSimulacao'
+import { NoticiaDaFila } from '@/rodada/components/NoticiaDaFila'
 import { CompararSimulacoes } from '@/rodada/components/CompararSimulacoes'
 import { Aviso, Tag, TagStatus, Tile } from '@/rodada/components/pecas'
 import {
@@ -60,7 +61,7 @@ const SEM_RESULTADO: Partial<
     tom: 'azul',
   },
   PENDENTE: {
-    texto: 'A rodada está na fila e ainda não começou a rodar.',
+    texto: 'A rodada está na fila e ainda não começou a rodar. A posição e o motivo estão logo abaixo.',
     tom: 'azul',
   },
   INFEASIBLE: {
@@ -494,6 +495,9 @@ function PainelDaRodada({
                   'Esta rodada não tem resultado publicado. O traço marca ausência de resultado, não resultado zero.'}
               </Aviso>
             </div>
+            {/* A posição na fila e o progresso, só enquanto a rodada está em voo:
+                a etiqueta "Na fila" sozinha não diz se é a próxima ou a quinta. */}
+            <NoticiaDaFila runId={run.runId} status={run.status} />
             {/* O detalhe importa MAIS aqui do que na rodada que deu certo: sem
                 resultado para abrir, o pedido é a única coisa que explica o que
                 foi tentado — e o que mudar antes de rodar de novo. */}
