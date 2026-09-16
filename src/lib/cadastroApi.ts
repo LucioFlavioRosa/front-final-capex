@@ -97,7 +97,10 @@ interface Hierarquia {
   sistemas: { id: string; nome: string; cidId: string; usaCts?: string }[]
   topo: { sis: string; id: string; nome: string; jus: string; tipo?: string }[]
   /** Componentes fora de qualquer sistema — hoje, as CTS ainda não colocadas. */
-  semSistema?: { id: string; nome: string; tipo?: string; cidId?: string }[]
+  semSistema?: {
+    id: string; nome: string; tipo?: string; cidId?: string
+    macro?: string; empId?: string
+  }[]
 }
 
 interface Contrato {
@@ -119,6 +122,10 @@ interface FichaColeta {
   db: Record<string, string>
   params: Record<string, string>
   obrasOverride: Record<string, Obra>
+  /** SÓ NA CTS: a macrorregião a que a ficha pertence, ou o próprio id quando ela É a macrorregião. */
+  sistemaCts?: string
+  /** SÓ NA MACRORREGIÃO: os coletores que a soma contém, com as ligações de cada um. */
+  membros?: { id: string; nome: string; cidId: string; ligA: string }[]
 }
 
 interface SubBacias {
@@ -183,6 +190,35 @@ const PARAMS: Record<string, string> = {
  */
 const DB_DERIVADO: Record<string, string> = {
   ticket: 'ticket_medio',
+}
+
+/**
+ * SÓ NA SUB-BACIA, E SÓ LEITURA — as colunas `*_com_cts`.
+ *
+ * A base comercial traz cada medida da sub-bacia em duas versões: a sem sufixo é
+ * a sub-bacia INTEIRA, sem considerar a CTS (a área do coletor está dentro); a
+ * `_com_cts` é a sub-bacia com a CTS considerada à parte — só o que não é área do
+ * coletor, vazia quando ele levou tudo. O motor lê a `_com_cts` na rodada com
+ * CTS e a sem sufixo na rodada sem. A tela mostra as duas lado a lado para se
+ * poder conferir quanto da sub-bacia é área do coletor.
+ *
+ * Fora do `DB` pela mesma razão do `ticket`: aquele mapa serve os dois sentidos,
+ * e estas não voltam no `PUT` — `gravarColeta` as tira do bloco `db` antes de
+ * enviar, e o servidor não as exige nem as grava (`campos.SO_DA_SUBBACIA`). A
+ * CTS não as tem: `linhaDeColeta` lê `''` nela, e a aba da CTS não declara as
+ * colunas.
+ */
+const DB_SO_DA_SUBBACIA: Record<string, string> = {
+  fatCts: 'receita_faturada_media_mensal_com_cts',
+  arrCts: 'receita_arrecadada_media_mensal_com_cts',
+  ligUCts: 'universo_ligacoes_com_cts',
+  ligACts: 'ligacoes_atuais_com_cts',
+  ecoUCts: 'universo_economias_com_cts',
+  ecoACts: 'economias_atuais_com_cts',
+  ligUResCts: 'universo_ligacoes_residencial_com_cts',
+  ligAResCts: 'ligacoes_atuais_residencial_com_cts',
+  ecoUResCts: 'universo_economias_residencial_com_cts',
+  ecoAResCts: 'economias_atuais_residencial_com_cts',
 }
 
 /** Obra: índice do backend ↔ colunas de `componentes-*-capex`. */
@@ -385,7 +421,8 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
     // decidir em que sistema ela entra, e escondê-la faria a tela dizer que ela
     // não existe. A lista já vem recortada PELA UNIDADE (o servidor sabe onde
     // cada CTS está desde a migração 018); o seletor do Fluxo estreita mais uma
-    // vez, para a cidade do sistema.
+    // vez, para as EMPRESAS do sistema — cidade deixou de ser a régua quando o
+    // sistema passou a poder estar em várias (migração 022).
     'sistema-topologia': [
       ...hier.topo.map((t) => ({
         sistema_id: t.sis,
@@ -406,6 +443,13 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
         // para a cidade do sistema. Vazio = a carga não trouxe a cidade, e
         // essas vão para um grupo à parte em vez de sumir.
         cidade_id: t.cidId ?? '',
+        // `macro` chega como `'true'`/`'false'` e vira `Sim`/`Nao` — o mesmo
+        // vocabulário de sim/não das outras colunas do wizard.
+        macro: t.macro === 'true' ? 'Sim' : 'Nao',
+        // A EMPRESA DA MACRORREGIÃO — a outra metade da chave dela, e a régua
+        // pela qual o seletor a recorta. `cidade_id` acima é só a dominante: a
+        // macrorregião cruza município, e cidade não é a régua dela.
+        emp_codigo: t.empId ?? '',
         componente_sistema_id_jusante: '',
         componente_sistema_nome_jusante: '',
       })),
@@ -470,6 +514,15 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
       ...linhaDeColeta(id, f, 'cts_id', 'cts_name'),
       sistema_id: f.sisId ?? '',
       sistema_name: f.sistema ?? '',
+      // O SISTEMA CTS — a macrorregião — vem da origem e a tela só mostra. É a
+      // coluna pela qual os coletores foram agrupados; sem ela, a ficha somada
+      // aparece com um nome e nada diz de onde a soma veio.
+      sistema_cts: f.sistemaCts ?? '',
+      // OS COLETORES DENTRO DA SOMA, como texto — é o que permite conferir a
+      // macrorregião em vez de acreditar nela. Cada um com as ligações atuais,
+      // para a soma poder ser refeita à mão contra a coluna `ligacoes_atuais`.
+      qtd_coletores: f.membros?.length ? String(f.membros.length) : '',
+      coletores: (f.membros ?? []).map((m) => `${m.nome} (${m.ligA})`).join(', '),
     })),
 
     'componentes-cts-capex': Object.entries(cts.ctss).flatMap(([id, f]) =>
@@ -500,6 +553,9 @@ function linhaDeColeta(id: string, f: FichaColeta, colId: string, colNome: strin
   }
   for (const [curto, coluna] of Object.entries(DB)) linha[coluna] = f.db?.[curto] ?? ''
   for (const [curto, coluna] of Object.entries(DB_DERIVADO)) linha[coluna] = f.db?.[curto] ?? ''
+  // Só a sub-bacia as traz; na CTS a chave não vem e a coluna nem existe na aba.
+  if (colId === 'sub_bacia_id')
+    for (const [curto, coluna] of Object.entries(DB_SO_DA_SUBBACIA)) linha[coluna] = f.db?.[curto] ?? ''
   for (const [curto, coluna] of Object.entries(PARAMS)) linha[coluna] = f.params?.[curto] ?? ''
   return linha
 }
@@ -614,6 +670,18 @@ export function envioDaTopologia(
   }
 }
 
+/**
+ * A LINHA DA UNIDADE — WACC e a caixa da macrorregião de CTS. É a mesma rota
+ * que o Salvar usa e que a caixa usa ao ser clicada (`gravarUsaCts`): uma
+ * definição, para o corpo e o caminho não divergirem entre as duas.
+ */
+export function gravarUnidade(
+  unidadeId: string,
+  corpo: { usaCts?: boolean; waccMedio?: unknown },
+): Promise<unknown> {
+  return api.put(`/api/unidades/${encodeURIComponent(unidadeId)}`, corpo)
+}
+
 export async function salvarCadastro(
   unidade: UnidadeState,
   base: BaseDoCadastro,
@@ -707,11 +775,11 @@ export async function salvarCadastro(
   const waccMudou =
     unidAgora?.wacc_medio !== undefined && unidAgora.wacc_medio !== unidAntes?.wacc_medio
 
-  const gravarUnidade = (comCts: boolean) => {
+  const gravarLinhaDaUnidade = (comCts: boolean) => {
     const corpo: Record<string, unknown> = {}
     if (comCts) corpo.usaCts = ctsAgora === 'Sim'
     if (waccMudou) corpo.waccMedio = unidAgora?.wacc_medio ?? ''
-    return api.put(`/api/unidades/${u}`, corpo)
+    return gravarUnidade(unidade.id, corpo)
   }
 
   // DESMARCAR VAI ANTES da topologia: sem isto, colocar a segunda CTS num
@@ -721,7 +789,7 @@ export async function salvarCadastro(
   // O WACC PEGA CARONA NA PRIMEIRA IDA, seja qual for o sentido da caixa: ele não
   // tem dependência de ordem nenhuma, e mandá-lo à parte seria uma requisição a
   // mais para gravar duas colunas da mesma linha.
-  if ((ctsMudou && ctsAgora !== 'Sim') || waccMudou) await gravarUnidade(ctsMudou && ctsAgora !== 'Sim')
+  if ((ctsMudou && ctsAgora !== 'Sim') || waccMudou) await gravarLinhaDaUnidade(ctsMudou && ctsAgora !== 'Sim')
 
   // ---- topologia: o SISTEMA INTEIRO, numa transação só ----
   //
@@ -745,7 +813,7 @@ export async function salvarCadastro(
   // MARCAR VAI DEPOIS da topologia: o servidor recusa marcar enquanto algum
   // sistema tiver duas CTS, e tirar a excedente é justamente o que a topologia
   // acabou de gravar. Aqui o WACC já foi na ida de cima.
-  if (ctsMudou && ctsAgora === 'Sim') await api.put(`/api/unidades/${u}`, { usaCts: true })
+  if (ctsMudou && ctsAgora === 'Sim') await gravarUnidade(unidade.id, { usaCts: true })
 
   const agora = new Date().toISOString()
   return { ok: true, unidade_id: unidade.id, criado_em: agora, atualizado_em: agora }
@@ -781,7 +849,13 @@ async function gravarColeta(
     // Nem a ficha nem as obras dela mudaram: não há o que gravar.
     if (igual(linha, fichaBase.get(id)) && listasIguais(obras.get(id), obrasBase.get(id))) continue
 
-    const db = { ...anterior.db }
+    // O `db` sai do que o servidor mandou, MENOS o que é só de leitura: o `ticket`
+    // (conta do servidor) e as `_com_cts` (medida que a CTS não tem). O servidor
+    // ignora as duas se voltarem, mas o contrato do `PUT` é a ficha que se grava
+    // — mandar o que não se grava é declarar uma intenção que não existe.
+    const db = Object.fromEntries(
+      Object.entries(anterior.db).filter(([k]) => !(k in DB_DERIVADO) && !(k in DB_SO_DA_SUBBACIA)),
+    )
     const params = { ...anterior.params }
     for (const [coluna, valor] of Object.entries(linha)) {
       if (inv.dbInv[coluna]) db[inv.dbInv[coluna]] = valor

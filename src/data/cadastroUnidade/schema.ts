@@ -263,6 +263,21 @@ export const COLUNA_LABELS: Record<string, string> = {
   universo_populacao: 'Universo de população',
   populacao_atual: 'População atual',
   populacao_novas_obras: 'População nova (obras)',
+  /**
+   * AS DEZ `_com_cts` — "(com CTS à parte)": é a sub-bacia com a CTS considerada
+   * uma entidade separada, ou seja, sem a área do coletor. O rótulo repete o da
+   * coluna sem sufixo para o par ler igual: a diferença é a CTS, não a medida.
+   */
+  receita_faturada_media_mensal_com_cts: 'Receita faturada média mensal (com CTS à parte)',
+  receita_arrecadada_media_mensal_com_cts: 'Receita arrecadada média mensal (com CTS à parte)',
+  universo_ligacoes_com_cts: 'Universo de ligações (com CTS à parte)',
+  ligacoes_atuais_com_cts: 'Ligações atuais (com CTS à parte)',
+  universo_economias_com_cts: 'Universo de economias (com CTS à parte)',
+  economias_atuais_com_cts: 'Economias atuais (com CTS à parte)',
+  universo_ligacoes_residencial_com_cts: 'Universo de ligações (residencial, com CTS à parte)',
+  ligacoes_atuais_residencial_com_cts: 'Ligações atuais (residencial, com CTS à parte)',
+  universo_economias_residencial_com_cts: 'Universo de economias (residencial, com CTS à parte)',
+  economias_atuais_residencial_com_cts: 'Economias atuais (residencial, com CTS à parte)',
   potencial_crescimento: 'Potencial de crescimento',
   componente: 'Componente',
   quantidade: 'Quantidade',
@@ -664,8 +679,10 @@ export const SCHEMA: AbaDef[] = [
   },
   {
     key: 'metas-cobertura', icone: ChartLineUp, titulo: 'Metas de cobertura',
-    // A meta é por cidade e ano; sistema não aparece e não faria sentido.
-    escopo: { cidade: 'coluna' },
+    // A meta é por cidade e ano; sistema não aparece e não faria sentido. A
+    // CIDADE é o eixo fino aqui: é a unidade de trabalho da aba — e a barra não
+    // espera 15 linhas, senão uma unidade de duas cidades nunca veria o filtro.
+    escopo: { empresa: 'via-cidade', cidade: 'coluna', barraSempre: true },
     desc: 'Meta de cobertura (%) por cidade e ano — o que a otimização precisa alcançar. Uma linha por par cidade/ano.',
     addRow: true,
     novo: () => ({ cidade_id: '', cidade_name: '', ano: '', cobertura_pct: '' }),
@@ -683,7 +700,7 @@ export const SCHEMA: AbaDef[] = [
     // Mesma razão da aba de metas. ATENÇÃO: esta aba CRIA a faixa 0 ao ser
     // aberta (`garantirFaixaZeroParidade`) — ver o efeito no CadastroWizard, que
     // limpa o recorte junto para a linha nova não nascer escondida.
-    escopo: { cidade: 'coluna' },
+    escopo: { empresa: 'via-cidade', cidade: 'coluna', barraSempre: true },
     /**
      * A DESCRIÇÃO EXPLICA A FAIXA ZERO em palavras, e não pela regra: "uma faixa
      * (cobertura 0) já vale como paridade constante" é correto e ilegível para
@@ -795,8 +812,9 @@ export const SCHEMA: AbaDef[] = [
     // arquivo v8 — ver ponto (1) no comentário do topo do arquivo.
     key: 'sistema-topologia', icone: Graph, titulo: 'Fluxo de escoamento',
     // A aba do print: os dois eixos, e o sistema pelo caminho 'fluxo' porque a
-    // linha de CTS chega sem `sistema_id` — ele vem do destino dela.
-    escopo: { cidade: 'via-sistema', sistema: 'fluxo' },
+    // linha de CTS chega sem `sistema_id` — ele vem do destino dela. A barra
+    // não espera linhas: é ela que escolhe qual sistema o desenho mostra.
+    escopo: { empresa: 'via-sistema', sistema: 'fluxo', barraSempre: true },
     /**
      * A ÚLTIMA FRASE DA DESCRIÇÃO é a que importa: o destino não tem fonte, é a
      * informação mais crítica da base, e errá-lo não produz erro — produz um
@@ -899,7 +917,7 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
     // 1.047 linhas — a aba que mais ganha com o recorte. O sistema vem por
     // `via-subbacia` e não por 'coluna': o `sistema_id` desta aba chega VAZIO da
     // fonte (ver a própria coluna abaixo), e o vínculo real está no nome.
-    escopo: { cidade: 'via-sistema', sistema: 'via-subbacia' },
+    escopo: { empresa: 'via-sistema', sistema: 'via-subbacia' },
     desc: 'Base comercial (Databricks) + parâmetros da unidade: preço/ligação, prazos, vazão, população e potencial de crescimento.',
     // Sistema antes de sub-bacia: a leitura natural é de cima para baixo na
     // hierarquia, e é assim que a unidade procura a linha na tabela.
@@ -910,6 +928,32 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
       { coluna: 'sistema_id', origem: 'db', procedencia: 'vazio', oque: 'Sistema de esgotamento sanitário a que esta sub-bacia pertence. Vazio aqui porque esse vínculo vive na aba Fluxo de escoamento.' }, { coluna: 'sistema_name', origem: 'db', procedencia: 'subbacias', oque: 'Nome do sistema de esgotamento sanitário (SES) da base comercial.', exemplo: 'Alegria' },
       { coluna: 'sub_bacia_id', origem: 'db', procedencia: 'mock', oque: 'Identifica esta sub-bacia — a menor unidade territorial de coleta de esgoto, que escoa até uma ETE.', exemplo: 'b001' }, { coluna: 'sub_bacia_name', origem: 'db', procedencia: 'subbacias', oque: 'Nome da sub-bacia, vindo da base comercial real.', exemplo: 'Canal do Cunha' },
       ...colsOperacionalComercial('subbacias'),
+      /*
+       * A SUB-BACIA COM A CTS À PARTE — as dez `_com_cts`, só nesta aba.
+       *
+       * A base comercial traz cada medida em duas versões: a sem sufixo (acima) é
+       * a sub-bacia INTEIRA, sem considerar a CTS — a área que o coletor atende
+       * está dentro; a `_com_cts` é o que sobra para a sub-bacia quando a CTS é
+       * uma entidade à parte, e vem VAZIA quando o coletor levou tudo. O motor lê
+       * a `_com_cts` na rodada com CTS e a sem sufixo na rodada sem.
+       *
+       * Aparecem para se poder CONFERIR quanto da sub-bacia é área do coletor —
+       * a diferença entre as duas colunas, somada pela cidade, é o total das CTS
+       * dela. São só de leitura: a gravação as tira do corpo antes de enviar, e o
+       * servidor não as exige nem as grava (`DB_SO_DA_SUBBACIA`, em
+       * `lib/cadastroApi.ts`). A CTS não as tem, e por
+       * isso não estão em `colsOperacionalComercial`, que as duas abas dividem.
+       */
+      { coluna: 'receita_faturada_media_mensal_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'A receita faturada média mensal da sub-bacia com a CTS considerada à parte — só o que não é área do coletor. Vazia quando a CTS atende a sub-bacia inteira.', porque: 'É a receita que a sub-bacia gera na rodada com CTS; a da área do coletor está na ficha da CTS. Compare com a coluna sem sufixo para ver quanto é do coletor.' },
+      { coluna: 'receita_arrecadada_media_mensal_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'A receita arrecadada média mensal da sub-bacia com a CTS considerada à parte.', porque: 'Mesma lógica da faturada: é a base do ticket na rodada com CTS.' },
+      { coluna: 'universo_ligacoes_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'Universo de ligações da sub-bacia com a CTS considerada à parte — só o que não é área do coletor.', porque: 'É o denominador da meta desta sub-bacia na rodada com CTS. A diferença para o universo sem sufixo é a área do coletor.' },
+      { coluna: 'ligacoes_atuais_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'Ligações ativas da sub-bacia com a CTS considerada à parte.' },
+      { coluna: 'universo_economias_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'Universo de economias da sub-bacia com a CTS considerada à parte.' },
+      { coluna: 'economias_atuais_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'Economias ativas da sub-bacia com a CTS considerada à parte.' },
+      { coluna: 'universo_ligacoes_residencial_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'Quantas do universo de ligações com a CTS à parte são residenciais.' },
+      { coluna: 'ligacoes_atuais_residencial_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'Quantas das ligações ativas com a CTS à parte são residenciais.' },
+      { coluna: 'universo_economias_residencial_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'Quantas do universo de economias com a CTS à parte são residenciais.' },
+      { coluna: 'economias_atuais_residencial_com_cts', origem: 'db', procedencia: 'subbacias', oque: 'Quantas das economias ativas com a CTS à parte são residenciais.' },
     ],
   },
 
@@ -918,7 +962,7 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
     key: 'componentes-subbacias-capex', icone: Wrench, titulo: 'CAPEX de componentes de sub-bacias',
     // 5 linhas por sub-bacia. Sem um terceiro eixo de recorte (sub-bacia): a
     // listra de `zebraPor` já dá a leitura por bloco sem custar controle.
-    escopo: { cidade: 'via-sistema', sistema: 'coluna' },
+    escopo: { empresa: 'via-sistema', sistema: 'coluna' },
     desc: 'Os 5 componentes de obra de cada sub-bacia real do sistema: Ligação, Rede, Coletor Tronco, EEE e Linha de recalque. O CAPEX é calculado (quantidade × preço unitário) e a unidade de medida é o padrão do componente.',
     // Tabela única, sem accordion: a leitura é de planilha — ver e editar tudo
     // de uma vez, não abrir bloco por bloco.
@@ -981,7 +1025,7 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
     ocultaNoWizard: true,
     // Só tem `sub_bacia_id` e `cts_id`: o sistema vem do join. Cidade sai por
     // ser terceiro grau — sub-bacia → sistema → cidade.
-    escopo: { sistema: 'via-subbacia' },
+    escopo: { empresa: 'via-sistema', sistema: 'via-subbacia' },
     desc: 'O Coletor de Tempo Seco (CTS) capta o esgoto que escoa em dias sem chuva e o leva até a ETE — é a "irmã" da sub-bacia, pareada 1:1 e opcional. Aqui é o de-para entre a sub-bacia e o CTS que a atende: os dois lados são reais, mas o pareamento entre eles é exemplo — nenhuma fonte diz qual CTS atende qual sub-bacia.',
     /**
      * OS DOIS CÓDIGOS SÃO 'un' PORQUE O PAREAMENTO É O PROPÓSITO DA ABA.
@@ -1008,9 +1052,11 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
   },
   {
     key: 'cts-operacional', icone: Drop, titulo: 'Dados da CTS',
-    // A aba com o join mais curto dos dois eixos: tem `sistema_id`,
-    // `sistema_name` e `emp_codigo` na própria linha.
-    escopo: { cidade: 'via-sistema', sistema: 'coluna' },
+    // A aba com o join mais curto dos dois eixos: tem `sistema_id` e
+    // `sistema_name` na própria linha. A barra não espera linhas: a unidade de
+    // trabalho da CTS é o sistema, e com a macrorregião marcada há UMA por
+    // sistema — a aba nunca chegaria às linhas que a fariam aparecer.
+    escopo: { empresa: 'via-sistema', sistema: 'coluna', barraSempre: true },
     desc: 'Mesmos parâmetros da sub-bacia (preço, prazos, vazão, população), aplicados ao CTS.',
     addRow: true,
     novo: () => ({ cts_id: '', cts_name: '', sistema_id: '', sistema_name: '' }),
@@ -1038,13 +1084,35 @@ key: 'subbacia-operacional', icone: TreeStructure, titulo: 'Sub-bacias', bloco: 
        * "origem sem destino", que é o problema de verdade.
        */
       { coluna: 'sistema_id', origem: 'calc', procedencia: 'regra', oque: 'Sistema de esgotamento sanitário a que este CTS pertence. Não se digita: é o sistema do nó para onde a CTS deságua, lido do Fluxo de escoamento.', porque: 'Nenhuma fonte liga CTS a sistema de sub-bacias — o vínculo só existe pelo destino. Derivar evita que o mesmo fato fique gravado em dois lugares que podem discordar.' }, { coluna: 'sistema_name', origem: 'calc', procedencia: 'regra', oque: 'Nome do sistema de esgotamento sanitário, derivado do destino da CTS no Fluxo de escoamento.' },
+      /**
+       * O SISTEMA CTS — a macrorregião. É a coluna da origem pela qual os
+       * coletores são agrupados quando a unidade trabalha em macrorregião, e é
+       * ela que diz de onde uma ficha somada veio. Num coletor membro é o nome
+       * da macrorregião dele; na linha da macrorregião é o próprio nome; vazia
+       * num coletor que a origem não pôs em macrorregião nenhuma.
+       *
+       * 'db': vem do Databricks e a tela só mostra — o agrupamento não se edita
+       * aqui, ele é decidido na origem.
+       */
+      { coluna: 'sistema_cts', origem: 'db', procedencia: 'cts', oque: 'Sistema CTS (macrorregião) a que este coletor pertence na base comercial. Quando a unidade usa macrorregião, os coletores com o mesmo sistema CTS e a mesma empresa são somados numa ficha só — e esta coluna é o que diz qual.', porque: 'É a chave do agrupamento. Sem ela, a ficha somada aparece com um nome e nada diz de onde a soma veio.', exemplo: 'SarapuíNL' },
+      /**
+       * OS COLETORES DENTRO DA MACRORREGIÃO. Sem eles a ficha somada é um número,
+       * e uma macrorregião de 29 coletores é indistinguível de uma de 1 — não há
+       * como conferir o agrupamento, só acreditar nele. Cada coletor vem com as
+       * ligações atuais dele, para a soma poder ser refeita à mão contra a
+       * coluna `ligacoes_atuais` desta mesma linha.
+       */
+      { coluna: 'qtd_coletores', origem: 'db', procedencia: 'cts', oque: 'Quantos coletores formam esta macrorregião. Vazio numa CTS comum.', exemplo: '29' },
+      { coluna: 'coletores', origem: 'db', procedencia: 'cts', oque: 'Os coletores que formam esta macrorregião, cada um com as ligações atuais dele entre parênteses. A soma deles é a coluna de ligações atuais desta linha.', porque: 'É o que permite conferir a soma em vez de acreditar nela.', exemplo: 'CTS 003 (86), CTS 004 (161), CTS 005 (82), CTS 011 (155)' },
       ...colsOperacionalComercial('cts'),
     ],
   },
   {
     key: 'componentes-cts-capex', icone: Wrench, titulo: 'CAPEX da CTS',
-    // 5 linhas por CTS, e nenhuma coluna de hierarquia além de `cts_id`.
-    escopo: { sistema: 'via-cts' },
+    // 4 linhas por CTS, e nenhuma coluna de hierarquia além de `cts_id`: os
+    // dois eixos chegam pelo sistema da CTS. A barra não espera linhas, pela
+    // mesma razão da aba irmã.
+    escopo: { empresa: 'via-sistema', sistema: 'via-cts', barraSempre: true },
     // Mesmo formato da `desc` da aba irmã: os componentes nomeados primeiro, a
     // regra do CAPEX depois, e só então a ressalva de procedência. A diferença
     // entre as duas listas — 5 e 4 — é o que explica a CTS, e por isso a ausência

@@ -9,8 +9,9 @@ import {
   opcoesEscopo,
   sistemaDaLinhaEscopo,
   sistemaPadraoDoFluxo,
-  sistemasVisiveis,
-} from '../../../domain/escopo'
+  sistemasVisiveis, barraDeEscopoVisivel, MIN_LINHAS_PARA_ESCOPO,
+  cidadesVisiveis, colunasDoEscopo, escopoAtivo } from '../../../domain/escopo'
+import { FiltroEscopo } from './FiltroEscopo'
 import { ADMIN_UNIDADE } from '../../../auth/papeis'
 import { BLOCOS } from '../../../data/cadastroUnidade/blocos'
 import { espelharColunas, opcoesDaCelula } from '../../../domain/fluxo'
@@ -65,11 +66,21 @@ const aba = (key: string): AbaDef => {
  *   s01 — sub-bacias com `sistema_id` na linha do fluxo, e uma CTS que chega SEM
  *         sistema e o herda do destino (item 21).
  *   s02 — um sistema de uma sub-bacia só, sem destino escolhido.
- *   s03 — sistema SEM CIDADE declarada em `cidade-sistema`. Não é caso de borda
- *         inventado: é o do sistema real da amostra, e é a razão de "Todas as
- *         cidades" ser o padrão da barra.
+ *   s03 — sistema SEM CIDADE declarada em `cidade-sistema` (logo sem empresa).
+ *         Não é caso de borda inventado: é o do sistema real da amostra, e é a
+ *         razão de "Todas as empresas" ser o padrão da barra.
  */
 const DADOS: Dados = {
+  // O EIXO DA BARRA É A EMPRESA (migração 022: sistema em várias cidades). As
+  // duas cidades são de empresas diferentes, para o eixo ter dois valores.
+  'cidade-empresa': [
+    { cidade_id: 'c001', emp_codigo: '57', empresa: 'Águas do Rio 04', cidade_name: 'Belford Roxo' },
+    { cidade_id: 'c002', emp_codigo: '56', empresa: 'Águas do Rio 01', cidade_name: 'Nova Iguaçu' },
+  ],
+  'empresa': [
+    { emp_codigo: '57', empresa: 'Águas do Rio 04' },
+    { emp_codigo: '56', empresa: 'Águas do Rio 01' },
+  ],
   'cidade-sistema': [
     { sistema_id: 's01', sistema_name: 'Alegria', cidade_id: 'c001' },
     { sistema_id: 's02', sistema_name: 'Bonsucesso', cidade_id: 'c002' },
@@ -121,47 +132,67 @@ describe('escopo — a linha resolve o sistema pelo caminho que a aba declara', 
   })
 
   it('as opções saem das LINHAS — então toda opção oferecida tem pelo menos uma linha', () => {
-    const { cidades, sistemas } = opcoesEscopo(DADOS, [], aba('sistema-topologia'), FLUXO)
+    const { empresas, sistemas } = opcoesEscopo(DADOS, aba('sistema-topologia'), FLUXO)
 
     // Os três sistemas vêm das 5 linhas do fluxo. NÃO há opção "todos os
-    // sistemas": o sistema é sempre um — ver `opcoesEscopo`. A CIDADE mantém o
-    // "todas", e a assimetria é proposital.
+    // sistemas": o sistema é sempre um — ver `opcoesEscopo`. A EMPRESA mantém o
+    // "todas", e a assimetria é proposital. Ordem: pelo NOME (Águas do Rio 01
+    // é a 56, Águas do Rio 04 é a 57).
     expect(sistemas.map((s) => s.value)).toEqual(['s01', 's02', 's03'])
-    expect(cidades.map((c) => c.value)).toEqual(['', 'c001', 'c002'])
+    expect(empresas.map((c) => c.value)).toEqual(['', '56', '57'])
 
     // E cada opção realmente devolve linha:
     for (const s of sistemas.filter((x) => x.value)) {
       const passa = FLUXO.filter((r) =>
-        casaComEscopo(DADOS, aba('sistema-topologia'), r, { cidadeId: '', sistemaId: s.value }),
+        casaComEscopo(DADOS, aba('sistema-topologia'), r, { empresaId: '', sistemaId: s.value }),
       )
       expect(passa.length).toBeGreaterThan(0)
     }
   })
 
-  it('o sistema sem cidade declarada só aparece em "Todas as cidades"', () => {
-    const opcoes = opcoesEscopo(DADOS, [], aba('sistema-topologia'), FLUXO)
+  it('o sistema sem cidade declarada (logo sem empresa) só aparece em "Todas as empresas"', () => {
+    const opcoes = opcoesEscopo(DADOS, aba('sistema-topologia'), FLUXO)
     expect(sistemasVisiveis(opcoes, '').map((s) => s.value)).toContain('s03')
-    expect(sistemasVisiveis(opcoes, 'c001').map((s) => s.value)).toEqual(['s01'])
+    expect(sistemasVisiveis(opcoes, '57').map((s) => s.value)).toEqual(['s01'])
+  })
+
+  it('recortar por EMPRESA leva o sistema inteiro, cidade a cidade', () => {
+    // s01 passa a estar em DUAS cidades de empresas diferentes. Pela empresa 56
+    // ele aparece (c002 é da 56), e todas as linhas dele passam — não só as da
+    // cidade c002. Era isso que o recorte por cidade escondia.
+    const dados: Dados = {
+      ...DADOS,
+      'cidade-sistema': [
+        ...DADOS['cidade-sistema'],
+        { sistema_id: 's01', sistema_name: 'Alegria', cidade_id: 'c002' },
+      ],
+    }
+    const opcoes = opcoesEscopo(dados, aba('sistema-topologia'), FLUXO)
+    expect(sistemasVisiveis(opcoes, '56').map((s) => s.value)).toEqual(['s01', 's02'])
+    const deS01 = FLUXO.filter((r) =>
+      casaComEscopo(dados, aba('sistema-topologia'), r, { empresaId: '56', sistemaId: 's01' }),
+    ).map((r) => r.componente_sistema_id)
+    expect(deS01).toEqual(['b001', 'b002', 't001'])
   })
 
   it('nenhuma opção de sistema é vazia — não existe "todos os sistemas"', () => {
     // A opção existia e não servia: a aba do Fluxo desenha o unifilar de UM
     // sistema, e nas abas de dados "todos" é o modo que monta milhares de linhas
     // e leva segundos para abrir.
-    const { sistemas } = opcoesEscopo(DADOS, [], aba('sistema-topologia'), FLUXO)
+    const { sistemas } = opcoesEscopo(DADOS, aba('sistema-topologia'), FLUXO)
     expect(sistemas.every((s) => !!s.value)).toBe(true)
   })
 
   it('recortar por sistema leva a CTS junto do sistema que ela herdou', () => {
     const dentro = FLUXO.filter((r) =>
-      casaComEscopo(DADOS, aba('sistema-topologia'), r, { cidadeId: '', sistemaId: 's01' }),
+      casaComEscopo(DADOS, aba('sistema-topologia'), r, { empresaId: '', sistemaId: 's01' }),
     ).map((r) => r.componente_sistema_id)
     expect(dentro).toEqual(['b001', 'b002', 't001'])
   })
 
   it('eixo em "" não filtra nada', () => {
     const todas = FLUXO.filter((r) =>
-      casaComEscopo(DADOS, aba('sistema-topologia'), r, { cidadeId: '', sistemaId: '' }),
+      casaComEscopo(DADOS, aba('sistema-topologia'), r, { empresaId: '', sistemaId: '' }),
     )
     expect(todas).toHaveLength(FLUXO.length)
   })
@@ -170,6 +201,64 @@ describe('escopo — a linha resolve o sistema pelo caminho que a aba declara', 
     // s01 e s02 e s03 estão em ordem alfabética por nome (Alegria, Bonsucesso,
     // Pavuna); s01 é o único com destino escolhido em mais de uma linha.
     expect(sistemaPadraoDoFluxo(DADOS)).toBe('s01')
+  })
+})
+
+// ------------------------------------------------ o eixo da cidade, no Município
+
+describe('escopo — a cidade é o eixo fino das abas do Município', () => {
+  const metas = aba('metas-cobertura')
+  const paridade = aba('fator-esgoto')
+  // c002 é da empresa 56 em `cidade-empresa`; as linhas de METAS trazem 57 na
+  // coluna, mas o eixo lê o vínculo do cadastro, não a coluna da linha.
+  const DADOS_METAS: Dados = { ...DADOS, 'metas-cobertura': METAS }
+
+  it('as duas abas do Município declaram o eixo; as do sistema, não', () => {
+    expect(metas.escopo?.cidade).toBe('coluna')
+    expect(paridade.escopo?.cidade).toBe('coluna')
+    expect(aba('sistema-topologia').escopo?.cidade).toBeUndefined()
+    expect(aba('subbacia-operacional').escopo?.cidade).toBeUndefined()
+  })
+
+  it('as opções saem das linhas, com "Todas as cidades" primeiro e a empresa de cada uma', () => {
+    const { cidades } = opcoesEscopo(DADOS_METAS, metas, METAS)
+    expect(cidades.map((c) => c.value)).toEqual(['', 'c001', 'c002'])
+    expect(cidades.map((c) => c.label)).toEqual(['Todas as cidades', 'Belford Roxo', 'Nova Iguaçu'])
+    expect(cidades.map((c) => c.empresa)).toEqual(['', '57', '56'])
+    // aba sem o eixo: lista vazia, e a barra não desenha o controle
+    expect(opcoesEscopo(DADOS, aba('sistema-topologia'), FLUXO).cidades).toEqual([])
+  })
+
+  it('recortar por cidade deixa só as linhas dela; "" não filtra', () => {
+    const deC001 = METAS.filter((r) => casaComEscopo(DADOS_METAS, metas, r, { empresaId: '', sistemaId: '', cidadeId: 'c001' }))
+    expect(deC001.map((r) => r.ano)).toEqual(['2030', '2031'])
+    const todas = METAS.filter((r) => casaComEscopo(DADOS_METAS, metas, r, { empresaId: '', sistemaId: '', cidadeId: '' }))
+    expect(todas).toHaveLength(METAS.length)
+    expect(escopoAtivo({ empresaId: '', sistemaId: '', cidadeId: 'c001' })).toBe(true)
+  })
+
+  it('a empresa escolhida encolhe a lista de cidades, e "todas" fica', () => {
+    const opcoes = opcoesEscopo(DADOS_METAS, metas, METAS)
+    expect(cidadesVisiveis(opcoes, '56').map((c) => c.value)).toEqual(['', 'c002'])
+    expect(cidadesVisiveis(opcoes, '').map((c) => c.value)).toEqual(['', 'c001', 'c002'])
+  })
+
+  it('a barra governa as colunas da cidade: o funil do cabeçalho sai delas', () => {
+    expect(colunasDoEscopo(metas)).toEqual(new Set(['cidade_id', 'cidade_name']))
+  })
+
+  it('trocar de empresa devolve a cidade que não é dela para "todas"', () => {
+    const opcoes = opcoesEscopo(DADOS_METAS, metas, METAS)
+    const onEscopo = vi.fn()
+    render(
+      <FiltroEscopo opcoes={opcoes} escopo={{ empresaId: '', sistemaId: '', cidadeId: 'c002' }} onEscopo={onEscopo} />,
+    )
+    // c002 é da 56; escolher a 57 não pode manter uma cidade que a lista da 57 não oferece.
+    // O primeiro combobox da barra é o da empresa (o de sistema não aparece: a aba não o tem).
+    fireEvent.click(screen.getAllByRole('button', { expanded: false })[0])
+    fireEvent.click(screen.getByRole('option', { name: /Águas do Rio 04/ }))
+    expect(onEscopo).toHaveBeenLastCalledWith({ empresaId: '57', sistemaId: '', cidadeId: '' })
+    cleanup()
   })
 })
 
@@ -486,5 +575,25 @@ describe('opcoesDaCelula — as células que escolhem entidade', () => {
     expect(espelharColunas(DADOS, 'subbacia-cts', 'cts_id', 't001')).toEqual({
       cts_name: 'CTS Leste',
     })
+  })
+})
+
+describe('quando a barra de escopo aparece', () => {
+  it('uma aba comum espera o mínimo de linhas', () => {
+    const sub = aba('subbacia-operacional')
+    expect(barraDeEscopoVisivel(sub, MIN_LINHAS_PARA_ESCOPO - 1)).toBe(false)
+    expect(barraDeEscopoVisivel(sub, MIN_LINHAS_PARA_ESCOPO)).toBe(true)
+  })
+
+  it('as abas da CTS e a do Fluxo não esperam: com a macrorregião marcada há UMA CTS por sistema', () => {
+    // Dois testes de abertura reescreviam a regra dos 15 à mão, e passavam
+    // mesmo se as abas da CTS perdessem a barra. Este prende a exceção.
+    for (const k of ['sistema-topologia', 'cts-operacional', 'componentes-cts-capex']) {
+      expect(barraDeEscopoVisivel(aba(k), 2)).toBe(true)
+    }
+  })
+
+  it('aba sem eixo declarado nunca tem barra, por mais linhas que tenha', () => {
+    expect(barraDeEscopoVisivel(aba('unidade-regional'), 1000)).toBe(false)
   })
 })

@@ -158,5 +158,17 @@ export const DICIONARIO_RESULTADO: Record<string, Verbete> = {
     exemplo: '7',
   },
 
+  RATEIO_DO_CAPEX: {
+    rotulo: 'Rateio do CAPEX',
+    tec: 'otim_dependencia.fracao_rateio · capex_rateado',
+    origem: MOTOR,
+    tipo: '% e R$',
+    oque:
+      'De uma obra COMPARTILHADA — um tronco, uma EEE, um módulo de ETE —, quanto do custo cabe a cada sub-bacia que escoa por ela. A fração é a vazão que a sub-bacia manda dividida pela vazão total que passa ali, e as frações somam 100%.',
+    porque:
+      'É o que faz a soma dos VPLs por sub-bacia reproduzir exatamente o VPL do plano: o custo de uma obra que serve a várias não pode ser cobrado inteiro de nenhuma delas. RATEIO É DE CUSTO, E NÃO DE DESCONTO: a taxa que desconta a receita de uma sub-bacia sai só das obras DELA, e não das compartilhadas a jusante. As duas contas coincidiam até 10/09/2026 e hoje respondem a perguntas diferentes — quanto ela paga, e a que custo de capital ela financia o que é seu.',
+    exemplo: '47,2% · R$ 1,4 Mi',
+  },
+
   // -------------------------------------------------- explicabilidade
 }

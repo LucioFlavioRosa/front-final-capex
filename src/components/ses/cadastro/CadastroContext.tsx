@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState, type ReactNode, useRef} from 'react'
 import { SCHEMA, cidadesDoCadastro, nomeCidade } from '../../../data/cadastroUnidade/schema'
-import { lerCadastro, salvarCadastro, CadastroSemLeitura } from '../../../lib/cadastroApi'
+import { lerCadastro, salvarCadastro, gravarUnidade, CadastroSemLeitura } from '../../../lib/cadastroApi'
 import type { BaseDoCadastro } from '../../../lib/cadastroApi'
 import { ApiError } from '../../../lib/api'
 import { garantirFaixaZero } from '../../../domain/calc'
@@ -55,6 +55,7 @@ type Action =
   | { type: 'IR_FASE'; fase: Fase }
   | { type: 'GARANTIR_FAIXA_ZERO' }
   | { type: 'HIDRATAR'; unidadeId: string; dados: UnidadeState['data'] }
+  | { type: 'HIDRATAR_ABAS'; unidadeId: string; dados: UnidadeState['data']; abas: string[] }
   | { type: 'IMPORTAR_PLANILHA'; dados: UnidadeState['data'] }
 
 /**
@@ -270,6 +271,23 @@ function reducer(state: CadastroState, action: Action): CadastroState {
     }
 
     /**
+     * HIDRATA SÓ AS ABAS NOMEADAS, e deixa o resto como está.
+     *
+     * É o que a caixa da macrorregião usa. `HIDRATAR` substitui `data` inteiro
+     * pelo retrato do servidor — certo depois de um Salvar, quando o servidor tem
+     * tudo que a tela tinha. No clique da caixa não: a pessoa pode ter digitado
+     * em outras abas e ainda não salvo, e substituir tudo apagaria isso sem
+     * aviso. O que a caixa muda é o que o servidor recalcula a partir dela — a
+     * lista de disponíveis do Fluxo e as fichas de CTS —, e é só isso que entra.
+     */
+    case 'HIDRATAR_ABAS': {
+      if (!state.unidade || state.unidade.id !== action.unidadeId) return state
+      const data = { ...state.unidade.data }
+      for (const aba of action.abas) data[aba] = action.dados[aba] ?? []
+      return { ...state, unidade: { ...state.unidade, data } }
+    }
+
+    /**
      * O UPLOAD do template preenchido — a volta do botão "Baixar template".
      *
      * MESCLA, e não substitui como `HIDRATAR`: o template só cobre as 12 abas
@@ -288,16 +306,17 @@ function reducer(state: CadastroState, action: Action): CadastroState {
       if (!state.unidade) return state
       /*
        * A MESCLA TROCA A ABA INTEIRA, e para `sistema-topologia` isso teria um
-       * custo escondido: as linhas SEM SISTEMA carregam `cidade_id`, que não é
-       * coluna da planilha e é o que recorta o seletor de CTS pela cidade. Uma
-       * aba importada sem ela jogaria todas as CTS livres em "sem cidade
-       * cadastrada" — o seletor voltaria a ofertar as de qualquer município,
-       * só que com um rótulo dizendo que não sabe onde elas estão.
+       * custo escondido: as linhas SEM SISTEMA carregam `emp_codigo` (e
+       * `cidade_id`, e `macro`), que não são colunas da planilha e é por
+       * `emp_codigo` que o seletor de CTS recorta. Uma aba importada sem ele
+       * jogaria todas as CTS livres em "sem empresa cadastrada" — o seletor
+       * voltaria a ofertar as de qualquer operadora, só que com um rótulo
+       * dizendo que não sabe de quem elas são.
        *
        * NÃO ACONTECE HOJE: a v8 não tem aba de fluxo (ver o cabeçalho de
        * `schema.ts`), e as rotas de template/importar ainda respondem 404. Fica
        * escrito aqui para quem for implementá-las: ou a planilha passa a trazer
-       * `cidade_id`, ou esta mescla preserva o das linhas sem sistema.
+       * essas colunas, ou esta mescla preserva as das linhas sem sistema.
        */
       const data = { ...state.unidade.data, ...action.dados }
       return {
@@ -346,11 +365,39 @@ interface CadastroContextValue {
    */
   salvar: () => Promise<void>
   salvando: boolean
+  /**
+   * A CAIXA DA MACRORREGIÃO GRAVA NA HORA, e não no Salvar.
+   *
+   * Ela não é um campo de ficha: é o REGIME da unidade, e o que ela muda é o que
+   * o Fluxo oferece — coletores soltos ou macrorregiões. Esperar o Salvar deixava
+   * a caixa marcada e a lista antiga na tela, e quem via as duas juntas concluía
+   * que a caixa não fazia nada. Grava, relê o cadastro e hidrata; a lista muda
+   * com o clique.
+   *
+   * Devolve a mensagem do servidor quando ele RECUSA (422): marcar com sistema de
+   * duas CTS, ou desmarcar com macrorregião colocada. A caixa então não se mexe —
+   * um controle que muda de posição para depois voltar sozinho é pior que um que
+   * fica e diz por quê. `null` quando gravou.
+   */
+  gravarUsaCts: (marcado: boolean) => Promise<string | null>
   /** Momento do último salvamento bem-sucedido nesta sessão, ou null. */
   salvoEm: Date | null
 }
 
 const CadastroCtx = createContext<CadastroContextValue | null>(null)
+
+/**
+ * O que o servidor recalcula quando a caixa "usa macrorregião de CTS" muda: a
+ * própria caixa (a linha da unidade), a lista de disponíveis do Fluxo
+ * (`semSistema` vira linhas da aba de topologia) e as fichas de CTS — uma por
+ * macrorregião, ou uma por coletor. São as abas que `gravarUsaCts` rehidrata, e
+ * só elas: as outras ficam como a pessoa as deixou.
+ */
+const ABAS_DA_CAIXA = ['unidade-regional', 'sistema-topologia', 'cts-operacional', 'componentes-cts-capex']
+
+/** As `abas` de `dados`, com `[]` onde o servidor não mandou a aba. */
+const soAsAbas = (dados: UnidadeState['data'], abas: string[]): UnidadeState['data'] =>
+  Object.fromEntries(abas.map((aba) => [aba, dados[aba] ?? []]))
 
 export function CadastroProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState)
@@ -486,6 +533,52 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
     }
   }, [unidadeAtual])
 
+  const gravarUsaCts = useCallback(
+    async (marcado: boolean): Promise<string | null> => {
+      if (!unidadeAtual) return null
+      try {
+        await gravarUnidade(unidadeAtual.id, { usaCts: marcado })
+      } catch (erro) {
+        // A RECUSA (422) vem com a frase do servidor. Qualquer outra falha —
+        // rede, proxy, timeout — também vira mensagem ao lado da caixa: a caixa
+        // ficou onde estava, e quem clicou precisa saber que nada foi gravado.
+        if (erro instanceof ApiError) return erro.message
+        return `Não foi possível gravar: ${erro instanceof Error ? erro.message : String(erro)}`
+      }
+      // RELÊ, MAS HIDRATA SÓ O QUE A CAIXA MUDA. A lista de disponíveis do
+      // Fluxo e as fichas de CTS vêm do servidor — é ele que sabe o que a caixa
+      // mudou. As outras abas ficam como a pessoa as deixou, digitadas ou não:
+      // `HIDRATAR` inteiro aqui apagaria trabalho não salvo sem aviso.
+      let registro
+      try {
+        registro = await lerCadastro(unidadeAtual.id)
+      } catch (erro) {
+        return `Gravou, mas não foi possível reler o cadastro: ${
+          erro instanceof Error ? erro.message : String(erro)
+        }. Recarregue a página.`
+      }
+      // A base acompanha SÓ as abas rehidratadas: as demais continuam sendo
+      // comparadas com o retrato anterior, senão o Salvar deixaria de ver como
+      // mudança o que a pessoa digitou nelas antes do clique.
+      base.current = {
+        ...base.current!,
+        // `cts` é o retrato cru das fichas de CTS, com que `gravarColeta` compara
+        // no Salvar — acompanha as abas de CTS, senão o Salvar reenviaria como
+        // mudança tudo que a rehidratação trouxe.
+        cts: registro.base.cts,
+        dados: { ...base.current!.dados, ...soAsAbas(registro.dados, ABAS_DA_CAIXA) },
+      }
+      dispatch({
+        type: 'HIDRATAR_ABAS',
+        unidadeId: unidadeAtual.id,
+        dados: registro.dados,
+        abas: ABAS_DA_CAIXA,
+      })
+      return null
+    },
+    [unidadeAtual],
+  )
+
   const value = useMemo<CadastroContextValue>(() => ({
     state,
     selecionarRegional: (regionalId) => dispatch({ type: 'SELECT_REGIONAL', regionalId }),
@@ -504,7 +597,8 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
     salvar,
     salvando,
     salvoEm,
-  }), [state, garantirFaixaZeroParidade, salvar, salvando, salvoEm])
+    gravarUsaCts,
+  }), [state, garantirFaixaZeroParidade, salvar, salvando, salvoEm, gravarUsaCts])
 
   return <CadastroCtx.Provider value={value}>{children}</CadastroCtx.Provider>
 }
