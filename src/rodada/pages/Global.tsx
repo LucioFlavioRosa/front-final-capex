@@ -12,6 +12,7 @@ import {
 import { SecaoElementos } from '@/rodada/components/SecaoElementos'
 import { CenarioAnualDeCapex } from '@/rodada/components/CenarioAnualDeCapex'
 import { PainelSensibilidade } from '@/rodada/components/PainelSensibilidade'
+import { PainelMapeamento } from '@/rodada/mapa/PainelMapeamento'
 import { useAbaResultado } from '@/rodada/layout/abaResultado'
 import {
   GraficoFluxoEscoamento,
@@ -63,7 +64,7 @@ export function Global() {
   const painel = usePainel(runId)
   const ebitda = useEbitda(runId)
   const cenario = useCenarioAnual(runId)
-  const aba = useAbaResultado({ comSensibilidade: true })
+  const aba = useAbaResultado({ comSensibilidade: true, comMapa: true })
   /**
    * O destino dos números de exclusão. Só os "X de Y" recebem: em cada um deles
    * a pergunta seguinte é sobre o RESTO, e o resto mora na outra aba.
@@ -71,6 +72,20 @@ export function Global() {
   const porQue = `/resultados/${runId}?aba=porque`
   const trilha = useTrilhaCompleta(runId, meta.data?.nome)
 
+  /**
+   * O TEMA DO MAPEAMENTO NÃO É APLICADO AQUI. Até 09/09/2026 este componente
+   * condicionava `rr-tela rr-noturno`/`rr-claro` na própria `<section>`
+   * quando `aba === 'mapa'`, porque na época "a tela inteira" queria dizer
+   * "a aba inteira, dentro desta página" — a faixa de KPI escurecia junto
+   * com o painel do mapa, mas Header/Footer/barra de abas ficavam de fora.
+   *
+   * Por pedido explícito de 09/09/2026, "a tela inteira" passou a incluir
+   * Header e Footer — que são irmãos desta página em `AppLayout`, fora do
+   * alcance de qualquer classe posta aqui. A âncora subiu para o `<html>`
+   * (`useTemaResultadosNoDocumento`, chamada uma vez em `AppLayout`), e o
+   * efeito é o mesmo (a faixa de KPI abaixo continua escurecendo com o
+   * resto), só que decidido lá em cima em vez de aqui.
+   */
   return (
     <section className="animate-fade-in">
       <Estado
@@ -359,6 +374,14 @@ export function Global() {
               <PainelSensibilidade key={m.runId} meta={m} />
             )}
 
+            {/* MAPEAMENTO POR CIDADE — o que só existe por cidade, e o único
+                caminho para o nível 2 desde que a árvore de escopo saiu.
+                Diferente da Sensibilidade, ele VALE PARA VARIAÇÃO: comparar as
+                cidades de uma variação entre si responde tanto quanto na rodada
+                de origem. Ver `mapa/PainelMapeamento.tsx` para a regra que
+                decide o que mora aqui e o que mora em "Obras no plano". */}
+            {aba === 'mapa' && <PainelMapeamento key={m.runId} runId={runId!} />}
+
             {aba === 'plano' && (
               <>
 
@@ -432,12 +455,17 @@ export function Global() {
 
                   </div>
 
-                  {/* O ÚLTIMO BLOCO DA PÁGINA, a pedido.
+                  {/* O ÚLTIMO BLOCO DESTA ABA, a pedido.
                       Depois dele vinha a seção "Cidades" — o quadro de cobertura
                       × meta por cidade e os cartões para descer de nível —, e ela
-                      saiu inteira. Descer para uma cidade continua sendo o que
-                      sempre foi: a árvore de escopo, à esquerda, que existe em
-                      todos os níveis e não some ao rolar a página. */}
+                      saiu inteira. A justificativa da época era que descer para
+                      uma cidade era papel da árvore de escopo, à esquerda; só
+                      que a árvore saiu no mesmo movimento, e por alguns dias o
+                      nível 1 não teve caminho NENHUM para o nível 2. Hoje o
+                      caminho é a aba "Mapeamento por Cidade": clicar no
+                      polígono abre o cartão, e o cartão leva à tela da cidade.
+                      É também onde a leitura de cobertura × meta por cidade
+                      voltou a existir, comparando cidades entre si. */}
                   <SecaoElementos anos={p.elementosPorAno} />
                 </>
               )}

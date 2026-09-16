@@ -16,9 +16,11 @@
  * As chaves são todas prefixadas por `['runs', runId]`, então trocar de rodada
  * no Trilho troca a subárvore inteira do cache sem tocar nas outras já lidas.
  */
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo } from 'react'
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { resultados, simulacao, type ModoDaVariacao } from '@/rodada/api/endpoints'
-import type { RunResumo } from '@/rodada/domain/resultado'
+import type { CidadeLinha, RunResumo } from '@/rodada/domain/resultado'
+import { completarComDetalhe } from '@/rodada/mapa/completarCidades'
 import type { CorpoNovaRodada } from '@/rodada/domain/simulacao'
 import type { Faixa } from '@/rodada/domain/sensibilidade'
 
@@ -159,6 +161,41 @@ export function useCidade(runId: string | undefined, cidadeId: string | undefine
     enabled: !!runId && !!cidadeId,
     ...IMUTAVEL,
   })
+}
+
+/**
+ * As cidades da rodada, COMPLETADAS pelo detalhe de cada uma.
+ *
+ * É o que o Mapeamento por Cidade consome: a listagem dá o mapa na hora, e os
+ * detalhes — um por cidade, na MESMA chave que `useCidade` usa, então o cartão
+ * e a tela de cidade abrem do cache — vão preenchendo curva de cobertura,
+ * metas, ligações e CAPEX por ano conforme chegam (ver `completarComDetalhe`).
+ * `data` é uma lista nova só quando algum detalhe chegou: é o que faz o mapa
+ * repintar sem refazer nada por render.
+ *
+ * `isPending`/`isError` são os da LISTAGEM: sem ela não há mapa nenhum; sem um
+ * detalhe, a cidade fica no "sem dado" daquela camada, e só.
+ */
+export function useCidadesCompletas(runId: string | undefined) {
+  const lista = useCidades(runId)
+  const ids = lista.data?.map((c) => c.id) ?? []
+  const detalhes = useQueries({
+    queries: ids.map((id) => ({
+      queryKey: chaves.cidade(runId ?? '—', id),
+      queryFn: () => resultados.cidade(runId as string, id),
+      enabled: !!runId,
+      ...IMUTAVEL,
+    })),
+  })
+  const chegaram = detalhes.filter((d) => d.data).length
+  const data = useMemo(
+    () => lista.data?.map((c, i) => completarComDetalhe(c, detalhes[i]?.data)),
+    // `detalhes` é um array novo a cada render; o que muda de fato é QUANTOS
+    // chegaram — e cada um só chega uma vez, porque o resultado é imutável.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [lista.data, chegaram],
+  )
+  return { ...lista, data: data as CidadeLinha[] | undefined }
 }
 
 /** "Sub-bacias fora do plano" do nível 2. */

@@ -81,7 +81,10 @@ describe('Sensibilidade — a aba que é um LUGAR, e não um modo', () => {
     // quê" — a explicabilidade apareceria sob o rótulo errado.
     const p = new URLSearchParams('aba=sensibilidade')
     expect(lerAba(p)).toBe('plano')
-    expect(lerAba(p, true)).toBe('sensibilidade')
+    expect(lerAba(p, { sensibilidade: true })).toBe('sensibilidade')
+    // E aceitar o MAPA não aceita a sensibilidade de tabela: são dois campos
+    // porque são duas regras (a do mapa vale para variação, a da outra não).
+    expect(lerAba(p, { mapa: true })).toBe('plano')
   })
 
   it('NÃO desce: clicar numa cidade a partir dela leva ao Plano da cidade', () => {
@@ -95,6 +98,53 @@ describe('Sensibilidade — a aba que é um LUGAR, e não um modo', () => {
   it('e Por quê continua descendo — a diferença entre modo e lugar', () => {
     montar('/resultados/r1?aba=porque')
     expect(screen.getByTestId('href').textContent).toBe('/resultados/r1/cidades/c9?aba=porque')
+  })
+})
+
+/**
+ * MAPEAMENTO POR CIDADE — a aba que compara cidades, e por isso não desce.
+ *
+ * A diferença dela com a Sensibilidade é a variação: a curva de sensibilidade
+ * de um ponto de sensibilidade não é pergunta, mas as cidades de uma variação
+ * são cidades como quaisquer outras.
+ */
+describe('Mapeamento por Cidade', () => {
+  it('só é lida por quem a aceita — mesma proteção da sensibilidade', () => {
+    const p = new URLSearchParams('aba=mapa')
+    expect(lerAba(p)).toBe('plano')
+    expect(lerAba(p, { mapa: true })).toBe('mapa')
+  })
+
+  it('NÃO desce: clicar num polígono é ir para o nível 2 daquela cidade', () => {
+    // Descer levando `aba=mapa` abriria uma cidade só, e um mapa de uma cidade
+    // não compara nada — o gesto de descer é justamente sair da comparação.
+    montar('/resultados/r1?aba=mapa')
+    expect(screen.getByTestId('href').textContent).toBe('/resultados/r1/cidades/c9')
+  })
+
+  it('a variação TAMBÉM tem o mapa — ela tem cidades', () => {
+    render(
+      <MemoryRouter initialEntries={['/resultados/r1']}>
+        <Routes>
+          <Route path="/resultados/*" element={<AbasResultado ehVariacao />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('tab', { name: /Mapeamento por Cidade/ })).toBeInTheDocument()
+    // …e continua sem a de sensibilidade, que é a regra que NÃO se aplica ao mapa.
+    expect(screen.queryByRole('tab', { name: /CAPEX fosse maior/ })).not.toBeInTheDocument()
+  })
+
+  it('mas o mapa não aparece abaixo do nível da rodada', () => {
+    render(
+      <MemoryRouter initialEntries={['/resultados/r1/cidades/c9']}>
+        <Routes>
+          <Route path="/resultados/*" element={<AbasResultado />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(screen.queryByRole('tab', { name: /Mapeamento por Cidade/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Obras no plano/ })).toBeInTheDocument()
   })
 })
 

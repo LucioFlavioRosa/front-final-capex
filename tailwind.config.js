@@ -167,6 +167,19 @@ export default {
           from: { transform: 'scaleX(0)' },
           to: { transform: 'scaleX(1)' },
         },
+        /**
+         * SÓ PARA A DICA FLUTUANTE DO MAPA (`MapaCidades.tsx`), que troca de
+         * cidade a cada `mouseenter` — rápido demais para a entrada de 280ms
+         * das outras quatro, e sem transição nenhuma até 31/08/2026 (o
+         * conteúdo só trocava, de uma vez). Um desvanecer curtíssimo, só
+         * opacidade, disfarça a folga entre o hover e o commit do React: a
+         * troca lê como "a dica surgiu" em vez de "a dica sumiu, depois
+         * apareceu com um pulo".
+         */
+        fadeInDica: {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
       },
       /**
        * As quatro entradas (`fade-in`, `fade-in-up`, `scale-in`,
@@ -194,6 +207,7 @@ export default {
         halo: 'halo 2400ms ease-out infinite',
         sweep: 'sweep 2800ms ease-in-out infinite',
         grow: 'grow 800ms cubic-bezier(.2,.7,.3,1) both',
+        'fade-in-dica': 'fadeInDica 110ms cubic-bezier(.32,.72,0,1) both',
       },
     },
   },

@@ -227,22 +227,27 @@
     --viz-ink-2: #475569;
     --viz-ink-muted: #94a3b8;
 
-    /* categóricos — um por elemento de obra; cor segue a ENTIDADE, nunca o rank */
-    --viz-rede: #2e4ec9; /* slot 1 · azul Aegea */
-    --viz-tronco: #eb6834; /* slot 2 · laranja  */
-    --viz-ligacao: #14bcad; /* slot 3 · turquesa Aegea */
-    --viz-eee: #eda100; /* slot 4 · âmbar    */
-    --viz-lr: #e87ba4; /* slot 5 · magenta  */
-    --viz-ete: #7c5ce6; /* slot 6 · violeta  */
-    /* slot 7 · verde — SÉTIMO COMPONENTE, acrescentado na fase 9 (17/08/2026).
-       O contrato de resultado tem SETE componentes de obra, não seis: o
-       Coletor de tempo seco faltava nesta lista. Reciclar um slot faria a mesma
-       cor significar duas entidades, que é o que a regra acima proíbe.
-       Validado com o validador da skill `dataviz` na lista de pares
-       ADJACENTES, que é a que governa segmento empilhado:
-         claro  (#ffffff): pior par CVD ΔE 14,6 · visão normal 19,6  PASS
-         escuro (#0f172a): pior par CVD ΔE 13,2 · visão normal 19,3  PASS */
-    --viz-cts: #2f9e44;
+    /* categóricos — um por elemento de obra; cor segue a ENTIDADE, nunca o rank.
+       PALETA REVISTA em 09/09/2026: é PROIBIDO cor fora da paleta Aegea nos
+       gráficos, vermelho reservado só para alerta/erro — laranja, âmbar,
+       magenta e violeta saíram. Os sete valores abaixo são os mesmos que já
+       validavam a aba Mapeamento (antes só em `.rr-claro .viz-root`, agora
+       promovidos para cá): turquesa é COLETA (Rede, Ligação, CTS), azul é
+       TRANSPORTE/TRATAMENTO (Tronco, EEE, LR, ETE) — a matiz acompanha o
+       ESTÁGIO da obra, o degrau identifica o componente dentro dele.
+       Validado sobre a ordem hidráulica de empilhamento (pares ADJACENTES,
+       montante → jusante): pior par ΔE 40,4 em visão normal · 34,8 sob
+       deuteranopia (piso 15 e 8) contra o chão branco das cartas. EEE fica no
+       ponto fraco de contraste (2,65:1 contra branco) — aceitável só porque
+       `QuadroGrafico` garante rótulo direto no eixo + tabela equivalente;
+       a identidade nunca é só a cor. */
+    --viz-rede: #006f6d;
+    --viz-tronco: #2e4ec9;
+    --viz-ligacao: #003735;
+    --viz-eee: #8a9ce1;
+    --viz-lr: #01209b;
+    --viz-ete: #5c75d5;
+    --viz-cts: #22928f;
 
     /* fluxo de caixa das telas de resultado (fluxo de escoamento do VPL, desembolso,
        EBITDA) — portado do design de 19/08. É um par PRÓPRIO, e não o mesmo
@@ -281,10 +286,15 @@
     --viz-seq-4: #2e4ec9;
     --viz-seq-5: #01209b;
 
-    /* status — reservados; nunca viram "série 7"; sempre com ícone + rótulo */
-    --viz-good: #0ca30c;
-    --viz-warning: #fab219;
-    --viz-serious: #ec835a;
+    /* status — reservados; nunca viram "série 7"; sempre com ícone + rótulo.
+       `--viz-good` era verde `#0ca30c` (fora da paleta) — 09/09/2026, virou
+       água. `--viz-warning`/`--viz-serious` (âmbar/coral) foram removidos:
+       nenhum componente os lia, e um token de cor sem consumidor é onde a
+       próxima tela que precisar de "alerta médio" pesca um âmbar sem olhar
+       para a regra da paleta. Só `--viz-critical` (vermelho) fica — é a
+       única exceção que a paleta autoriza, e já tem legenda própria em todo
+       lugar que a usa. */
+    --viz-good: #10908c;
     --viz-critical: #d03b3b;
   }
 
@@ -292,7 +302,16 @@
      escura, não uma paleta diferente. Declarados só sob [data-theme], sem
      @media (prefers-color-scheme): o app é light-only até a Fase 7, e a media
      query escureceria os gráficos dentro de uma tela clara. Ao ligar o dark
-     mode, adicionar o bloco @media espelhando este. */
+     mode, adicionar o bloco @media espelhando este.
+
+     Os sete categóricos foram REVISTOS em 09/09/2026, junto com o bloco
+     claro acima: eram laranja/âmbar/magenta/violeta — fora da paleta, e
+     este bloco não tinha consumidor real (nenhuma tela seta `data-theme`
+     hoje), o que deixava o defeito dormente até o dia em que alguém ligasse
+     o tema escuro de verdade. Os valores novos são os mesmos que já
+     validavam `.rr-noturno .viz-root` (a aba Mapeamento por Cidade): pior
+     par adjacente ΔE 17,4 em visão normal · 13,2 sob deuteranopia contra o
+     chão `#0B1637`. */
   :root[data-theme='dark'] .viz-root {
     --viz-surface: #0f172a;
     --viz-grid: #1e293b;
@@ -301,13 +320,13 @@
     --viz-ink-2: #cbd5e1;
     --viz-ink-muted: #94a3b8;
 
-    --viz-rede: #5c75d5;
-    --viz-tronco: #d95926;
-    --viz-ligacao: #12a79c;
-    --viz-eee: #c98500;
-    --viz-lr: #d55181;
-    --viz-ete: #9085e9;
-    --viz-cts: #3fae52;
+    --viz-rede: #66eddd;
+    --viz-tronco: #8a9ce1;
+    --viz-ligacao: #10908c;
+    --viz-eee: #b8c3ed;
+    --viz-lr: #5c75d5;
+    --viz-ete: #e0e5f7;
+    --viz-cts: #14bcad;
 
     --viz-pos: #5c75d5;
     --viz-mid: #334155;
@@ -379,4 +398,400 @@
     animation-duration: 1.6s !important;
     animation-iteration-count: infinite !important;
   }
+}
+
+
+/* ═════════════════════════════════════════════════════════════════════════
+   TEMA DA ABA "MAPEAMENTO POR CIDADE" — E DA TELA INTEIRA QUANDO ELA ABRE.
+   ─────────────────────────────────────────────────────────────────────────
+   ⚠️ ESTE BLOCO JÁ SE PERDEU UMA VEZ: na absorção do front do github
+   (04/09/2026) o `index.css` foi substituído inteiro, e estas linhas
+   ficaram para trás — a bancada passou dias sem a ilha do mapa e sem as
+   variáveis `--mapa-*`, sem quebrar nada e sem ninguém ver, porque a rota
+   dela era de trabalho e ninguém a abria. Recuperado do commit `4b4f827`.
+   Se este arquivo for substituído de fora outra vez, é daqui que se resgata.
+
+   Tudo aqui vive atrás do seletor `.rr-noturno`/`.rr-claro`. Até 09/09/2026 a
+   classe só ia no elemento raiz da ABA (`PainelMapeamento.tsx`), depois na
+   `<section>` inteira de `Global.tsx` — e o bloco explicava por que NÃO subia
+   mais alto: "escurecer a tela inteira escureceria Header/Footer, que são
+   compartilhados com o app inteiro". Em 09/09/2026 essa restrição foi
+   REVOGADA por pedido explícito: a classe agora vai no `<html>`
+   (`useTemaResultadosNoDocumento`, em `mapa/temaResultados.ts`, chamada uma
+   vez em `AppLayout`), e cobre Header e Footer também — ver os overrides
+   deles mais abaixo (`.rr-noturno .bg-header` e `.footer-surface`). O que
+   NÃO muda: fora desta aba — Cadastro, Simular, Login, as outras três abas
+   de Resultados — a classe não está presente no `<html>`, e nenhuma regra
+   deste bloco resolve.
+
+   POR QUE AINDA É UM BLOCO DE OVERRIDE (`.rr-noturno .foo`), E NÃO
+   `data-theme` DE VERDADE: um `data-theme='dark'` global reabriria
+   `:root[data-theme='dark'] .viz-root` (acima neste arquivo) para QUALQUER
+   tela que algum dia setasse esse atributo — e aquele bloco não tem o mesmo
+   escopo por aba que este tem. As classes `.rr-tela`/`.rr-noturno`/`.rr-claro`
+   continuam a âncora certa: sobem para o `<html>`, mas só existem lá enquanto
+   `useMapaAberto()` for verdadeiro.
+
+   ── `.rr-tela` × `.rr-noturno` × `.rr-claro` ──────────────────────────────
+   `.rr-tela` é ESTRUTURAL e vive nos dois temas sem mudar — hoje só o filete
+   turquesa do título de seção (restrito a `main`, para não vestir os títulos
+   do Footer nem o título de um modal — ver a regra logo abaixo) e o fundo
+   sempre-escuro do mapa (ver mais abaixo). `.rr-noturno`/`.rr-claro` é só
+   COR: qual dos dois está no `<html>` decide a paleta da tela inteira. O
+   botão do Header troca um pelo outro — nunca os dois ao mesmo tempo, e
+   `.rr-tela` fica presente sempre que a aba está aberta. */
+
+/* `main`, e não `.rr-tela h2` sozinho: com a classe no `<html>`, um seletor
+   sem essa restrição pintaria TODO `<h2>` do documento — inclusive os
+   títulos de coluna do Footer e o título do `Modal`/`CommandPalette` (que
+   portam para `document.body`, fora de `<main>`). O filete é um acento de
+   título de SEÇÃO DE CONTEÚDO, não algo que o Footer ou um diálogo pediram. */
+.rr-tela main h2 {
+  border-left: 2px solid #17e3cb;
+  padding-left: 10px;
+}
+
+/**
+ * O MAPA TEM UMA RAMPA POR TEMA — não um chão fixo.
+ *
+ * Até 30/08/2026 a única saída era manter o mapa sempre escuro: o validador
+ * da skill `dataviz` reprova a ponta clara de toda rampa Aegea contra o
+ * branco (piso 2:1; `aegea-100` mede 1,09:1). Ficou parecendo que "mapa
+ * claro" era impossível. Não é — é só a rampa ERRADA para chão claro. A rampa
+ * CERTA inverte a lógica: em vez de degraus CLAROS que precisam de chão
+ * escuro para não sumir, usa degraus ESCUROS que precisam de chão CLARO
+ * para não sumir. Mesma física, direção oposta.
+ *
+ * `--mapa-r1..r5` e `--mapa-n1..n5` por isso moraram para DENTRO de
+ * `.rr-noturno`/`.rr-claro` (mais abaixo neste arquivo) em vez de ficar soltos
+ * em `:root`: a posição (1=mais fraco, 5=mais forte) é a mesma nos dois
+ * temas — só o valor muda. `escala.ts` tem os números da validação das duas.
+ *
+ * `.rr-ilha-mapa` troca de chão junto: escuro no escuro (a MESMA cor do
+ * resto da página — a costura desaparece, é o "mapa solto" que já estava no
+ * ar), branco com borda e sombra de carta no claro (a `.carta` de sempre —
+ * o mapa não tem mais nenhuma exceção visual sobre as outras superfícies da
+ * tela, agora que tem uma rampa que funciona nela).
+ *
+ * O ranking NÃO faz parte da ilha: é uma `.carta` comum nos dois temas.
+ */
+.rr-ilha-mapa {
+  border-radius: 20px;
+}
+.rr-noturno .rr-ilha-mapa {
+  background: #050d28;
+}
+.rr-claro .rr-ilha-mapa {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(13, 18, 123, 0.06), 0 12px 32px rgba(13, 18, 123, 0.05);
+}
+
+.rr-noturno {
+  --rr-fundo: #050d28;
+  --rr-carta: #0b1637;
+  --rr-carta-alta: #101e45;
+  --rr-linha: #1c2c5c;
+  --rr-linha-forte: #2a3d74;
+  --rr-tinta: #eaeefa;
+  --rr-tinta-2: #a7b4dc;
+  --rr-tinta-3: #6e7fb0;
+  --rr-marca: #17e3cb;
+  --rr-marca-forte: #66eddd;
+  --rr-azul: #8a9ce1;
+  --rr-critico: #f2707a;
+
+  background: var(--rr-fundo);
+  color: var(--rr-tinta-2);
+
+  /* ── TELA INTEIRA, Header e Footer inclusive (09/09/2026) ──────────────
+     Esta classe agora mora no `<html>` (ver o comentário grande acima), e
+     estas três variáveis são as que `body`, `.bg-header`/`.text-header-text`
+     e `.footer-surface` já leem — as mesmas que o painel Designer edita para
+     mudar a marca inteira. Formato `R G B` sem `#`: é como o Tailwind as
+     consome (`rgb(var(--color-…) / <alpha-value>)`, `tailwind.config.js`).
+
+     `--color-header-bg` recebe `--rr-carta`, NÃO `--rr-fundo`: o Trilho
+     precisa continuar lendo como BARRA sobre o chão da página. Um header da
+     cor exata do fundo apagaria essa separação — a mesma razão pela qual o
+     Header claro nunca foi `--color-canvas`. */
+  --color-canvas: 5 13 40; /* #050D28 — o chão do body vira o da aba */
+  --color-body-text: 234 238 250; /* #EAEEFA */
+  --color-header-bg: 11 22 55; /* #0B1637 — --rr-carta */
+
+  /* Sem isto, a barra de rolagem nativa, os `<select>` do cartão de cidade e
+     os campos de formulário do Header (ex.: o seletor de perfil) continuam
+     desenhados para chão claro no meio de uma tela escura. */
+  color-scheme: dark;
+
+  /* ── o mapa, degraus CLAROS→ESCUROS: a cidade ACENDE sobre o chão escuro ──
+     Validado (`escala.ts`/`Legenda.tsx` têm o raciocínio): PASS nas quatro
+     checagens ordinais sobre #050D28, ponta fraca (r1) 3,06:1. */
+  --mapa-contexto: #0b2263;
+  --mapa-r1: #0d6b6f;
+  --mapa-r2: #10908c;
+  --mapa-r3: #14bcad;
+  --mapa-r4: #66eddd;
+  --mapa-r5: #b5f6ee;
+  /* Braço negativo do divergente — azul, não coral (30/08/2026): os dois
+     polos se separam por LUMINOSIDADE (turquesa escuro × azul claro), ΔE
+     19,5 sob deuteranopia. */
+  --mapa-n1: #2e4ec9;
+  --mapa-n2: #5c75d5;
+  --mapa-n3: #8a9ce1;
+  --mapa-n4: #b8c3ed;
+  --mapa-n5: #e0e5f7;
+  --mapa-zero: #4a5a86;
+  --mapa-repouso: #10908c;
+  --mapa-brilho: #17e3cb;
+}
+
+/**
+ * O TEMA CLARO — hoje, só o mapa.
+ *
+ * Até 09/09/2026 este bloco também sobrescrevia os sete componentes do
+ * gráfico (`.rr-claro .viz-root`), porque o `:root .viz-root` GLOBAL do app
+ * ainda tinha laranja/âmbar/magenta/violeta e só esta aba tinha sido
+ * corrigida. Nesse dia a paleta de `:root .viz-root` foi revista PARA O APP
+ * INTEIRO (é a mesma regra — cor de gráfico segue a paleta Aegea, vermelho
+ * só para alerta — e os valores usados aqui eram exatamente a correção
+ * certa): o override local ficou redundante e foi removido. Um gráfico
+ * dentro desta aba lê `:root .viz-root` como qualquer outra tela agora.
+ */
+.rr-claro {
+  /* Simetria com `color-scheme: dark` do `.rr-noturno`: sem isto, escolher a
+     proposta clara desta aba com o SO em modo escuro deixaria os controles
+     nativos (rolagem, `<select>`) escuros numa tela clara. */
+  color-scheme: light;
+
+  /* ── o mapa, degraus ESCUROS→CLAROS: a cidade ESCURECE sobre o chão claro ──
+     Rampa NOVA, sintetizada fora da escala nomeada aegea/water: os passos
+     nomeados (aegea-600..900) derivam para o matiz azul da marca ao escurecer
+     (aegea-900 mede hue 235°, contra 185° do aegea-500) — falha o teste de
+     matiz única. Estes cinco ficam a 4° de spread, hue 190-194°, croma
+     decrescente para não estourar gamute. PASS nas quatro checagens
+     ordinais sobre #FFFFFF: ponta fraca (r1) 3,77:1. */
+  --mapa-r1: #22928f;
+  --mapa-r2: #006f6d;
+  --mapa-r3: #00514f;
+  --mapa-r4: #003735;
+  --mapa-r5: #002121;
+  /* Braço negativo: a MESMA rampa water-300..900 já usada no escuro — ela já
+     passa sozinha como ordinal sobre branco (ponta fraca, water-300, 2,65:1),
+     sem precisar de síntese nenhuma. */
+  --mapa-n1: #8a9ce1;
+  --mapa-n2: #5c75d5;
+  --mapa-n3: #2e4ec9;
+  --mapa-n4: #01209b;
+  --mapa-n5: #03145e;
+  --mapa-contexto: #e2e8f0;
+  --mapa-zero: #94a3b8;
+  --mapa-repouso: #00514f;
+  --mapa-brilho: #10908c;
+}
+
+/* ── superfícies compartilhadas ─────────────────────────────────────────── */
+
+/* O Footer usa `.footer-surface`/`.footer-line` (índex.css, mais abaixo),
+   fixos em `--color-primary` — não os tokens de header (que já viraram
+   `--rr-carta` acima). Mesma barra que o Header: a mesma tinta, para as
+   duas bordas da tela lerem como o mesmo elemento estrutural sobre o chão
+   `--rr-fundo`. `.footer-mark` não precisa de override — já lê
+   `--color-logo` (turquesa), que não muda entre os temas. */
+.rr-noturno .footer-surface {
+  background: var(--rr-carta);
+}
+.rr-noturno .footer-line {
+  border-color: var(--rr-linha);
+}
+
+.rr-noturno .carta {
+  background: var(--rr-carta);
+  border-color: var(--rr-linha);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+}
+.rr-noturno .tiles {
+  border-color: var(--rr-linha);
+  background-color: var(--rr-linha);
+}
+.rr-noturno .tiles > * {
+  background-color: var(--rr-carta-alta);
+}
+.rr-noturno .carta-tabela thead th {
+  background-color: rgba(255, 255, 255, 0.03);
+  border-color: var(--rr-linha);
+}
+.rr-noturno .carta-tabela tbody td {
+  border-color: var(--rr-linha);
+}
+.rr-noturno thead th {
+  border-color: var(--rr-linha);
+  color: var(--rr-tinta-3);
+}
+.rr-noturno tbody td {
+  border-color: var(--rr-linha);
+}
+.rr-noturno tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+.rr-noturno tbody tr[data-sel='1'] {
+  background-color: rgba(23, 227, 203, 0.08);
+  box-shadow: inset 3px 0 0 var(--rr-marca);
+}
+.rr-noturno .shadow-soft,
+.rr-noturno .shadow-elev {
+  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.55);
+}
+
+/* ── neutros (`ink-*`) → a escada de tinta noturna ──────────────────────── */
+
+.rr-noturno .bg-white {
+  background-color: var(--rr-carta);
+}
+.rr-noturno .bg-ink-50 {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+.rr-noturno .hover\:bg-ink-50:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+.rr-noturno .bg-ink-100 {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+.rr-noturno .bg-ink-200 {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+.rr-noturno .border-ink-100,
+.rr-noturno .border-ink-200 {
+  border-color: var(--rr-linha);
+}
+.rr-noturno .border-ink-300 {
+  border-color: var(--rr-linha-forte);
+}
+.rr-noturno .text-ink,
+.rr-noturno .text-ink-water,
+.rr-noturno .text-ink-800 {
+  color: var(--rr-tinta);
+}
+.rr-noturno .text-ink-600,
+.rr-noturno .text-ink-700 {
+  color: var(--rr-tinta-2);
+}
+.rr-noturno .text-ink-300,
+.rr-noturno .text-ink-400,
+.rr-noturno .text-ink-500 {
+  color: var(--rr-tinta-3);
+}
+.rr-noturno .hover\:text-ink-700:hover {
+  color: var(--rr-tinta);
+}
+
+/* ── azul e turquesa da marca, como texto no escuro ─────────────────────── */
+
+.rr-noturno .text-water-600,
+.rr-noturno .text-water-700,
+.rr-noturno .text-water-800 {
+  color: var(--rr-azul);
+}
+/* O NOME DA RODADA (`CabecalhoNivel`'s `<h1>`) é o objeto principal da tela —
+   veste a tinta mais forte, não o azul da marca. Precisa do elemento `h1` na
+   frente para ganhar do `.text-water-600` genérico acima (mesma contagem de
+   classes, uma teria que vir depois — isto é robusto à ordem). */
+.rr-noturno h1.text-water-600 {
+  color: var(--rr-tinta);
+}
+.rr-noturno .hover\:text-water-600:hover,
+.rr-noturno .hover\:text-water-700:hover,
+.rr-noturno .hover\:text-water-800:hover {
+  color: var(--rr-marca);
+}
+.rr-noturno .bg-water-50 {
+  background-color: rgba(138, 156, 225, 0.13);
+}
+.rr-noturno .bg-aegea-50 {
+  background-color: rgba(23, 227, 203, 0.12);
+}
+.rr-noturno .text-aegea-700,
+.rr-noturno .text-aegea-800 {
+  color: var(--rr-marca-forte);
+}
+.rr-noturno .outline-water-500 {
+  outline-color: var(--rr-marca);
+}
+
+/* ── status: o âmbar sai, sobra um vermelho só para falha ───────────────── */
+
+.rr-noturno .bg-warning\/10 {
+  background-color: rgba(138, 156, 225, 0.13);
+}
+.rr-noturno .text-danger {
+  color: var(--rr-critico);
+}
+.rr-noturno .border-danger\/25 {
+  border-color: rgba(242, 112, 122, 0.35);
+}
+.rr-noturno .text-warning {
+  color: var(--rr-azul);
+}
+.rr-noturno .border-warning {
+  border-color: var(--rr-azul);
+}
+.rr-noturno .text-ink-900 {
+  color: var(--rr-tinta);
+}
+.rr-noturno .hover\:border-water-600:hover {
+  border-color: rgba(23, 227, 203, 0.4);
+}
+
+/* ── o botão-fantasma (Parâmetros / Exportar / "tentar de novo") ────────── */
+
+.rr-noturno .border-ink-300 {
+  border-color: var(--rr-linha-forte);
+}
+
+/* ── os gráficos: uma reancoragem, zero fill fora da marca ──────────────── */
+
+.rr-noturno .viz-root {
+  --viz-surface: #0b1637;
+  --viz-grid: #1e2a52;
+  --viz-axis: #2a3d74;
+  --viz-ink: #eaeefa;
+  --viz-ink-2: #a7b4dc;
+  --viz-ink-muted: #6e7fb0;
+
+  /* Os sete componentes de obra — antes sete matizes, agora sete degraus das
+     escalas aegea/water. Turquesa é COLETA (Rede, Ligação, CTS); azul é
+     TRANSPORTE/TRATAMENTO (Tronco, EEE, Linha de recalque, ETE) — a matiz
+     acompanha o ESTÁGIO da obra, o degrau identifica o componente dentro dele.
+
+     A ORDEM DE EMPILHAMENTO NÃO MUDA — continua a canônica de montante para
+     jusante que `GraficoCronogramaObras.tsx` já usava (a ordem em que os
+     componentes aparecem nos dados). Reordenar por cor teria sido mais fácil,
+     e teria contradito essa ordem hidráulica documentada. Em vez disso, os
+     SETE VALORES abaixo foram escolhidos por busca exaustiva sobre as duas
+     escalas para maximizar a separação justamente NESSA ordem — validado:
+     pior par vizinho ΔE 13,2 sob daltonismo · 17,4 em visão normal, os dois
+     acima do piso (8 e 15). */
+  --viz-rede: #66eddd;
+  --viz-tronco: #8a9ce1;
+  --viz-ligacao: #10908c;
+  --viz-eee: #b8c3ed;
+  --viz-lr: #5c75d5;
+  --viz-ete: #e0e5f7;
+  --viz-cts: #14bcad;
+
+  --viz-fluxo-entra: #3fcdbd;
+  --viz-fluxo-entra-texto: #9de4dc;
+  --viz-fluxo-sai: #7c93e0;
+  --viz-fluxo-total: #c7d0f2;
+  --viz-fluxo-primaria: #7c93e0;
+
+  --viz-pos: #17e3cb;
+  --viz-mid: #28345e;
+  --viz-neg: #5c75d5;
+
+  --viz-seq-1: #e0e5f7;
+  --viz-seq-2: #b8c3ed;
+  --viz-seq-3: #8a9ce1;
+  --viz-seq-4: #5c75d5;
+  --viz-seq-5: #2e4ec9;
 }
