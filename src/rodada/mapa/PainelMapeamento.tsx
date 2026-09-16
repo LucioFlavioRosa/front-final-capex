@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Estado } from '@/rodada/components/Estado'
-import { useCidades } from '@/rodada/api/queries'
+import { useCidadesCompletas } from '@/rodada/api/queries'
 import { MapaCidades } from '@/rodada/mapa/MapaCidades'
 import type { AncoraNoMapa, DadoDaCidade } from '@/rodada/mapa/MapaCidades'
 import { CartaoDaCidade, CartaoFlutuante } from '@/rodada/mapa/CartaoDaCidade'
@@ -58,7 +58,9 @@ import type { CidadeLinha } from '@/rodada/domain/resultado'
  * alguém, e o link tem de abrir onde a frase aponta.
  */
 export function PainelMapeamento({ runId }: { runId: string }) {
-  const cidades = useCidades(runId)
+  // Completadas pelo detalhe de cada uma: é de lá que vêm a curva de cobertura,
+  // as metas e o CAPEX por ano neste backend (ver `completarCidades.ts`).
+  const cidades = useCidadesCompletas(runId)
   const navegar = useNavigate()
 
   const {
@@ -367,7 +369,7 @@ function PainelDoMapa({
             aoClicar={aoAbrirCidade}
             tema={tema}
           />
-          <Legenda camada={camada} faixa={pintura.faixa} tema={tema} />
+          <Legenda camada={camada} faixa={pintura.faixa} semValor={pintura.semValor} tema={tema} />
           {cartao}
         </div>
 
@@ -379,9 +381,11 @@ function PainelDoMapa({
             <span className="font-mono text-[10.5px] text-ink-400">
               {camada.forma === 'repouso'
                 ? 'escolha um dado'
-                : ano == null
-                  ? `${pintura.ordenadas.length} cidades`
-                  : `recorte de ${ano}`}
+                : pintura.semValor
+                  ? 'sem dado nesta rodada'
+                  : ano == null
+                    ? `${pintura.ordenadas.length} cidades`
+                    : `recorte de ${ano}`}
             </span>
           </div>
           <ol className="max-h-[560px] overflow-y-auto" onMouseLeave={() => aoPairar(null)}>
@@ -538,6 +542,13 @@ function usePintura(lista: CidadeLinha[], camada: Camada, ctx: Contexto) {
       // TODAS, e não só `comValor`: é o que o mapa usa para decidir quem é da
       // unidade — uma cidade sem valor nesta camada continua sendo da rodada.
       cidadesDaRodada: lista.map((c) => c.id),
+      /**
+       * NENHUMA CIDADE TEM VALOR NESTA CAMADA — o servidor não mandou o campo.
+       * `faixa` vira `{0, 0}` nesse caso, e uma legenda "0 … 0" com "0
+       * cidades" seria uma régua falsa: a tela afirmaria uma medida onde não
+       * há medida nenhuma. É estado, e a legenda o diz com todas as letras.
+       */
+      semValor: camada.forma !== 'repouso' && comValor.length === 0,
     }
   }, [lista, camada, ctx])
 }

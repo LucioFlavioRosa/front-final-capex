@@ -23,10 +23,13 @@ import type { TemaResultados } from '@/rodada/mapa/temaResultados'
 export function Legenda({
   camada,
   faixa,
+  semValor = false,
   tema,
 }: {
   camada: Camada
   faixa: { min: number; max: number }
+  /** Nenhuma cidade tem valor: sem régua, e a legenda diz por quê. */
+  semValor?: boolean
   tema: TemaResultados
 }) {
   const claro = tema === 'claro'
@@ -38,6 +41,12 @@ export function Legenda({
     <div className={`mt-3 flex flex-col gap-2 text-[11px] ${tintaMuda}`}>
       {camada.forma === 'repouso' ? (
         <LegendaRepouso bordaSuave={bordaSuave} tintaMaisMuda={tintaMaisMuda} />
+      ) : semValor ? (
+        // Régua nenhuma: uma faixa `0 … 0` afirmaria uma medida que não existe.
+        <p className={tintaMaisMuda}>
+          Esta rodada não publicou {camada.rotulo.toLowerCase()} por cidade — nenhum município
+          tem este dado.
+        </p>
       ) : camada.forma === 'percentual' ? (
         <LegendaNivel claro={claro} tintaMaisMuda={tintaMaisMuda} />
       ) : (
