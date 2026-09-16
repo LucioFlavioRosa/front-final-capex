@@ -7,10 +7,10 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { useToast } from '@/components/ui/Toaster'
 import { Estado } from '@/rodada/components/Estado'
 import { DetalhesDaSimulacao } from '@/rodada/components/DetalhesDaSimulacao'
-import { NoticiaDaFila } from '@/rodada/components/NoticiaDaFila'
+import { NoticiaDaFila, TagStatusComFila } from '@/rodada/components/NoticiaDaFila'
 import { MotivoDaFalha } from '@/rodada/components/MotivoDaFalha'
 import { CompararSimulacoes } from '@/rodada/components/CompararSimulacoes'
-import { Aviso, Tag, TagStatus, Tile } from '@/rodada/components/pecas'
+import { Aviso, Tag, Tile } from '@/rodada/components/pecas'
 import {
   useAlternarFavorita,
   useComentarDaRodada,
@@ -371,7 +371,7 @@ function Lista({ runs }: { runs: RunResumo[] }) {
                     </td>
                     <td className="text-[13px] text-ink-600">{r.unidadeNome}</td>
                     <td>
-                      <TagStatus status={r.status} />
+                      <TagStatusComFila runId={r.runId} status={r.status} progresso={r.progresso} />
                     </td>
                     {/* `brlMi` devolve '—' para ausente: rodada em voo não
                         mostra "R$ 0", que seria um resultado. */}
@@ -442,7 +442,7 @@ function PainelDaRodada({
               {idCurtoDaRodada(run.runId)} · {run.unidadeNome}
             </div>
           </div>
-          <TagStatus status={run.status} />
+          <TagStatusComFila runId={run.runId} status={run.status} progresso={run.progresso} />
         </div>
       </div>
 

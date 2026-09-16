@@ -456,6 +456,19 @@ export const handlers = [
       ],
     }),
   ),
+  // O SINAL DE VIDA de uma rodada em voo. A lista do histórico o consulta para
+  // cada PENDENTE (posição na fila na etiqueta); o padrão é "na fila, sem
+  // posição informada" — os testes da fila registram o que precisam por cima.
+  http.get('/api/runs/:runId/status', ({ params }) =>
+    HttpResponse.json({
+      runId: params.runId,
+      status: 'PENDENTE',
+      progresso: 0,
+      pedidaEm: '2026-09-16T18:44:25.361588+00:00',
+      erro: null,
+      fila: null,
+    }),
+  ),
   http.get('/api/runs/:runId/cidades', () =>
     HttpResponse.json([
       {

@@ -347,12 +347,16 @@ export const STATUS_RODADA: Record<StatusRodada, { texto: string; tom: Tom }> = 
 /** Estados em que a rodada ainda está em voo — o servidor pode mudá-los sozinho. */
 const EM_VOO = new Set<StatusRodada>(['PENDENTE', 'RODANDO'])
 
-export function TagStatus({ status }: { status: StatusRodada }) {
+export function TagStatus({ status, detalhe }: { status: StatusRodada; detalhe?: string }) {
   const s = STATUS_RODADA[status] ?? { texto: status, tom: 'neutro' as Tom }
   const emVoo = EM_VOO.has(status)
   return (
     <Tag tom={s.tom} className={emVoo ? 'relative overflow-hidden' : undefined}>
       {s.texto}
+      {/* O DETALHE É DA RODADA EM VOO: "Na fila · 3ª", "Executando · 42%". A
+          etiqueta sozinha não diz se é a próxima ou a quinta — e é na LISTA que
+          se compara, não no painel de uma só. */}
+      {detalhe && <span className="font-normal opacity-80"> · {detalhe}</span>}
       {/* A rodada em voo pode mudar sozinha (ver `useRuns`, `refetchInterval`) —
           o sweep é o que diz "isto está acontecendo agora" enquanto se espera. */}
       {emVoo && (

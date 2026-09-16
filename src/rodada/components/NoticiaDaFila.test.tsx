@@ -9,7 +9,7 @@ import { screen } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { renderizar } from '@/testes/render'
 import { servidor } from '@/testes/servidor'
-import { NoticiaDaFila, posicaoNaFila } from '@/rodada/components/NoticiaDaFila'
+import { NoticiaDaFila, TagStatusComFila, posicaoCurta, posicaoNaFila } from '@/rodada/components/NoticiaDaFila'
 
 beforeAll(() => servidor.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => servidor.resetHandlers())
@@ -74,5 +74,44 @@ describe('NoticiaDaFila', () => {
   it('rodada terminada não consulta nada', () => {
     renderizar(<NoticiaDaFila runId="run_1" status="OPTIMAL" />)
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * A ETIQUETA DA LISTA. É onde a posição precisava estar e não estava: a caixa
+ * de `NoticiaDaFila` só abre no painel da rodada selecionada, e quem dispara
+ * três simulações olha a LISTA para saber qual entra primeiro.
+ */
+describe('TagStatusComFila', () => {
+  it('a posição curta cabe na etiqueta', () => {
+    expect(posicaoCurta(0)).toBe('próxima')
+    expect(posicaoCurta(2)).toBe('3ª')
+  })
+
+  it('pendente: "Na fila · 3ª" quando o servidor diz duas na frente', async () => {
+    status({ status: 'PENDENTE', progresso: 0, fila: { posicao: 2, motivo: '', atencao: false, vivos: 1 } })
+    renderizar(<TagStatusComFila runId="run_1" status="PENDENTE" />)
+    expect(await screen.findByText('· 3ª')).toBeInTheDocument()
+    expect(screen.getByText('Na fila')).toBeInTheDocument()
+  })
+
+  it('pendente sem posição do servidor: fica "Na fila", sem inventar', async () => {
+    status({ status: 'PENDENTE', progresso: 0, fila: null })
+    renderizar(<TagStatusComFila runId="run_1" status="PENDENTE" />)
+    expect(await screen.findByText('Na fila')).toBeInTheDocument()
+    expect(screen.queryByText(/ª|próxima/)).not.toBeInTheDocument()
+  })
+
+  it('executando: o progresso vem da lista, sem consultar o sinal', () => {
+    // Nenhum handler de `/status` registrado: `onUnhandledRequest: 'error'`
+    // derrubaria o teste se a etiqueta consultasse.
+    renderizar(<TagStatusComFila runId="run_1" status="RODANDO" progresso={62} />)
+    expect(screen.getByText('· 62%')).toBeInTheDocument()
+  })
+
+  it('publicada: a etiqueta pura, sem detalhe e sem consulta', () => {
+    renderizar(<TagStatusComFila runId="run_1" status="OPTIMAL" progresso={100} />)
+    expect(screen.getByText('Concluída')).toBeInTheDocument()
+    expect(screen.queryByText(/·/)).not.toBeInTheDocument()
   })
 })

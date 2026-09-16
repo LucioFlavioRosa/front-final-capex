@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useStatusDaRodada } from '@/rodada/api/queries'
 import type { StatusRodada } from '@/rodada/domain/resultado'
+import { TagStatus } from '@/rodada/components/pecas'
 
 /**
  * A NOTÍCIA DA FILA — onde a rodada está agora, dita em posição e não em cor.
@@ -113,3 +114,39 @@ export function NoticiaDaFila({ runId, status }: { runId: string; status: Status
 /** `0` na frente é "próxima a entrar"; `n` na frente é a `(n+1)ª` posição. */
 export const posicaoNaFila = (naFrente: number): string =>
   naFrente <= 0 ? 'Próxima a entrar' : `${naFrente + 1}ª na fila`
+
+/** A posição curta, para caber na etiqueta: `0` na frente é "próxima"; `n` é a `(n+1)ª`. */
+export const posicaoCurta = (naFrente: number): string =>
+  naFrente <= 0 ? 'próxima' : `${naFrente + 1}ª`
+
+/**
+ * A ETIQUETA DE STATUS COM A POSIÇÃO NA FILA — para a lista, onde a caixa de
+ * `NoticiaDaFila` não cabe e é lá que se compara três rodadas disparadas.
+ *
+ * PENDENTE consulta `/status` (a MESMA query de `NoticiaDaFila`: com o painel
+ * aberto na mesma rodada, um pedido só alimenta os dois); RODANDO usa o
+ * `progresso` que a própria lista já traz, sem consulta nenhuma. Fora de voo é
+ * a etiqueta pura. Antes de a resposta chegar, ou se o servidor não informar a
+ * posição, a etiqueta fica como era: "Na fila" — nunca uma posição inventada.
+ */
+export function TagStatusComFila({
+  runId,
+  status,
+  progresso,
+}: {
+  runId: string
+  status: StatusRodada
+  progresso?: number
+}) {
+  const consulta = useStatusDaRodada(runId, status === 'PENDENTE')
+  const posicao = consulta.data?.fila?.posicao
+  const detalhe =
+    status === 'PENDENTE'
+      ? posicao == null
+        ? undefined
+        : posicaoCurta(posicao)
+      : status === 'RODANDO' && progresso != null
+        ? `${progresso}%`
+        : undefined
+  return <TagStatus status={status} detalhe={detalhe} />
+}
