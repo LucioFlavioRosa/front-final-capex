@@ -102,6 +102,15 @@ describe('TagStatusComFila', () => {
     expect(screen.queryByText(/ª|próxima/)).not.toBeInTheDocument()
   })
 
+  it('o sinal já diz RODANDO e a lista ainda diz PENDENTE: sem posição — ela é de uma fila em que a rodada não está mais', async () => {
+    status({ status: 'RODANDO', progresso: 5, fila: { posicao: 0, motivo: 'Em execução.', atencao: false, vivos: 1 } })
+    renderizar(<TagStatusComFila runId="run_1" status="PENDENTE" />)
+    expect(await screen.findByText('Na fila')).toBeInTheDocument()
+    // Espera o sinal chegar e confere que a posição não apareceu.
+    await new Promise((r) => setTimeout(r, 50))
+    expect(screen.queryByText(/ª|próxima/)).not.toBeInTheDocument()
+  })
+
   it('executando: o progresso vem da lista, sem consultar o sinal', () => {
     // Nenhum handler de `/status` registrado: `onUnhandledRequest: 'error'`
     // derrubaria o teste se a etiqueta consultasse.

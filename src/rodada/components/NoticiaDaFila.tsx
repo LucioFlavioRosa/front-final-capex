@@ -30,17 +30,28 @@ import { TagStatus } from '@/rodada/components/pecas'
  * SÓ EM VOO: fora de `PENDENTE`/`RODANDO` o componente nem consulta — rodada
  * publicada é imutável, e o sinal de vida seria ruído.
  */
-export function NoticiaDaFila({ runId, status }: { runId: string; status: StatusRodada }) {
-  const emVoo = status === 'PENDENTE' || status === 'RODANDO'
-  const consulta = useStatusDaRodada(runId, emVoo)
+/**
+ * O SINAL DA RODADA, E A LISTA APRENDE COM ELE: `/status` é consultado a cada
+ * 8 s e a lista não; quando o sinal já mudou de estado, é a lista que está
+ * atrasada, e ela é pedida de novo. Um hook só para a caixa e para a etiqueta
+ * — as duas leem o mesmo sinal e as duas têm de corrigir a lista, senão a
+ * etiqueta de uma pendente NÃO selecionada mostraria a posição de uma rodada
+ * que já entrou.
+ */
+function useSinalDaRodada(runId: string, status: StatusRodada, ativo: boolean) {
+  const consulta = useStatusDaRodada(runId, ativo)
   const qc = useQueryClient()
   const d = consulta.data
-
-  // A LISTA APRENDE COM O SINAL: `/status` é consultado a cada 8 s e a lista não;
-  // quando o sinal já mudou de estado, é a lista que está atrasada.
   useEffect(() => {
     if (d && d.status !== status) void qc.invalidateQueries({ queryKey: ['runs', 'lista'] })
   }, [d, status, qc])
+  return consulta
+}
+
+export function NoticiaDaFila({ runId, status }: { runId: string; status: StatusRodada }) {
+  const emVoo = status === 'PENDENTE' || status === 'RODANDO'
+  const consulta = useSinalDaRodada(runId, status, emVoo)
+  const d = consulta.data
 
   if (!emVoo) return null
 
@@ -138,8 +149,12 @@ export function TagStatusComFila({
   status: StatusRodada
   progresso?: number
 }) {
-  const consulta = useStatusDaRodada(runId, status === 'PENDENTE')
-  const posicao = consulta.data?.fila?.posicao
+  const consulta = useSinalDaRodada(runId, status, status === 'PENDENTE')
+  // SÓ QUANDO O SINAL CONCORDA COM A LISTA: se `/status` já diz RODANDO e a
+  // lista ainda diz PENDENTE, a posição é de uma fila em que a rodada não está
+  // mais — a etiqueta fica "Na fila" pelo ciclo em que a lista se corrige.
+  const posicao =
+    consulta.data?.status === 'PENDENTE' ? consulta.data.fila?.posicao : undefined
   const detalhe =
     status === 'PENDENTE'
       ? posicao == null
