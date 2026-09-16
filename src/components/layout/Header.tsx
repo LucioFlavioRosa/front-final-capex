@@ -1,9 +1,51 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { MapPin, SignOut, MagnifyingGlass, ArrowsClockwise, CaretDown } from '@phosphor-icons/react'
+import { MapPin, SignOut, MagnifyingGlass, ArrowsClockwise, CaretDown, Moon, Sun } from '@phosphor-icons/react'
 import { navItemsVisiveis } from '../../config/navigation'
 import { useAuth } from '../../auth/AuthContext'
 import { useIndicador } from '../ui/useIndicador'
 import { useContextoTrilho } from './ContextoCabecalho'
+import { useMapaAberto } from '@/rodada/layout/abaResultado'
+import { alternarTemaResultados, useTemaResultados } from '@/rodada/mapa/temaResultados'
+
+/**
+ * O BOTÃO CLARO/ESCURO — e por que ele só aparece numa ABA.
+ *
+ * O tema que este botão troca é o do Mapeamento por Cidade — a Aegea já
+ * recusou um redesign escuro do SITE inteiro (ver o comentário grande
+ * abaixo), e essa recusa continua valendo fora desta aba. O que mudou em
+ * 09/09/2026, por pedido explícito: enquanto a aba está aberta, o tema dela
+ * passou a vestir a TELA INTEIRA — este próprio Header incluído, e não só o
+ * painel do mapa. Ver `useTemaResultadosNoDocumento`, em
+ * `rodada/mapa/temaResultados.ts`, chamada uma vez em `AppLayout`: é ela
+ * quem põe `.rr-noturno`/`.rr-claro` no `<html>`, e é por isso que o botão
+ * aqui, que fica FORA do `<Outlet />`, também escurece. Ele não pode virar um
+ * controle global disfarçado: fora dessa aba não há tema nenhum para trocar,
+ * e um botão que aparece sempre mas só faz algo às vezes é pior que um botão
+ * que só aparece quando faz algo.
+ *
+ * `useMapaAberto()`, e não mais `pathname.startsWith('/resultados_refactor')`:
+ * a bancada virou aba de `/resultados/{runId}` em 04/09/2026 (ver
+ * `rodada/layout/AbasResultado.tsx`), e não tem mais rota própria para casar
+ * por caminho — o que decide se ela está aberta agora é `?aba=mapa`.
+ */
+function BotaoTemaResultados() {
+  const mapaAberto = useMapaAberto()
+  const tema = useTemaResultados()
+  if (!mapaAberto) return null
+  const escuro = tema === 'escuro'
+  return (
+    <button
+      type="button"
+      onClick={alternarTemaResultados}
+      title={escuro ? 'Ver a proposta clara desta tela' : 'Ver a proposta escura desta tela'}
+      aria-label="Trocar o tema do Mapeamento por Cidade"
+      className="flex flex-none items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-2.5 py-1.5 text-header-text/80 transition-[background-color,border-color,transform] duration-hover ease-saida hover:border-white/40 hover:bg-white/15 hover:text-header-text active:scale-[.97] active:duration-press"
+    >
+      {escuro ? <Moon className="text-[15px]" /> : <Sun className="text-[15px]" />}
+      <span className="hidden text-[11px] font-semibold sm:inline">{escuro ? 'Escuro' : 'Claro'}</span>
+    </button>
+  )
+}
 
 /**
  * CABEÇALHO "TRILHO".
@@ -25,8 +67,12 @@ import { useContextoTrilho } from './ContextoCabecalho'
  *     curva vêm dos tokens de `tailwind.config.js` (duration-hover,
  *     ease-saida), não de números soltos.
  *
- * O tema é CLARO, e é decisão firmada: não reintroduzir `#070B2E` nem as fontes
- * do protótipo dark.
+ * O tema é CLARO, e segue sendo decisão firmada para o site em geral — não
+ * reintroduzir `#070B2E` nem as fontes do protótipo dark aqui. A EXCEÇÃO é a
+ * aba Mapeamento por Cidade: enquanto ela está aberta, este Header entra no
+ * tema dela (ver `BotaoTemaResultados` acima e `useTemaResultadosNoDocumento`
+ * em `rodada/mapa/temaResultados.ts`) — pedido explícito de 09/09/2026, não
+ * uma reabertura da recusa de 11/08.
  */
 
 /** Classes do chip — compartilhadas pelas duas formas, estática e clicável. */
@@ -185,6 +231,8 @@ export function Header({ onOpenCmd }: HeaderProps) {
             </select>
           </label>
         )}
+
+        <BotaoTemaResultados />
 
         <button
           type="button"

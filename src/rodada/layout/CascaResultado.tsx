@@ -102,9 +102,14 @@ function Interna() {
           <div className="max-w-content mx-auto grid items-start gap-6 px-4 py-8 md:px-6">
             <div className="min-w-0">
               {/* As abas ficam ACIMA do `Outlet`, dentro da coluna de conteúdo:
-                  são da rodada inteira, mas não da árvore de escopo ao lado —
-                  a árvore diz ONDE você está, as abas dizem O QUE você está
-                  perguntando, e as duas coisas se combinam livremente. */}
+                  elas dizem O QUE você está perguntando sobre a rodada, e
+                  isso se combina livremente com ONDE você está (o nível).
+
+                  A frase original falava de uma árvore de escopo "ao lado",
+                  que dizia o ONDE — ela saiu na absorção do front do github
+                  (04/09/2026) e a coluna ficou única. Quem diz o ONDE hoje é
+                  o breadcrumb do `CrumbsProvider`, e quem leva ao nível 2 é a
+                  aba "Mapeamento por Cidade". */}
               {/* A aba de Sensibilidade não existe para uma rodada que É uma
                   variação: analisar a sensibilidade de um ponto de sensibilidade
                   não é pergunta, e o botão de rodar gravaria variações de

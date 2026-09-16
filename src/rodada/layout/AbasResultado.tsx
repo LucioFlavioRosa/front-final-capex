@@ -33,28 +33,47 @@ import {
  * tivesse limite" contra "fosse maior". Hoje uma faz pergunta aberta e a outra
  * descreve um cenário FECHADO — a mesma janela, sem teto.
  *
- * A ORDEM VAI DO PRÓXIMO AO DISTANTE: o plano que existe, depois o orçamento um
- * pouco maior, e por fim o cenário sem teto nenhum. A aba do meio some fora do
- * nível da rodada, e as duas que ficam continuam nessa mesma escada.
+ * A ORDEM VAI DO PRÓXIMO AO DISTANTE: o plano que existe, depois o MESMO plano
+ * visto por cidade, depois o orçamento um pouco maior, e por fim o cenário sem
+ * teto nenhum. As duas primeiras falam do plano REAL; as duas últimas, de
+ * planos que não existem. As do meio somem fora do nível da rodada, e as duas
+ * que ficam continuam nessa mesma escada.
  */
-const ABAS: { id: AbaResultado; rotulo: string; soNaRodada?: boolean }[] = [
+const ABAS: {
+  id: AbaResultado
+  rotulo: string
+  /** Só no nível 1 (`/resultados/{runId}`). */
+  soNaRodada?: boolean
+  /** Some também quando a rodada É uma variação. */
+  semVariacao?: boolean
+}[] = [
   { id: 'plano', rotulo: 'Obras no plano' },
+  // SÓ NO NÍVEL DA RODADA, mas VALE PARA VARIAÇÃO: o mapa compara as cidades
+  // da rodada ENTRE SI, e uma variação tem cidades como qualquer outra. Não
+  // desce porque no nível 2 há uma cidade só — e aí o mapa não compara nada.
+  { id: 'mapa', rotulo: 'Mapeamento por Cidade', soNaRodada: true },
   // SÓ NO NÍVEL DA RODADA. A curva é do orçamento inteiro; não há sensibilidade
   // de uma cidade nem de uma obra. Mostrar a aba lá e abrir uma tela vazia seria
   // pior que não a mostrar — ela prometeria uma resposta que não existe.
-  { id: 'sensibilidade', rotulo: 'E se o CAPEX fosse maior', soNaRodada: true },
+  { id: 'sensibilidade', rotulo: 'E se o CAPEX fosse maior', soNaRodada: true, semVariacao: true },
   { id: 'porque', rotulo: 'Sem limite de CAPEX na janela' },
 ]
 
 export function AbasResultado({ ehVariacao = false }: { ehVariacao?: boolean }) {
   const [params] = useSearchParams()
   const { pathname } = useLocation()
+  const naRodada = ehNivelDaRodada(pathname)
   /* A Sensibilidade existe no nível da rodada, e só quando a rodada é um plano
      de verdade. Uma VARIAÇÃO é um ponto da curva de outra — ela tem plano, obras
-     e explicabilidade próprios, mas não tem análise própria a oferecer. */
-  const temSensibilidade = ehNivelDaRodada(pathname) && !ehVariacao
-  const atual = lerAba(params, temSensibilidade)
-  const visiveis = ABAS.filter((a) => !a.soNaRodada || temSensibilidade)
+     e explicabilidade próprios, mas não tem análise própria a oferecer.
+
+     O Mapeamento não tem essa segunda condição: variação tem cidades, e o mapa
+     delas responde tanto quanto o da rodada de origem. */
+  const temSensibilidade = naRodada && !ehVariacao
+  const atual = lerAba(params, { sensibilidade: temSensibilidade, mapa: naRodada })
+  const visiveis = ABAS.filter(
+    (a) => (!a.soNaRodada || naRodada) && (!a.semVariacao || !ehVariacao),
+  )
 
   /** O mesmo caminho, trocando só a aba. `plano` não escreve parâmetro. */
   const href = (aba: AbaResultado) => {

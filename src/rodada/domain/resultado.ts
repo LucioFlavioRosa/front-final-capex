@@ -548,6 +548,48 @@ export interface CidadeLinha {
   sistemas: number
 }
 
+/**
+ * EXTENSÃO DE `CidadeLinha` (declaration merging) — portada do checkpoint
+ * pre-absorção do github (commit 4b4f827) porque a bancada
+ * `rodada/refactor/` ainda lê estes campos. Não existe equivalente no
+ * front-final-capex; se a bancada for descartada, este bloco pode sair
+ * junto com `CapexDoAno`.
+ *
+ * OS CAMPOS DO MAPA (§7.7 do `RELATORIO-DADOS-POR-CIDADE-MAPA.md`): todos
+ * saem da mesma linha de `otim_cidade` que a lista já lia. São OPCIONAIS no
+ * tipo porque uma API anterior a 29/08/2026 não os manda, e a camada do mapa
+ * que depende deles tem de cair no estado "sem dado" em vez de pintar
+ * `undefined` como zero.
+ *
+ * `unidadeCobertura` NÃO é resultado, é REGRA DE LEITURA: duas cidades
+ * medidas em unidades diferentes não são comparáveis no mesmo coroplético.
+ */
+export interface CidadeLinha {
+  /**
+   * A série de cobertura × meta desta cidade (item 17 do feedback de 26/08) —
+   * o mesmo par que `Cidade.tsx` já usa em `GraficoCobertura`, agora também no
+   * cartão-gráfico do nível 1.
+   */
+  cobertura: PontoCobertura[]
+  metas: MetaCobertura[]
+  coberturaBasePct?: number | null
+  ligacoesNovas?: number | null
+  obrasFeitas?: number | null
+  obrasFora?: number | null
+  paridadeInicial?: number | null
+  paridadeFinal?: number | null
+  /** `ligacoes` | `economias` | `populacao`. */
+  unidadeCobertura?: string | null
+  /** CAPEX por ano desta cidade (`otim_cidade_ano`) — a linha do tempo do mapa. */
+  capexPorAno?: CapexDoAno[]
+}
+
+/** Um ano da série de CAPEX de uma cidade (`otim_cidade_ano`). */
+export interface CapexDoAno {
+  ano: number
+  capex: number
+}
+
 // ===========================================================================
 //  NIVEL 2 — cidade
 // ===========================================================================

@@ -1,8 +1,10 @@
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigationType } from 'react-router-dom'
 import { Header } from './Header'
 import { Footer } from './Footer'
 import { CommandPalette } from '../ui/CommandPalette'
+import { useMapaAberto } from '@/rodada/layout/abaResultado'
+import { useTemaResultadosNoDocumento } from '@/rodada/mapa/temaResultados'
 
 /**
  * Posição de scroll por rota, para o `POP` (voltar) restaurar em vez de
@@ -17,6 +19,14 @@ export function AppLayout() {
   const tipoDeNavegacao = useNavigationType() // 'PUSH' | 'POP' | 'REPLACE'
   const [cmdOpen, setCmdOpen] = useState(false)
 
+  /**
+   * O TEMA DA ABA "MAPEAMENTO POR CIDADE" VESTE O DOCUMENTO INTEIRO enquanto
+   * ela está aberta — Header e Footer inclusive (pedido de 09/09/2026). Mora
+   * aqui, e não em `Global.tsx` ou `PainelMapeamento.tsx`, porque este é o
+   * único ancestral comum aos três: ver `useTemaResultadosNoDocumento`.
+   */
+  useTemaResultadosNoDocumento(useMapaAberto())
+
   // Guarda a posição da rota que está SAINDO, antes da troca.
   useEffect(() => {
     return () => {
@@ -28,7 +38,23 @@ export function AppLayout() {
    * `POP` (o botão Voltar, ou navegar de volta pelo Trilho) restaura a
    * posição de onde a pessoa saiu — sem isso, quem está no 40º sistema do
    * drill-down volta ao topo da lista e procura de novo. Qualquer outra
-   * navegação zera.
+   * navegação de ROTA zera.
+   *
+   * "Navegação de rota" é a condição que se perdeu na absorção do front do
+   * github (04/09/2026) e voltou em 05/09/2026: o efeito disparava em
+   * QUALQUER navegação — inclusive uma troca só de QUERY STRING na mesma
+   * página, porque `useNavigationType()` também muda de valor quando
+   * `setSearchParams` empurra ou substitui uma entrada no histórico sem
+   * tocar no `pathname`. O cartão de cidade em `rodada/mapa/` (a aba
+   * "Mapeamento por Cidade") faz exatamente isso a cada clique — abrir uma
+   * cidade, trocar o dado mostrado, fixar uma comparação — e cada um desses
+   * gestos jogava a rolagem pro topo, obrigando quem estava lendo o mapa lá
+   * embaixo a descer a página de novo. `pathname` é o que de fato importa
+   * aqui: só ele diz que a pessoa foi para OUTRA TELA. Uma `ref` guarda o
+   * último pathname visto, e o efeito sai cedo quando ele não mudou —
+   * `tipoDeNavegacao` continua no array de dependências (é ele quem decide
+   * ENTRE topo e posição salva quando a rota muda de verdade), só não basta
+   * mais sozinho para justificar rolar a página.
    *
    * `instant`, nunca `smooth`: a viagem do scroll numa TROCA DE ROTA não
    * informa nada — a página de destino é outra — e corria por cima do
@@ -36,7 +62,10 @@ export function AppLayout() {
    * dentro da mesma página, que é para onde `html { scroll-behavior: smooth }`
    * (`index.css`) foi escrito.
    */
+  const ultimoPathname = useRef(pathname)
   useLayoutEffect(() => {
+    if (pathname === ultimoPathname.current) return
+    ultimoPathname.current = pathname
     const alvo = tipoDeNavegacao === 'POP' ? (posicoesDeScroll.get(pathname) ?? 0) : 0
     window.scrollTo({ top: alvo, behavior: 'instant' })
   }, [pathname, tipoDeNavegacao])

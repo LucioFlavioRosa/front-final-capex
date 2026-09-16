@@ -43,10 +43,27 @@
 import { useCallback } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 
-export type AbaResultado = 'plano' | 'porque' | 'sensibilidade'
+export type AbaResultado = 'plano' | 'porque' | 'sensibilidade' | 'mapa'
 
 /** O nome do parâmetro na URL: `/resultados/{run}/cidades/{id}?aba=porque`. */
 export const PARAM_ABA = 'aba'
+
+/**
+ * QUAIS ABAS DA RODADA O CHAMADOR ACEITA.
+ *
+ * As duas que só existem no nível 1 não compartilham a MESMA regra, e é por
+ * isso que são dois campos e não um:
+ *
+ *   `sensibilidade`  nível da rodada E não-variação. Analisar a sensibilidade
+ *                    de um ponto de sensibilidade não é pergunta.
+ *   `mapa`           nível da rodada, VARIAÇÃO INCLUSIVE. Uma variação é uma
+ *                    rodada completa: tem cidades, e comparar as cidades dela
+ *                    entre si responde tanto quanto na rodada de origem.
+ */
+export interface AbasAceitas {
+  sensibilidade?: boolean
+  mapa?: boolean
+}
 
 /**
  * O nível 1 é `/resultados/{runId}` e nada mais — é onde a Sensibilidade existe.
@@ -66,22 +83,29 @@ export function ehNivelDaRodada(pathname: string): boolean {
  * da rodada" quer mostrar. Só o desvio se escreve, e assim a URL comum continua
  * curta.
  *
- * `aceitaSensibilidade` é `false` por padrão, e o default é a parte importante:
- * todo nível abaixo da rodada continua enxergando só `plano`/`porque` sem
- * precisar saber que a terceira aba existe. Sem isso, um `aba=sensibilidade`
- * colado numa URL de cidade cairia no ramo do "por quê" nas telas escritas como
+ * `aceita` é `{}` por padrão, e o default é a parte importante: todo nível
+ * abaixo da rodada continua enxergando só `plano`/`porque` sem precisar saber
+ * que as outras duas existem. Sem isso, um `aba=sensibilidade` colado numa URL
+ * de cidade cairia no ramo do "por quê" nas telas escritas como
  * `aba === 'plano' ? A : B` — mostrando a explicabilidade sob o rótulo errado.
  */
-export function lerAba(params: URLSearchParams, aceitaSensibilidade = false): AbaResultado {
+export function lerAba(params: URLSearchParams, aceita: AbasAceitas = {}): AbaResultado {
   const bruto = params.get(PARAM_ABA)
   if (bruto === 'porque') return 'porque'
-  if (bruto === 'sensibilidade' && aceitaSensibilidade) return 'sensibilidade'
+  if (bruto === 'sensibilidade' && aceita.sensibilidade) return 'sensibilidade'
+  if (bruto === 'mapa' && aceita.mapa) return 'mapa'
   return 'plano'
 }
 
-export function useAbaResultado(opcoes?: { comSensibilidade?: boolean }): AbaResultado {
+export function useAbaResultado(opcoes?: {
+  comSensibilidade?: boolean
+  comMapa?: boolean
+}): AbaResultado {
   const [params] = useSearchParams()
-  return lerAba(params, opcoes?.comSensibilidade ?? false)
+  return lerAba(params, {
+    sensibilidade: opcoes?.comSensibilidade ?? false,
+    mapa: opcoes?.comMapa ?? false,
+  })
 }
 
 /**
@@ -92,12 +116,15 @@ export function useAbaResultado(opcoes?: { comSensibilidade?: boolean }): AbaRes
  * exatamente a continuidade que a aba na URL veio dar.
  *
  * SÓ `porque` DESCE. `plano` é o default e não precisa ser escrito;
- * `sensibilidade` não existe abaixo da rodada, e levá-la junto produziria uma
- * cidade com uma aba que não abre nada. Descer a partir dela é sair dela — o que
- * é correto: a pergunta "e se o CAPEX fosse maior?" não se recorta por cidade.
+ * `sensibilidade` e `mapa` não existem abaixo da rodada, e levá-las junto
+ * produziria uma cidade com uma aba que não abre nada. Descer a partir delas é
+ * sair delas — o que é correto nas duas: "e se o CAPEX fosse maior?" não se
+ * recorta por cidade, e o mapa que COMPARA cidades não tem versão para uma só.
+ * No caso do mapa isso é o próprio gesto de descer: clicar no polígono é ir
+ * para o nível 2 daquela cidade, no Plano dela.
  */
 export function useHrefComAba(): (to: string) => string {
-  const aba = useAbaResultado({ comSensibilidade: true })
+  const aba = useAbaResultado({ comSensibilidade: true, comMapa: true })
   return useCallback(
     (to: string) => {
       if (aba !== 'porque') return to
@@ -115,4 +142,11 @@ export function useSensibilidadeAberta(): boolean {
   const { pathname } = useLocation()
   const aba = useAbaResultado({ comSensibilidade: true })
   return aba === 'sensibilidade' && ehNivelDaRodada(pathname)
+}
+
+/** `true` quando o Mapeamento por Cidade está aberto no nível em que ele existe. */
+export function useMapaAberto(): boolean {
+  const { pathname } = useLocation()
+  const aba = useAbaResultado({ comMapa: true })
+  return aba === 'mapa' && ehNivelDaRodada(pathname)
 }
