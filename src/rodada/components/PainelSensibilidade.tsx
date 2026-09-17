@@ -56,6 +56,7 @@ import {
   faltouTempoDeSolver,
   fatorDoDegrau,
   melhorPorDegrau,
+  pontosEmVoo,
   problemaDaVarredura,
   situacaoDaVarredura,
   type EstadoDoDegrau,
@@ -228,6 +229,24 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
    */
   const emExecucao = emVooDaBase(todos)
   /**
+   * O PLANO É O DA FAIXA MAIS O QUE O SERVIDOR TEM EM VOO.
+   *
+   * Os campos são estado da tela e voltam ao padrão a cada visita; a fila é do
+   * servidor e não volta. Quem disparou +30%, +115% e +200%, saiu e voltou,
+   * encontrava os campos em 10–30 e o plano dizendo "vai rodar" para degraus
+   * que ninguém pediu — enquanto os dois que estavam de fato na fila não
+   * apareciam em lugar nenhum até responder. O que está em voo entra no plano
+   * SEMPRE, esteja ou não na faixa digitada; só o play continua sendo o da
+   * faixa.
+   */
+  const emVoo = pontosEmVoo(todos)
+  const planoNaTela: SituacaoDoDegrau[] = [
+    ...situacao,
+    ...emVoo
+      .filter((p) => !degrausPedidos.includes(p.degrau))
+      .map((p) => ({ degrau: p.degrau, ponto: p, estado: 'em voo' as const })),
+  ].sort((a, b) => a.degrau - b.degrau)
+  /**
    * O PLANO: cada degrau pedido, e o que o play faz com ele. `ausente` e `erro`
    * vão para a fila; `em voo` e `pronto` são pulados — um já está na fila, o
    * outro já respondeu. Repetir um `pronto` seria legítimo (o servidor deduplica
@@ -347,7 +366,7 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
         {/* O PLANO, degrau a degrau: o que vai rodar, o que já está na fila, o
             que já respondeu. É a resposta a "o que o play vai fazer?" antes do
             clique, e "o que falta?" depois dele. */}
-        {varreduraOk && <PlanoDaVarredura situacao={situacao} />}
+        {varreduraOk && <PlanoDaVarredura situacao={planoNaTela} />}
 
         {disparar.error && (
           <p role="alert" className="mt-3 rounded-xl border border-danger/25 bg-warning/10 px-3.5 py-2.5 text-[12.5px] text-ink-700">
@@ -571,6 +590,12 @@ const ROTULO_DO_ESTADO: Record<EstadoDoDegrau, string> = {
   erro: 'falhou',
 }
 
+/** "Em voo" são dois estados do servidor, e a tela diz qual: na fila ou rodando. */
+function rotuloDoDegrau(s: SituacaoDoDegrau): string {
+  if (s.estado === 'em voo' && s.ponto?.status === 'RODANDO') return 'rodando'
+  return ROTULO_DO_ESTADO[s.estado]
+}
+
 /**
  * O PLANO, degrau a degrau. A palavra ao lado do número diz o que o play faz
  * com ele — e é ela, não a cor, que carrega a informação.
@@ -583,7 +608,7 @@ function PlanoDaVarredura({ situacao }: { situacao: SituacaoDoDegrau[] }) {
           <Tag tom={TOM_DO_ESTADO[s.estado]}>
             <span className="font-mono tabular-nums">+{s.degrau}%</span>
             <span className="font-normal opacity-80">
-              {' '}· {ROTULO_DO_ESTADO[s.estado]}
+              {' '}· {rotuloDoDegrau(s)}
               {s.estado === 'pronto' && s.ponto?.estimativa ? ' ○' : ''}
             </span>
           </Tag>

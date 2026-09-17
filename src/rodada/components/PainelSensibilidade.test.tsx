@@ -637,6 +637,29 @@ describe('a varredura', () => {
     expect(screen.getByRole('button', { name: /Rodar 1 ponto/ })).toBeInTheDocument()
   })
 
+  it('o que o servidor tem em voo aparece no plano MESMO fora da faixa digitada — na fila ou rodando', async () => {
+    // Quem disparou +30/+115/+200, saiu e voltou, encontra os campos no padrão
+    // (10–30). O servidor continua servindo a fila: o plano tem de mostrar isso.
+    servirSensibilidade({
+      teto: TETO,
+      pontos: [
+        BASE_PONTO,
+        { ...BASE_PONTO, degrau: 30, runId: 'v30', coberturaFimPct: 46 },
+        { ...BASE_PONTO, degrau: 115, runId: 'v115', status: 'RODANDO', vpl: null, coberturaFimPct: null },
+        { ...BASE_PONTO, degrau: 200, runId: 'v200', status: 'PENDENTE', vpl: null, coberturaFimPct: null },
+      ],
+    })
+    abrir()
+
+    const plano = await screen.findByRole('list', { name: 'Plano da varredura' })
+    expect(await within(plano).findByText(/rodando/)).toBeInTheDocument()
+    const itens = within(plano).getAllByRole('listitem').map((li) => li.textContent ?? '')
+    expect(itens.some((t) => t.includes('+115%') && t.includes('rodando'))).toBe(true)
+    expect(itens.some((t) => t.includes('+200%') && t.includes('na fila'))).toBe(true)
+    // E a faixa digitada continua sendo o plano do play: +10 e +20 faltam.
+    expect(screen.getByRole('button', { name: /Rodar 2 pontos/ })).toBeInTheDocument()
+  })
+
   it('com tudo pronto, o play não tem o que pedir', async () => {
     servirSensibilidade({
       teto: TETO,

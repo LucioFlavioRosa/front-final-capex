@@ -288,11 +288,21 @@ export function situacaoDaVarredura(
 export function emVooDaBase(
   pontos: PontoDaCurva[],
 ): { degrau: number; ponto: PontoDaCurva } | null {
-  const voando = pontos
+  const p = pontosEmVoo(pontos)[0]
+  return p ? { degrau: p.degrau, ponto: p } : null
+}
+
+/**
+ * TODAS as rodadas desta base em voo — na fila ou rodando —, do menor degrau
+ * ao maior. É o que o SERVIDOR diz que está acontecendo, e é o que a tela tem
+ * de mostrar independentemente do que estiver nos campos: quem dispara uma
+ * varredura, sai e volta, encontra os campos no padrão — e sem isto via só o
+ * ponto que já respondeu, com os outros "sumidos" enquanto a fila os servia.
+ */
+export function pontosEmVoo(pontos: PontoDaCurva[]): PontoDaCurva[] {
+  return pontos
     .filter((p) => p.degrau > 0 && !FRACASSO.has(p.status) && !temResultado(p))
     .sort((a, b) => a.degrau - b.degrau)
-  const p = voando[0]
-  return p ? { degrau: p.degrau, ponto: p } : null
 }
 
 /** O próximo degrau a disparar: o menor que falta — inclusive um que falhou. */
