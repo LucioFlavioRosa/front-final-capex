@@ -9,6 +9,11 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
+  VARREDURA_PADRAO,
+  degrausDaVarredura,
+  faixaDaVarredura,
+  problemaDaVarredura,
+  varreduraValida,
   FAIXA_PADRAO,
   MAIOR_DEGRAU,
   MAXIMO_DE_PONTOS,
@@ -454,5 +459,49 @@ describe('o zero não é degrau', () => {
     const s = situacaoDaVarredura(melhor, PADRAO)
     expect(s.map((x) => x.degrau)).toEqual([10, 20, 30, 40, 50])
     expect(s.every((x) => x.estado === 'ausente')).toBe(true)
+  })
+})
+
+/**
+ * A VARREDURA — a pergunta como o dono do produto a faz: do mínimo ao máximo,
+ * com N pontos entre eles. Os extremos sempre rodam; três intermediários é o
+ * teto (cinco pontos com os extremos, o máximo que o servidor aceita).
+ */
+describe('a varredura', () => {
+  it('os dois extremos e os intermediários, em partes iguais', () => {
+    expect(degrausDaVarredura({ minimo: 10, maximo: 40, intermediarios: 2 })).toEqual([10, 20, 30, 40])
+    expect(degrausDaVarredura({ minimo: 10, maximo: 50, intermediarios: 3 })).toEqual([10, 20, 30, 40, 50])
+    expect(degrausDaVarredura({ minimo: 5, maximo: 25, intermediarios: 0 })).toEqual([5, 25])
+  })
+
+  it('mínimo igual ao máximo é um ponto — os intermediários não contam', () => {
+    expect(degrausDaVarredura({ minimo: 25, maximo: 25, intermediarios: 3 })).toEqual([25])
+    expect(faixaDaVarredura({ minimo: 25, maximo: 25, intermediarios: 3 })).toEqual({ de: 25, ate: 25, pontos: 1 })
+  })
+
+  it('traduz para a faixa que o servidor recebe: intermediários + 2 pontos', () => {
+    expect(faixaDaVarredura({ minimo: 10, maximo: 40, intermediarios: 2 })).toEqual({ de: 10, ate: 40, pontos: 4 })
+  })
+
+  it('faixa estreita rende menos degraus que os pedidos — inteiros, sem repetição', () => {
+    // De 10 a 12 com três no meio: 10, 10.5, 11, 11.5, 12 → 10, 11, 12.
+    expect(degrausDaVarredura({ minimo: 10, maximo: 12, intermediarios: 3 })).toEqual([10, 11, 12])
+  })
+
+  it('mais de três intermediários não é varredura', () => {
+    expect(degrausDaVarredura({ minimo: 10, maximo: 40, intermediarios: 4 })).toEqual([])
+    expect(problemaDaVarredura({ minimo: 10, maximo: 40, intermediarios: 4 })).toMatch(/entre 0 e 3/)
+  })
+
+  it('diz o que consertar, na ordem em que a pessoa digita', () => {
+    expect(problemaDaVarredura({ minimo: 0, maximo: 40, intermediarios: 1 })).toMatch(/entre 1% e 200%/)
+    expect(problemaDaVarredura({ minimo: 10, maximo: 250, intermediarios: 1 })).toMatch(/200%/)
+    expect(problemaDaVarredura({ minimo: 40, maximo: 10, intermediarios: 1 })).toMatch(/maior ou igual/)
+    expect(problemaDaVarredura({ minimo: 10, maximo: 40, intermediarios: 1 })).toBeNull()
+  })
+
+  it('o padrão vale', () => {
+    expect(varreduraValida(VARREDURA_PADRAO)).toBe(true)
+    expect(degrausDaVarredura(VARREDURA_PADRAO)).toEqual([10, 20, 30])
   })
 })

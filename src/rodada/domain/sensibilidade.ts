@@ -45,15 +45,12 @@
 export const DEGRAU_PADRAO = 10
 
 /**
- * A FAIXA de um pedido. Um ponto é `{ de: x, ate: x, pontos: 1 }`.
+ * A FAIXA de um pedido — a forma que o SERVIDOR recebe (`?de=&ate=&pontos=`).
+ * Um ponto é `{ de: x, ate: x, pontos: 1 }`.
  *
- * A tela pede UM ponto de cada vez: a pessoa escolhe o acréscimo, roda, lê o
- * gráfico e decide se quer outro. A curva se forma ponto a ponto, e cada um custa
- * uma execução de solver — pedir vários de uma vez é a exceção.
- *
- * A forma continua sendo faixa porque é o que o servidor recebe
- * (`?de=&ate=&pontos=`), e porque os pontos que JÁ rodaram continuam vindo todos,
- * independentemente do que se pede agora. É assim que a curva acumula.
+ * A tela fala em VARREDURA (ver `Varredura`, abaixo) e traduz para faixa aqui.
+ * Os pontos que JÁ rodaram continuam vindo todos, independentemente do que se
+ * pede agora: é assim que a curva acumula.
  */
 export const FAIXA_PADRAO = { de: DEGRAU_PADRAO, ate: DEGRAU_PADRAO, pontos: 1 } as const
 
@@ -106,13 +103,6 @@ export function pontosDaFaixa({ de, ate, pontos }: Faixa): number[] {
 export function faixaValida(f: Faixa): boolean {
   return pontosDaFaixa(f).length >= MINIMO_DE_PONTOS
 }
-
-/** O pedido de UM acréscimo — a forma que a tela usa. */
-export const faixaDeUmPonto = (degrau: number): Faixa => ({
-  de: degrau,
-  ate: degrau,
-  pontos: 1,
-})
 
 /** Quantas obras de um componente a rodada construiu. */
 export interface ObrasDoComponente {
@@ -227,12 +217,12 @@ export interface SituacaoDoDegrau {
 }
 
 /**
- * A SITUAÇÃO DE CADA DEGRAU — o que a tela oferece e o que ela bloqueia.
+ * A SITUAÇÃO DE CADA DEGRAU — o que o play vai pedir e o que ele pula.
  *
- * `em voo` bloqueia disparar outro: a fila tem CAPACIDADE 1, e pedir o segundo
- * não o faz chegar antes — só faz a espera parecer maior. `erro` NÃO bloqueia, e
- * é o caso que "sem resultado = em voo" quebraria: uma rodada que falhou nunca
- * vai publicar, então ela travaria o botão para sempre.
+ * `ausente` e `erro` são o que o play dispara; `em voo` e `pronto` ele pula —
+ * o primeiro já está na fila, o segundo já respondeu. `erro` NÃO é "em voo", e é
+ * o caso que "sem resultado = em voo" quebraria: uma rodada que falhou nunca vai
+ * publicar, e ficaria para sempre fora do próximo play.
  */
 export function situacaoDaVarredura(
   melhor: Map<number, PontoDaCurva>,
@@ -494,5 +484,66 @@ export function faltouTempoDeSolver(p: PontoDaCurva | null): boolean {
   return /MAX_TIME_S maior|sem coluna selecionada/i.test(p.erro)
 }
 
+// ===========================================================================
+//  A VARREDURA — o que a tela pede
+// ===========================================================================
 
+/**
+ * A VARREDURA: do acréscimo mínimo ao máximo, com N pontos entre eles.
+ *
+ * É a pergunta como o dono do produto a faz — "de +10% a +40%, com dois pontos
+ * no meio" —, e não como o servidor a recebe. Os DOIS EXTREMOS sempre rodam; os
+ * intermediários dividem o intervalo em partes iguais. Três intermediários é o
+ * teto: com os extremos são cinco pontos, o máximo que o servidor aceita numa
+ * faixa (`MAXIMO_DE_PONTOS`) e o ponto em que cinco execuções de solver deixam
+ * de ser "uma análise" e viram "uma tarde de cluster".
+ *
+ * Mínimo igual ao máximo é UM ponto, e os intermediários não contam: não há
+ * intervalo para dividir.
+ */
+export const MAXIMO_DE_INTERMEDIARIOS = 3
 
+export interface Varredura {
+  minimo: number
+  maximo: number
+  /** Quantos pontos ENTRE os extremos — de 0 a `MAXIMO_DE_INTERMEDIARIOS`. */
+  intermediarios: number
+}
+
+export const VARREDURA_PADRAO: Varredura = { minimo: 10, maximo: 30, intermediarios: 1 }
+
+/** A varredura na forma que o servidor recebe. */
+export function faixaDaVarredura(v: Varredura): Faixa {
+  if (v.minimo === v.maximo) return { de: v.minimo, ate: v.minimo, pontos: 1 }
+  return { de: v.minimo, ate: v.maximo, pontos: v.intermediarios + 2 }
+}
+
+/**
+ * Os degraus que a varredura vai rodar, em ordem — a mesma conta do servidor.
+ *
+ * Inteiros e sem repetição (ver `pontosDaFaixa`): "de 10 a 12 com três no meio"
+ * rende três degraus, não cinco, e é isto que a tela mostra ANTES do play.
+ */
+export function degrausDaVarredura(v: Varredura): number[] {
+  if (!Number.isInteger(v.intermediarios)) return []
+  if (v.intermediarios < 0 || v.intermediarios > MAXIMO_DE_INTERMEDIARIOS) return []
+  return pontosDaFaixa(faixaDaVarredura(v))
+}
+
+export function varreduraValida(v: Varredura): boolean {
+  return degrausDaVarredura(v).length >= 1
+}
+
+/**
+ * O QUE CONSERTAR, quando a varredura não vale — a frase que a tela mostra no
+ * lugar de um 422. `null` quando está tudo certo.
+ */
+export function problemaDaVarredura(v: Varredura): string | null {
+  if (v.minimo < 1 || v.maximo < 1) return `os acréscimos ficam entre 1% e ${MAIOR_DEGRAU}%`
+  if (v.maximo > MAIOR_DEGRAU) return `o maior acréscimo aceito é ${MAIOR_DEGRAU}%`
+  if (v.maximo < v.minimo) return 'o máximo precisa ser maior ou igual ao mínimo'
+  if (v.intermediarios < 0 || v.intermediarios > MAXIMO_DE_INTERMEDIARIOS) {
+    return `entre 0 e ${MAXIMO_DE_INTERMEDIARIOS} pontos intermediários`
+  }
+  return varreduraValida(v) ? null : 'a varredura não rende nenhum degrau'
+}

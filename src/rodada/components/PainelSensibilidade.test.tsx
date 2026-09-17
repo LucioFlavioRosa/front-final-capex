@@ -121,17 +121,21 @@ describe('o teto vem antes de qualquer execução', () => {
     // qualificador "no plano", porque o valor é a soma dos anos e não a verba
     // anual. "+10%" sozinho não é uma quantia, e quem decide orçamento decide em
     // reais.
+    // A varredura padrão é +10% a +30% com um ponto no meio: três pontos, e o
+    // botão diz de quanto a quanto dinheiro isso vai.
     expect(
-      await screen.findByRole('button', { name: /Rodar \+10% · \+R\$ 11,0 Mi no plano/ }),
+      await screen.findByRole('button', {
+        name: /Rodar 3 pontos · \+R\$ 11,0 Mi a \+R\$ 33,0 Mi no plano/,
+      }),
     ).toBeInTheDocument()
-    expect(screen.getByText(/R\$ 11,0 Mi somados os/)).toBeInTheDocument()
+    expect(screen.getByText(/R\$ 33,0 Mi somados os/)).toBeInTheDocument()
   })
 
   it('sem orçamento publicado não há teto, e nenhum valor é inventado', async () => {
     servirSensibilidade({ teto: null, pontos: [BASE_PONTO] })
     abrir()
 
-    expect(await screen.findByRole('button', { name: /Rodar \+10%/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^Rodar 3 pontos$/ })).toBeInTheDocument()
     expect(screen.queryByText('Antes de simular: o teto')).not.toBeInTheDocument()
     // O botão fica sem a parte do dinheiro, em vez de mostrar "R$ 0,0 Mi".
     expect(screen.queryByText(/R\$ 0,0 Mi/)).not.toBeInTheDocument()
@@ -139,20 +143,45 @@ describe('o teto vem antes de qualquer execução', () => {
 })
 
 describe('o disparo manda o modo', () => {
-  it('o padrão é a estimativa rápida', async () => {
+  it('o padrão é a estimativa rápida — e o play manda a varredura inteira, em ordem', async () => {
     servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
-    let corpo: Record<string, unknown> | null = null
+    const corpos: Record<string, unknown>[] = []
     servidor.use(
       http.post('/api/runs/:runId/variacao', async ({ request }) => {
-        corpo = (await request.json()) as Record<string, unknown>
+        corpos.push((await request.json()) as Record<string, unknown>)
+        return HttpResponse.json({ runId: `novo_${corpos.length}`, status: 'PENDENTE', jaExistia: false })
+      }),
+    )
+
+    abrir()
+    await userEvent.click(await screen.findByRole('button', { name: /Rodar 3 pontos/ }))
+
+    // Os dois extremos e o do meio, do menor ao maior, todos rápidos.
+    await waitFor(() => expect(corpos).toHaveLength(3))
+    expect(corpos.map((c) => c.fator)).toEqual([1.1, 1.2, 1.3])
+    expect(corpos.every((c) => c.modo === 'rapido')).toBe(true)
+    expect(String(corpos[1].nome)).toContain('+20%')
+  })
+
+  it('um pedido atrás do outro, nunca em paralelo — foi o que saturou o barramento', async () => {
+    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
+    let emCurso = 0
+    let maximoSimultaneo = 0
+    servidor.use(
+      http.post('/api/runs/:runId/variacao', async () => {
+        emCurso += 1
+        maximoSimultaneo = Math.max(maximoSimultaneo, emCurso)
+        await new Promise((r) => setTimeout(r, 20))
+        emCurso -= 1
         return HttpResponse.json({ runId: 'novo', status: 'PENDENTE', jaExistia: false })
       }),
     )
 
     abrir()
-    await userEvent.click(await screen.findByRole('button', { name: /Rodar \+10%/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Rodar 3 pontos/ }))
+    await waitFor(() => expect(screen.queryByText(/Enfileirando/)).not.toBeInTheDocument())
 
-    expect(corpo).toMatchObject({ modo: 'rapido', fator: 1.1 })
+    expect(maximoSimultaneo).toBe(1)
   })
 
 })
@@ -311,8 +340,22 @@ describe('quando um degrau falha, a tela diz por quê', () => {
     servirSensibilidade(COM_FALHA(POR_TEMPO))
     abrir()
 
-    await userEvent.click(await screen.findByRole('button', { name: /Rodar \+10% completo/ }))
-    expect(corpo).toMatchObject({ modo: 'completo', fator: 1.1 })
+    // +10% falhou por tempo: no play ele vai completo; +20% e +30%, que nunca
+    // rodaram, vão rápidos — a decisão é por degrau.
+    const corpos: Record<string, unknown>[] = []
+    servidor.use(
+      http.post('/api/runs/:runId/variacao', async ({ request }) => {
+        const c = (await request.json()) as Record<string, unknown>
+        corpos.push(c)
+        corpo = c
+        return HttpResponse.json({ runId: 'novo', status: 'PENDENTE', jaExistia: false, naCurva: true })
+      }),
+    )
+    await userEvent.click(await screen.findByRole('button', { name: /Rodar 3 pontos · completo/ }))
+    await waitFor(() => expect(corpos).toHaveLength(3))
+    expect(corpos[0]).toMatchObject({ modo: 'completo', fator: 1.1 })
+    expect(corpos[1]).toMatchObject({ modo: 'rapido', fator: 1.2 })
+    expect(corpo).not.toBeNull()
   })
 
   it('falha de OUTRA natureza não vira sugestão de trocar de modo', async () => {
@@ -324,7 +367,10 @@ describe('quando um degrau falha, a tela diz por quê', () => {
 
     expect(await screen.findByText(/o banco recusou a conexão/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /completo/ })).not.toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: /Tentar de novo \+10%/ })).toBeInTheDocument()
+    // O plano marca o degrau que falhou, e o play o inclui de novo.
+    const plano = screen.getByRole('list', { name: 'Plano da varredura' })
+    expect(await within(plano).findByText(/falhou/)).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^Rodar 3 pontos/ })).toBeInTheDocument()
   })
 })
 
@@ -344,9 +390,10 @@ describe('a curva mostra tudo o que rodou, mesmo fora da faixa', () => {
     })
     abrir()
 
-    // O botão fala do ALVO — o que o campo pede agora —, e não da análise inteira.
+    // O botão fala do PLANO — o que a varredura ainda precisa rodar (+20% e
+    // +30%; o +10% já respondeu) —, e não da análise inteira.
     expect(await screen.findByText('Cobertura ao fim')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Rodar \+10%/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Rodar 2 pontos/ })).toBeInTheDocument()
 
     // …e a curva mostra os três, inclusive os de fora.
     const quadro = screen.getByRole('figure', { name: 'Cobertura ao fim' })
@@ -411,7 +458,7 @@ describe('a variação que pertence a outra curva', () => {
     )
 
     abrir()
-    await userEvent.click(await screen.findByRole('button', { name: /Rodar \+10%/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Rodar 3 pontos/ }))
 
     expect(await screen.findByText(/é ponto da curva de outra rodada/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'o resultado dela' })).toHaveAttribute(
@@ -422,37 +469,69 @@ describe('a variação que pertence a outra curva', () => {
 })
 
 /**
- * UM PONTO DE CADA VEZ — o contrato da tela depois que a faixa saiu.
+ * A VARREDURA — o contrato da tela.
  *
- * O que se perde ao trocar faixa por ponto é a varredura automática; o que NÃO se
- * pode perder é a curva. Estes testes prendem as duas metades: o pedido leva o
- * número digitado, e o gráfico continua mostrando tudo o que já rodou, venha de
- * onde vier.
+ * A pessoa dá o mínimo, o máximo e quantos pontos entre eles; o play manda
+ * TODOS para a fila; a curva ACUMULA o que já rodou, venha de onde vier.
  */
-describe('um acréscimo de cada vez', () => {
-  it('o pedido leva o número que está no campo', async () => {
+describe('a varredura', () => {
+  const campos = async () => ({
+    minimo: await screen.findByLabelText(/Acréscimo mínimo/i),
+    maximo: await screen.findByLabelText(/Acréscimo máximo/i),
+    entre: await screen.findByLabelText(/Pontos entre/i),
+  })
+
+  it('a frase diz o que vai rodar antes do play — extremos sempre, intermediários no meio', async () => {
     servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
-    let corpo: Record<string, unknown> | null = null
+    abrir()
+    const { minimo, maximo, entre } = await campos()
+
+    await userEvent.clear(minimo)
+    await userEvent.type(minimo, '10')
+    await userEvent.clear(maximo)
+    await userEvent.type(maximo, '40')
+    await userEvent.selectOptions(entre, '2')
+
+    expect(await screen.findByText('4 pontos: +10%, +20%, +30%, +40%')).toBeInTheDocument()
+  })
+
+  it('o play leva os números que estão nos campos', async () => {
+    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
+    const corpos: Record<string, unknown>[] = []
     servidor.use(
       http.post('/api/runs/:runId/variacao', async ({ request }) => {
-        corpo = (await request.json()) as Record<string, unknown>
+        corpos.push((await request.json()) as Record<string, unknown>)
         return HttpResponse.json({ runId: 'novo', status: 'PENDENTE', jaExistia: false })
       }),
     )
     abrir()
+    const { minimo, maximo, entre } = await campos()
+    await userEvent.clear(minimo)
+    await userEvent.type(minimo, '15')
+    await userEvent.clear(maximo)
+    await userEvent.type(maximo, '35')
+    await userEvent.selectOptions(entre, '0')
 
-    const campo = await screen.findByLabelText(/Acréscimo de CAPEX por ano/i)
-    await userEvent.clear(campo)
-    await userEvent.type(campo, '35')
+    await userEvent.click(await screen.findByRole('button', { name: /Rodar 2 pontos/ }))
 
-    await userEvent.click(await screen.findByRole('button', { name: /Rodar \+35%/ }))
-
-    // 1,35 = +35% sobre o orçamento de cada ano.
-    await waitFor(() => expect(corpo).toMatchObject({ fator: 1.35 }))
-    expect(String((corpo as unknown as Record<string, unknown>).nome)).toContain('+35%')
+    await waitFor(() => expect(corpos).toHaveLength(2))
+    expect(corpos.map((c) => c.fator)).toEqual([1.15, 1.35])
   })
 
-  it('acréscimo fora dos limites não vira requisição', async () => {
+  it('mínimo igual ao máximo é um ponto só', async () => {
+    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
+    abrir()
+    const { minimo, maximo } = await campos()
+    await userEvent.clear(minimo)
+    await userEvent.type(minimo, '25')
+    await userEvent.clear(maximo)
+    await userEvent.type(maximo, '25')
+
+    expect(await screen.findByText('1 ponto: +25%')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Rodar 1 ponto/ })).toBeInTheDocument()
+  })
+
+  it('varredura fora dos limites não vira requisição', async () => {
     servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
     let pediu = false
     servidor.use(
@@ -462,36 +541,60 @@ describe('um acréscimo de cada vez', () => {
       }),
     )
     abrir()
+    const { minimo, maximo } = await campos()
 
-    const campo = await screen.findByLabelText(/Acréscimo de CAPEX por ano/i)
-    await userEvent.clear(campo)
-    await userEvent.type(campo, '0')
+    // Máximo menor que o mínimo: a recusa é da tela, e diz o que consertar.
+    await userEvent.clear(maximo)
+    await userEvent.type(maximo, '5')
+    expect(await screen.findByText(/o máximo precisa ser maior ou igual ao mínimo/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Rodar/ })).toBeDisabled()
 
-    // A recusa é da tela, e diz o que consertar em vez de devolver um 422.
+    // Mínimo zero: outra frase, mesmo bloqueio.
+    await userEvent.clear(minimo)
     expect(await screen.findByText(/entre 1% e 200%/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Rodar/ })).toBeDisabled()
     expect(pediu).toBe(false)
   })
 
-  it('a tela não diz se o acréscimo já rodou — o botão é sempre o mesmo', async () => {
-    // Saber se aquele ponto existe não muda o que a pessoa faz aqui: ela digita o
-    // número e roda. Quem responde "o que já rodou" é a curva. E repetir é
-    // inofensivo — o servidor deduplica por parâmetros e devolve a rodada que já
-    // existe quando é o caso.
+  it('o play pula o que já respondeu e o que já está na fila — e diz isso no plano', async () => {
     servirSensibilidade({
       teto: TETO,
-      pontos: [BASE_PONTO, { ...BASE_PONTO, degrau: 10, runId: 'v10', coberturaFimPct: 44 }],
+      pontos: [
+        BASE_PONTO,
+        { ...BASE_PONTO, degrau: 10, runId: 'v10', coberturaFimPct: 44 },
+        { ...BASE_PONTO, degrau: 20, runId: 'v20', status: 'PENDENTE', vpl: null, coberturaFimPct: null },
+      ],
     })
     abrir()
 
-    const botao = await screen.findByRole('button', { name: /^Rodar \+10%/ })
-    expect(botao).toBeInTheDocument()
-    expect(botao.textContent).not.toContain('de novo')
+    const plano = await screen.findByRole('list', { name: 'Plano da varredura' })
+    // O plano nasce "vai rodar" e muda quando a curva chega — daí o `find`.
+    expect(await within(plano).findByText(/pronto/)).toBeInTheDocument()
+    expect(within(plano).getByText(/na fila/)).toBeInTheDocument()
+    expect(within(plano).getByText(/vai rodar/)).toBeInTheDocument()
+    // Só o +30% falta.
+    expect(screen.getByRole('button', { name: /Rodar 1 ponto/ })).toBeInTheDocument()
   })
 
-  it('a curva mostra os pontos que já rodaram, mesmo os que o campo não pede', async () => {
-    // O campo é a PRÓXIMA pergunta; o gráfico é a análise acumulada. Um ponto de
-    // +60% que alguém pagou para executar não some porque o campo diz 10.
+  it('com tudo pronto, o play não tem o que pedir', async () => {
+    servirSensibilidade({
+      teto: TETO,
+      pontos: [
+        BASE_PONTO,
+        { ...BASE_PONTO, degrau: 10, runId: 'a', coberturaFimPct: 44 },
+        { ...BASE_PONTO, degrau: 20, runId: 'b', coberturaFimPct: 45 },
+        { ...BASE_PONTO, degrau: 30, runId: 'c', coberturaFimPct: 46 },
+      ],
+    })
+    abrir()
+    const botao = await screen.findByRole('button', { name: /Curva completa nesta faixa/ })
+    expect(botao).toBeDisabled()
+  })
+
+  it('a curva mostra os pontos que já rodaram, mesmo os que a varredura não pede', async () => {
+    // Os campos são a PRÓXIMA pergunta; o gráfico é a análise acumulada. Um
+    // ponto de +60% que alguém pagou para executar não some porque a faixa vai
+    // até 30.
     servirSensibilidade({
       teto: TETO,
       pontos: [

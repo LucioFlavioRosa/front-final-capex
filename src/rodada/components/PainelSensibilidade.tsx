@@ -41,23 +41,26 @@ import {
 } from 'recharts'
 import { Link } from 'react-router-dom'
 import { QuadroGrafico } from '@/rodada/components/QuadroGrafico'
+import { Tag, type Tom } from '@/rodada/components/pecas'
 import { useDispararVariacao, useSensibilidade, useStatusDaRodada } from '@/rodada/api/queries'
 import type { ModoDaVariacao } from '@/rodada/api/endpoints'
 import {
-  DEGRAU_PADRAO,
-  FAIXA_PADRAO,
-  MAIOR_DEGRAU,
+  MAXIMO_DE_INTERMEDIARIOS,
+  VARREDURA_PADRAO,
   comparativoDeObras,
   curvaPronta,
+  degrausDaVarredura,
   dinheiroDoDegrau,
   emVooDaBase,
+  faixaDaVarredura,
   faltouTempoDeSolver,
   fatorDoDegrau,
-  faixaDeUmPonto,
-  faixaValida,
   melhorPorDegrau,
-  pontosDaFaixa,
+  problemaDaVarredura,
   situacaoDaVarredura,
+  type EstadoDoDegrau,
+  type SituacaoDoDegrau,
+  type Varredura,
   vezesOOrcamento,
   type ComparativoDeObras,
   type PontoDaCurva,
@@ -129,27 +132,30 @@ const MEDIDAS: Medida[] = [
 
 export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
   /**
-   * UM ACRÉSCIMO DE CADA VEZ, e é isso que a tela pergunta.
+   * A VARREDURA: do acréscimo mínimo ao máximo, com até três pontos no meio.
    *
-   * A pessoa escolhe quanto CAPEX a mais quer testar, roda, e lê o resultado nos
-   * gráficos abaixo. Quer outro ponto? Troca o número e roda de novo — a curva se
-   * forma ponto a ponto, e cada ponto é uma execução de solver de verdade.
+   * A pessoa diz a faixa e quantos pontos quer entre os extremos, dá o play, e
+   * TODOS os degraus vão para a fila de uma vez — os dois extremos e os do meio.
+   * Os gráficos abaixo vão se preenchendo conforme cada um responde: a consulta
+   * da curva já escuta a cada 8 s enquanto houver ponto em voo.
    *
-   * O ACRÉSCIMO VIVE NA TELA, e não no servidor: é uma pergunta em aberto ("e se
-   * fosse +15%?"), não uma propriedade da rodada. Guardá-lo obrigaria a decidir de
-   * quem ele é quando duas pessoas olham a mesma rodada com números diferentes.
-   *
-   * Sair da tela perde o número digitado, e não perde nada além disso: os pontos
-   * que rodaram estão no banco e voltam TODOS na consulta, independentemente do
-   * que estiver no campo. Quem volta encontra a curva inteira — é o gráfico que
-   * guarda a análise, não o formulário.
+   * A VARREDURA VIVE NA TELA, e não no servidor: é uma pergunta em aberto, não
+   * uma propriedade da rodada. Sair da tela perde os números digitados e nada
+   * além disso: os pontos que rodaram estão no banco e voltam TODOS na consulta,
+   * independentemente do que estiver nos campos — a curva ACUMULA, e é o gráfico
+   * que guarda a análise, não o formulário.
    */
-  const [degrau, setDegrau] = useState<number>(DEGRAU_PADRAO)
-  const faixa = faixaDeUmPonto(degrau)
-  const degrauValido = faixaValida(faixa)
-  const degrausPedidos = pontosDaFaixa(faixa)
-  const consulta = useSensibilidade(meta.runId, degrauValido ? faixa : FAIXA_PADRAO)
+  const [varredura, setVarredura] = useState<Varredura>(VARREDURA_PADRAO)
+  const problema = problemaDaVarredura(varredura)
+  const varreduraOk = problema === null
+  const degrausPedidos = degrausDaVarredura(varredura)
+  const consulta = useSensibilidade(
+    meta.runId,
+    faixaDaVarredura(varreduraOk ? varredura : VARREDURA_PADRAO),
+  )
   const disparar = useDispararVariacao()
+  /** Quantos já foram para a fila neste play — só enquanto o play está em curso. */
+  const [enfileirando, setEnfileirando] = useState<{ feito: number; total: number } | null>(null)
 
   /**
    * A ANÁLISE RODA EM MODO RÁPIDO, e isso não é escolha na tela.
@@ -159,9 +165,9 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
    * ninguém percebe estar fazendo. O que a curva responde é a INCLINAÇÃO, e 60s de
    * solver bastam para ela.
    *
-   * A ÚNICA exceção é automática e está logo abaixo: quando um degrau falha por
-   * falta de tempo de solver, repetir em 60s reproduz a falha — aí o pedido sobe
-   * para completo sozinho, e o botão passa a dizer isso.
+   * A ÚNICA exceção é automática, por degrau: quando um degrau falhou por falta
+   * de tempo de solver, repetir em 60s reproduz a falha — aquele degrau sobe
+   * para completo sozinho no próximo play, e a tela diz isso.
    */
   const modo: ModoDaVariacao = 'rapido'
 
@@ -206,38 +212,85 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
   const emReais = (degrau: number) =>
     orcamento === null ? null : dinheiroDoDegrau(orcamento, degrau)
 
-  // PELA BASE, e não pela faixa: o bloqueio é regra da FILA, e a fila não sabe
-  // qual faixa está na tela. Ver `emVooDaBase`.
+  /**
+   * A rodada desta base em voo agora, para o sinal de vida. Ela NÃO bloqueia o
+   * play: o pedido do dono do produto é enfileirar a varredura inteira e ir
+   * lendo — e a fila é do servidor, que a serve na ordem.
+   */
   const emExecucao = emVooDaBase(todos)
   /**
-   * O ALVO É O NÚMERO DIGITADO, sempre — e não "o próximo que falta".
-   *
-   * Com um ponto por vez a pergunta é direta: rode ESTE acréscimo. A tela não diz
-   * se ele já rodou: o botão fica igual, e repetir é legítimo — o servidor
-   * deduplica por parâmetros e devolve a rodada que já existe quando é o caso.
-   * Quem quer saber o que já rodou olha a curva, que é onde a resposta está.
+   * O PLANO: cada degrau pedido, e o que o play faz com ele. `ausente` e `erro`
+   * vão para a fila; `em voo` e `pronto` são pulados — um já está na fila, o
+   * outro já respondeu. Repetir um `pronto` seria legítimo (o servidor deduplica
+   * e devolve a rodada que existe), mas custaria uma requisição para descobrir
+   * o que a curva já mostra.
    */
-  const alvo = degrau
-  const situacaoDoAlvo = situacao.find((s) => s.degrau === alvo) ?? null
-  const falhou = situacaoDoAlvo?.estado === 'erro' ? situacaoDoAlvo : null
-  const jaFalhou = !!falhou
+  const aDisparar = situacao.filter((s) => s.estado === 'ausente' || s.estado === 'erro')
+  const falhas = situacao.filter((s) => s.estado === 'erro' && s.ponto?.erro)
   /**
    * A falha foi de TEMPO DE SOLVER numa estimativa? Então repetir em 60s
    * reproduz o mesmo erro. O modo completo é o caminho — e é o que a própria
-   * mensagem do motor sugere.
+   * mensagem do motor sugere. Decidido POR DEGRAU, no play.
    */
-  const escalar = faltouTempoDeSolver(falhou?.ponto ?? null)
-  const modoDoPedido: ModoDaVariacao = escalar ? 'completo' : modo
+  const modoDoDegrau = (s: SituacaoDoDegrau): ModoDaVariacao =>
+    s.estado === 'erro' && faltouTempoDeSolver(s.ponto) ? 'completo' : modo
+  const algumEscala = aDisparar.some((s) => modoDoDegrau(s) === 'completo')
+  const soRepeticoes = aDisparar.length > 0 && aDisparar.every((s) => s.estado === 'erro')
 
-  const pedir = (degrau: number, forcado?: ModoDaVariacao) => {
-    const m = forcado ?? modo
-    disparar.mutate({
-      runId: meta.runId,
-      fator: fatorDoDegrau(degrau),
-      nome: `${m === 'rapido' ? 'estimativa' : 'simulação'} +${degrau}% de CAPEX`,
-      modo: m,
-    })
+  /**
+   * O PLAY: cada degrau que falta vai para a fila, UM POST ATRÁS DO OUTRO.
+   *
+   * Em sequência, e não em paralelo, de propósito: cinco pedidos disparados
+   * juntos foi o que saturou o Service Bus e devolveu 503 na primeira tentativa
+   * real. Um atrás do outro, o barramento recebe cinco pedidos espaçados; para
+   * quem clicou é um play só — a fila do servidor os roda na ordem, e a curva
+   * vai se preenchendo.
+   *
+   * Uma recusa no meio PARA o play ali: os anteriores já estão na fila, o erro
+   * fica na tela (`disparar.error`), e o próximo play retoma do que faltou —
+   * porque o plano é recalculado do que a curva responde.
+   */
+  const play = async () => {
+    setEnfileirando({ feito: 0, total: aDisparar.length })
+    try {
+      for (const [i, s] of aDisparar.entries()) {
+        const m = modoDoDegrau(s)
+        await disparar.mutateAsync({
+          runId: meta.runId,
+          fator: fatorDoDegrau(s.degrau),
+          nome: `${m === 'rapido' ? 'estimativa' : 'simulação'} +${s.degrau}% de CAPEX`,
+          modo: m,
+        })
+        setEnfileirando({ feito: i + 1, total: aDisparar.length })
+      }
+    } catch {
+      // O erro já está em `disparar.error`; o play para aqui.
+    } finally {
+      setEnfileirando(null)
+    }
   }
+
+  const dinheiroDaVarredura = (() => {
+    if (aDisparar.length === 0) return null
+    const menor = emReais(aDisparar[0].degrau)
+    const maior = emReais(aDisparar[aDisparar.length - 1].degrau)
+    if (!menor || !maior) return null
+    return aDisparar.length === 1
+      ? `+${brlMi(menor.aMais)} no plano`
+      : `+${brlMi(menor.aMais)} a +${brlMi(maior.aMais)} no plano`
+  })()
+
+  const rotuloDoPlay = enfileirando
+    ? `Enfileirando ${Math.min(enfileirando.feito + 1, enfileirando.total)} de ${enfileirando.total}…`
+    : !varreduraOk
+      ? 'Rodar'
+      : aDisparar.length === 0
+        ? situacao.some((s) => s.estado === 'em voo')
+          ? 'Na fila — a curva vai se completando'
+          : 'Curva completa nesta faixa'
+        : `${soRepeticoes ? 'Tentar de novo' : 'Rodar'} ${aDisparar.length} ${
+            aDisparar.length === 1 ? 'ponto' : 'pontos'
+          }${algumEscala ? ' · completo' : ''}${dinheiroDaVarredura ? ` · ${dinheiroDaVarredura}` : ''}`
 
   return (
     <div className="flex flex-col gap-4">
@@ -257,35 +310,33 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
               valor em reais convida a ler o dinheiro como verba anual — erro de um
               fator igual ao número de anos do plano. */}
           <h2 className="sr-only">Sensibilidade ao CAPEX</h2>
-            <SeletorDeAcrescimo
-              degrau={degrau}
-              aoTrocar={setDegrau}
-              valido={degrauValido}
-              /* Trocar o número com uma rodada em voo mudaria o alvo com a
-                 corrente andando: o chip abaixo passaria a falar de um degrau
-                 diferente do que está sendo calculado. */
-              desabilitado={!!emExecucao}
-            />
-            <button
-              type="button"
-              onClick={() => pedir(alvo, modoDoPedido)}
-              /* Enquanto uma está em voo, não se pede outra: a fila tem capacidade
-                 1, e enfileirar a segunda só faria a espera parecer maior sem
-                 chegar antes. */
-              disabled={!degrauValido || disparar.isPending || !!emExecucao}
-              className="rounded-full bg-water-600 px-4 py-2 text-[13px] font-bold text-white transition-colors duration-hover ease-saida hover:bg-water-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {disparar.isPending
-                ? 'Disparando…'
-                : emExecucao
-                  ? 'Aguardando a rodada em curso'
-                  : escalar
-                      ? `Rodar +${alvo}% completo`
-                      : `${jaFalhou ? 'Tentar de novo ' : 'Rodar '}+${alvo}%${
-                        emReais(alvo) ? ` · +${brlMi(emReais(alvo)!.aMais)} no plano` : ''
-                        }`}
-            </button>
+          <SeletorDeVarredura
+            varredura={varredura}
+            aoTrocar={setVarredura}
+            problema={problema}
+            desabilitado={!!enfileirando}
+          />
+          <button
+            type="button"
+            onClick={() => void play()}
+            disabled={!varreduraOk || !!enfileirando || aDisparar.length === 0}
+            className="rounded-full bg-water-600 px-4 py-2 text-[13px] font-bold text-white transition-colors duration-hover ease-saida hover:bg-water-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {rotuloDoPlay}
+          </button>
         </div>
+
+        {/* O PLANO, degrau a degrau: o que vai rodar, o que já está na fila, o
+            que já respondeu. É a resposta a "o que o play vai fazer?" antes do
+            clique, e "o que falta?" depois dele. */}
+        {varreduraOk && <PlanoDaVarredura situacao={situacao} />}
+
+        {disparar.error && (
+          <p role="alert" className="mt-3 rounded-xl border border-danger/25 bg-warning/10 px-3.5 py-2.5 text-[12.5px] text-ink-700">
+            O servidor recusou um dos pedidos: {disparar.error.message} Os anteriores já
+            estão na fila; o próximo play retoma do que faltou.
+          </p>
+        )}
 
         {/* O TETO SÓ ENQUANTO NÃO HÁ CURVA.
             Ele responde a pergunta ANTERIOR — "vale a pena gastar execução com
@@ -302,13 +353,16 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
             resposta estava gravada no banco, com a frase que o próprio motor
             escreveu dizendo o que fazer. Uma explicação que só existe no banco
             vira pergunta para outra pessoa. */}
-        {falhou?.ponto?.erro && (
-          <div className="mt-3 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3">
+        {falhas.map((f) => (
+          <div
+            key={f.degrau}
+            className="mt-3 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3"
+          >
             <p className="text-[12.5px] leading-relaxed text-ink-700">
-              <strong className="font-semibold">+{falhou.degrau}% não completou.</strong>{' '}
-              {falhou.ponto.erro}
+              <strong className="font-semibold">+{f.degrau}% não completou.</strong>{' '}
+              {f.ponto?.erro}
             </p>
-            {escalar && (
+            {modoDoDegrau(f) === 'completo' && (
               /* A SUGESTÃO É TROCAR DE MODO, e não repetir. Tentar de novo em 60s
                  reproduz a falha e gasta cluster para chegar ao mesmo lugar: o
                  motor tem um defeito conhecido que aparece quando o solver não
@@ -316,12 +370,12 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
                  provocá-lo. */
               <p className="mt-1.5 text-[12px] text-ink-600">
                 Foi uma estimativa de 60s. Nesta unidade o solver precisa de mais
-                tempo — o botão ao lado repete o degrau como{' '}
+                tempo — no próximo play este degrau roda como{' '}
                 <strong className="font-semibold text-ink-800">simulação completa</strong>.
               </p>
             )}
           </div>
-        )}
+        ))}
 
         {/* A VARIAÇÃO EXISTIA, MAS NÃO É DESTA CURVA.
             O servidor deduplica por PARÂMETROS: se o mesmo orçamento escalado já
@@ -391,63 +445,130 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
 }
 
 /**
- * QUANTO CAPEX A MAIS — um número, e só.
+ * A VARREDURA — mínimo, máximo e quantos pontos entre eles.
  *
- * A tela pede UM acréscimo por vez: escolhe, roda, lê o gráfico, repete se quiser.
- * A alternativa — pedir uma faixa e varrer vários pontos de uma vez — respondia a
- * mesma pergunta cobrando mais três controles (início, fim, quantos pontos) e uma
- * varredura que precisava de botão para parar.
+ * Três controles, e a frase abaixo diz o que eles rendem ("4 pontos: +10%, +20%,
+ * +30%, +40%") ANTES do play: faixa estreita rende menos degraus que os pedidos
+ * (inteiros, sem repetição), e a pessoa vê isso aqui, não no gráfico.
  *
- * A CURVA NÃO SE PERDE com isso: os pontos que já rodaram voltam TODOS do
- * servidor, independentemente do que estiver neste campo, e o gráfico abaixo os
- * acumula. É ele que guarda a análise; este campo é só a próxima pergunta.
- *
- * A RECUSA ACONTECE ANTES DO SERVIDOR: número fora de 1% a 200% não vira
- * requisição, e a frase diz o que consertar em vez de devolver um 422.
+ * A RECUSA ACONTECE ANTES DO SERVIDOR: faixa fora de 1% a 200%, máximo menor
+ * que o mínimo, mais de três intermediários — nada disso vira requisição, e a
+ * frase diz o que consertar em vez de devolver um 422.
  */
-function SeletorDeAcrescimo({
-  degrau,
+function SeletorDeVarredura({
+  varredura,
   aoTrocar,
-  valido,
+  problema,
   desabilitado,
 }: {
-  degrau: number
-  aoTrocar: (d: number) => void
-  valido: boolean
+  varredura: Varredura
+  aoTrocar: (v: Varredura) => void
+  problema: string | null
   desabilitado: boolean
 }) {
+  const degraus = degrausDaVarredura(varredura)
+  /* `text` COM `inputMode="numeric"`, e nao `type="number"`: o campo de numero
+     vem com setinhas que aqui nao servem, e com o cursor sobre ele a RODA DO
+     MOUSE muda o valor — rolar a pagina alteraria o que vai ser rodado. O
+     filtro deixa passar so digito: colar "35%" resulta em 35. */
+  const campo = (
+    rotulo: string,
+    valor: number,
+    aoMudar: (n: number) => void,
+    largura = 'w-[4.5rem]',
+  ) => (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={valor === 0 ? '' : String(valor)}
+      disabled={desabilitado}
+      onChange={(e) => aoMudar(Number(e.target.value.replace(/\D/g, '')) || 0)}
+      className={`${largura} rounded-lg border border-ink-200 bg-white px-2 py-1 text-right font-mono text-[12.5px] tabular-nums text-ink-800 focus:border-water-500 focus:outline-none disabled:opacity-50`}
+      aria-label={rotulo}
+    />
+  )
   return (
-    <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1.5 text-[12.5px] text-ink-600">
-      <label className="flex items-center gap-1.5">
-        <span>CAPEX anual</span>
-        <span className="font-mono text-ink-800">+</span>
-        {/* `text` COM `inputMode="numeric"`, e nao `type="number"`.
-            O campo de numero do navegador vem com as setinhas de aumentar e
-            diminuir, que aqui nao servem: o acrescimo se digita, nao se busca de
-            um em um. E ele tem uma armadilha pior que as setas — com o cursor
-            sobre o campo focado, a RODA DO MOUSE muda o valor, entao rolar a
-            pagina altera o que vai ser rodado sem ninguem perceber.
-
-            `inputMode` preserva o que importava: o teclado numerico no celular.
-            E o filtro deixa passar so digito — colar "35%" ou "+35" resulta em
-            35, em vez de um campo que recusa em silencio. */}
-        <input
-          type="text"
-          inputMode="numeric"
-          value={degrau === 0 ? '' : String(degrau)}
-          disabled={desabilitado}
-          onChange={(e) => aoTrocar(Number(e.target.value.replace(/\D/g, '')) || 0)}
-          className="w-[4.5rem] rounded-lg border border-ink-200 bg-white px-2 py-1 text-right font-mono text-[12.5px] tabular-nums text-ink-800 focus:border-water-500 focus:outline-none disabled:opacity-50"
-          aria-label="Acréscimo de CAPEX por ano, em %"
-        />
-        <span>%</span>
-      </label>
-      {!valido && (
-        <span className="text-[12px] font-semibold text-amber-700">
-          entre 1% e {MAIOR_DEGRAU}%
+    <div className="flex flex-col gap-1.5 text-[12.5px] text-ink-600">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <span className="flex items-center gap-1.5">
+          <span>CAPEX anual de</span>
+          <span className="font-mono text-ink-800">+</span>
+          {campo('Acréscimo mínimo de CAPEX por ano, em %', varredura.minimo, (minimo) =>
+            aoTrocar({ ...varredura, minimo }),
+          )}
+          <span>%</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span>a</span>
+          <span className="font-mono text-ink-800">+</span>
+          {campo('Acréscimo máximo de CAPEX por ano, em %', varredura.maximo, (maximo) =>
+            aoTrocar({ ...varredura, maximo }),
+          )}
+          <span>%</span>
+        </span>
+        <label className="flex items-center gap-1.5">
+          <span>com</span>
+          <select
+            value={varredura.intermediarios}
+            disabled={desabilitado || varredura.minimo === varredura.maximo}
+            onChange={(e) => aoTrocar({ ...varredura, intermediarios: Number(e.target.value) })}
+            className="rounded-lg border border-ink-200 bg-white px-2 py-1 font-mono text-[12.5px] tabular-nums text-ink-800 focus:border-water-500 focus:outline-none disabled:opacity-50"
+            aria-label="Pontos entre o mínimo e o máximo"
+          >
+            {Array.from({ length: MAXIMO_DE_INTERMEDIARIOS + 1 }, (_, n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+          <span>{varredura.intermediarios === 1 ? 'ponto entre' : 'pontos entre'}</span>
+        </label>
+      </div>
+      {problema ? (
+        <span className="text-[12px] font-semibold text-amber-700">{problema}</span>
+      ) : (
+        <span className="text-[12px] text-ink-water">
+          {degraus.length} {degraus.length === 1 ? 'ponto' : 'pontos'}:{' '}
+          {degraus.map((d) => `+${d}%`).join(', ')}
         </span>
       )}
     </div>
+  )
+}
+
+const TOM_DO_ESTADO: Record<EstadoDoDegrau, Tom> = {
+  ausente: 'neutro',
+  'em voo': 'azul',
+  pronto: 'teal',
+  erro: 'vermelho',
+}
+
+const ROTULO_DO_ESTADO: Record<EstadoDoDegrau, string> = {
+  ausente: 'vai rodar',
+  'em voo': 'na fila',
+  pronto: 'pronto',
+  erro: 'falhou',
+}
+
+/**
+ * O PLANO, degrau a degrau. A palavra ao lado do número diz o que o play faz
+ * com ele — e é ela, não a cor, que carrega a informação.
+ */
+function PlanoDaVarredura({ situacao }: { situacao: SituacaoDoDegrau[] }) {
+  return (
+    <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Plano da varredura">
+      {situacao.map((s) => (
+        <li key={s.degrau}>
+          <Tag tom={TOM_DO_ESTADO[s.estado]}>
+            <span className="font-mono tabular-nums">+{s.degrau}%</span>
+            <span className="font-normal opacity-80">
+              {' '}· {ROTULO_DO_ESTADO[s.estado]}
+              {s.estado === 'pronto' && s.ponto?.estimativa ? ' ○' : ''}
+            </span>
+          </Tag>
+        </li>
+      ))}
+    </ul>
   )
 }
 
