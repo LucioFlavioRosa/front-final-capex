@@ -322,7 +322,9 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
     : !varreduraOk
       ? 'Rodar'
       : aDisparar.length === 0
-        ? situacao.some((s) => s.estado === 'em voo')
+        ? // Em voo DENTRO ou FORA da faixa: dizer "curva completa" com um
+          // "+115% · rodando" logo abaixo contradiria o próprio plano.
+          situacao.some((s) => s.estado === 'em voo') || emVoo.length > 0
           ? 'Na fila — a curva vai se completando'
           : 'Curva completa nesta faixa'
         : `${soRepeticoes ? 'Tentar de novo' : 'Rodar'} ${aDisparar.length} ${

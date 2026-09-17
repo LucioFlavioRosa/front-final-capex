@@ -467,6 +467,14 @@ export function useSensibilidade(runId: string | undefined, faixa: Faixa) {
       const emVoo = pontos.some((p) => p.status === 'PENDENTE' || p.status === 'RODANDO')
       return emVoo ? 8_000 : false
     },
+    // A VARREDURA LEVA MEIA HORA NESTA UNIDADE, e ninguém fica olhando meia
+    // hora: a pessoa troca de aba do navegador e volta. Sem isto o polling
+    // parava com a aba em segundo plano (padrão do react-query), e o
+    // `refetchOnWindowFocus` desligado no `main.tsx` deixava a curva parada
+    // na volta até o próximo tick — tela dizendo "na fila" para o que já
+    // tinha respondido.
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   })
 }
 
@@ -512,5 +520,9 @@ export function useStatusDaRodada(runId: string | undefined, ativo: boolean) {
       const s = consulta.state.data?.status
       return s === 'PENDENTE' || s === 'RODANDO' ? 8_000 : false
     },
+    // Mesmo motivo de `useSensibilidade`: o sinal de vida tem de seguir vivo
+    // com a aba em segundo plano, e acordar quando ela volta.
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   })
 }

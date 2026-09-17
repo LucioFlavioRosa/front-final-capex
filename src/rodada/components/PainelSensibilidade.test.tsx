@@ -660,6 +660,21 @@ describe('a varredura', () => {
     expect(screen.getByRole('button', { name: /Rodar 2 pontos/ })).toBeInTheDocument()
   })
 
+  it('com a faixa pronta e ponto em voo FORA dela, o botão não diz "curva completa"', async () => {
+    servirSensibilidade({
+      teto: TETO,
+      pontos: [
+        BASE_PONTO,
+        { ...BASE_PONTO, degrau: 10, runId: 'a', coberturaFimPct: 44 },
+        { ...BASE_PONTO, degrau: 20, runId: 'b', coberturaFimPct: 45 },
+        { ...BASE_PONTO, degrau: 30, runId: 'c', coberturaFimPct: 46 },
+        { ...BASE_PONTO, degrau: 115, runId: 'v115', status: 'RODANDO', vpl: null, coberturaFimPct: null },
+      ],
+    })
+    abrir()
+    expect(await screen.findByRole('button', { name: /Na fila — a curva vai se completando/ })).toBeDisabled()
+  })
+
   it('com tudo pronto, o play não tem o que pedir', async () => {
     servirSensibilidade({
       teto: TETO,

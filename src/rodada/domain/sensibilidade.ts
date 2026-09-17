@@ -261,34 +261,27 @@ export function situacaoDaVarredura(
 }
 
 /**
- * A rodada desta base que está em voo agora — no máximo uma, por desenho.
+ * A rodada desta base que está ACONTECENDO agora — a que o sinal de vida segue.
  *
- * É ela que BLOQUEIA o disparo do próximo, e o bloqueio é separado de
- * `proximoDegrau` de propósito: "qual é o próximo" e "dá para pedir agora" são
- * duas perguntas, e juntá-las esconderia a segunda. A fila tem capacidade 1;
- * enfileirar o segundo pedido não o faz chegar antes, só faz a espera parecer
- * maior — e cinco pedidos de uma vez foi o que saturou o Service Bus e devolveu
- * 503 na primeira tentativa real.
+ * Várias podem estar em voo (a varredura enfileira todas de uma vez), mas o
+ * executor local roda uma por vez: a que está RODANDO vem primeiro; sem
+ * nenhuma rodando, a primeira da fila. Antes era "a de menor degrau", e isso
+ * escondia a que rodava de verdade se a fila não fosse servida em ordem
+ * crescente.
  *
- * OLHA TODOS OS DEGRAUS DA BASE, e não só os da faixa pedida. A diferença é
- * exatamente o defeito que a filtragem por faixa introduziu: quem dispara +50%,
- * estreita a faixa para 5–20 e clica de novo teria DOIS pedidos numa fila de
- * capacidade 1 — o disparo em voo some da lista, e com ele o bloqueio.
- *
- * A regra é a da FILA, e não a da pergunta: a fila não sabe qual faixa está na
- * tela.
+ * OLHA TODOS OS DEGRAUS DA BASE, e não só os da faixa pedida: a fila é do
+ * servidor, e não sabe qual faixa está na tela.
  *
  * RECEBE OS PONTOS CRUS, e não o mapa de `melhorPorDegrau`. O mapa colapsa cada
  * degrau no ponto mais confiável, e é aí que a execução se esconde: com a
  * estimativa de +20% publicada e a simulação completa do MESMO +20% ainda
- * rodando, o mapa devolve a estimativa e a rodada em voo desaparece. O painel
- * então liberaria +30% com a fila ocupada — e confirmar um degrau em modo
- * completo depois de ver a estimativa é o fluxo NORMAL, não um caso de canto.
+ * rodando, o mapa devolve a estimativa e a rodada em voo desaparece.
  */
 export function emVooDaBase(
   pontos: PontoDaCurva[],
 ): { degrau: number; ponto: PontoDaCurva } | null {
-  const p = pontosEmVoo(pontos)[0]
+  const voando = pontosEmVoo(pontos)
+  const p = voando.find((x) => x.status === 'RODANDO') ?? voando[0]
   return p ? { degrau: p.degrau, ponto: p } : null
 }
 

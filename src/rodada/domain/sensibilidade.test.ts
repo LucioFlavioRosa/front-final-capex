@@ -440,12 +440,32 @@ describe('o bloqueio segue a FILA, e não a faixa', () => {
     expect(emVooDaBase([semResultado({ degrau: 0, runId: 'base', status: 'SUCESSO' })])).toBeNull()
   })
 
-  it('com dois em voo, devolve o de MENOR degrau', () => {
+  it('com dois em voo, devolve a que está RODANDO — e não a de menor degrau', () => {
+    // A fila pode não ser servida em ordem crescente; o sinal de vida segue a
+    // que o executor pegou, e não a que a tela acha que vem primeiro.
     const pontos = [
       semResultado({ degrau: 40, runId: 'r40', status: 'RODANDO' }),
       semResultado({ degrau: 20, runId: 'r20', status: 'PENDENTE' }),
     ]
+    expect(emVooDaBase(pontos)?.degrau).toBe(40)
+  })
+})
+
+describe('o sinal de vida segue a que está RODANDO', () => {
+  it('prefere a RODANDO à PENDENTE de menor degrau', () => {
+    const pontos = [
+      ponto({ degrau: 10, runId: 'p10', status: 'PENDENTE', vpl: null }),
+      ponto({ degrau: 20, runId: 'r20', status: 'RODANDO', vpl: null }),
+    ]
     expect(emVooDaBase(pontos)?.degrau).toBe(20)
+  })
+
+  it('sem nenhuma rodando, a primeira da fila', () => {
+    const pontos = [
+      ponto({ degrau: 30, runId: 'p30', status: 'PENDENTE', vpl: null }),
+      ponto({ degrau: 10, runId: 'p10', status: 'PENDENTE', vpl: null }),
+    ]
+    expect(emVooDaBase(pontos)?.degrau).toBe(10)
   })
 })
 
