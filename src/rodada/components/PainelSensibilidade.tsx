@@ -56,6 +56,7 @@ import {
   faltouTempoDeSolver,
   fatorDoDegrau,
   melhorPorDegrau,
+  pctDoDegrau,
   pontosEmVoo,
   problemaDaVarredura,
   situacaoDaVarredura,
@@ -211,7 +212,7 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
   const pontos = [
     ...(baseDoServidor ? [baseDoServidor] : []),
     ...[...melhor.entries()]
-      .filter(([degrau]) => degrau > 0)
+      .filter(([degrau]) => degrau !== 0)
       .sort((a, b) => a[0] - b[0])
       .map(([, ponto]) => ponto),
   ]
@@ -287,7 +288,7 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
         const resposta = await disparar.mutateAsync({
           runId: meta.runId,
           fator: fatorDoDegrau(s.degrau),
-          nome: `${m === 'rapido' ? 'estimativa' : 'simulação'} +${s.degrau}% de CAPEX`,
+          nome: `${m === 'rapido' ? 'estimativa' : 'simulação'} ${pctDoDegrau(s.degrau)} de CAPEX`,
           modo: m,
         })
         if (resposta.jaExistia && resposta.naCurva === false) {
@@ -313,8 +314,8 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
     const maior = emReais(aDisparar[aDisparar.length - 1].degrau)
     if (!menor || !maior) return null
     return aDisparar.length === 1
-      ? `+${brlMi(menor.aMais)} no plano`
-      : `+${brlMi(menor.aMais)} a +${brlMi(maior.aMais)} no plano`
+      ? `${comSinal(menor.aMais)} no plano`
+      : `${comSinal(menor.aMais)} a ${comSinal(maior.aMais)} no plano`
   })()
 
   const rotuloDoPlay = enfileirando
@@ -398,7 +399,7 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
             className="mt-3 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3"
           >
             <p className="text-[12.5px] leading-relaxed text-ink-700">
-              <strong className="font-semibold">+{f.degrau}% não completou.</strong>{' '}
+              <strong className="font-semibold">{pctDoDegrau(f.degrau)} não completou.</strong>{' '}
               {f.ponto?.erro}
             </p>
             {modoDoDegrau(f) === 'completo' && (
@@ -426,7 +427,7 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
             key={f.degrau}
             className="mt-3 rounded-xl border border-ink-200 bg-ink-50 px-3.5 py-2.5 text-[12.5px] text-ink-600"
           >
-            +{f.degrau}% já foi simulado, mas é ponto da curva de outra rodada — por isso
+            {pctDoDegrau(f.degrau)} já foi simulado, mas é ponto da curva de outra rodada — por isso
             não entra neste gráfico. Abra{' '}
             <Link
               to={`/resultados/${f.runId}`}
@@ -509,23 +510,33 @@ function SeletorDeVarredura({
   desabilitado: boolean
 }) {
   const degraus = degrausDaVarredura(varredura)
+  /**
+   * O TEXTO DO CAMPO É ESTADO PRÓPRIO, porque a variação pode ser negativa e
+   * "-" sozinho é um estado legítimo enquanto se digita "-10". Guardar só o
+   * número apagaria o sinal a cada tecla. O número vai para fora como `NaN`
+   * enquanto o texto não é um número, e a validação diz "digite".
+   */
+  const [textos, setTextos] = useState({
+    minimo: String(varredura.minimo),
+    maximo: String(varredura.maximo),
+  })
   /* `text` COM `inputMode="numeric"`, e nao `type="number"`: o campo de numero
      vem com setinhas que aqui nao servem, e com o cursor sobre ele a RODA DO
      MOUSE muda o valor — rolar a pagina alteraria o que vai ser rodado. O
-     filtro deixa passar so digito: colar "35%" resulta em 35. */
-  const campo = (
-    rotulo: string,
-    valor: number,
-    aoMudar: (n: number) => void,
-    largura = 'w-[4.5rem]',
-  ) => (
+     filtro deixa passar digito e um sinal na frente: colar "+35%" resulta em
+     35, "-10 %" em -10. */
+  const campo = (rotulo: string, chave: 'minimo' | 'maximo') => (
     <input
       type="text"
       inputMode="numeric"
-      value={valor === 0 ? '' : String(valor)}
+      value={textos[chave]}
       disabled={desabilitado}
-      onChange={(e) => aoMudar(Number(e.target.value.replace(/\D/g, '')) || 0)}
-      className={`${largura} rounded-lg border border-ink-200 bg-white px-2 py-1 text-right font-mono text-[12.5px] tabular-nums text-ink-800 focus:border-water-500 focus:outline-none disabled:opacity-50`}
+      onChange={(e) => {
+        const limpo = e.target.value.replace(/[^\d-]/g, '').replace(/(?!^)-/g, '')
+        setTextos((t) => ({ ...t, [chave]: limpo }))
+        aoTrocar({ ...varredura, [chave]: /^-?\d+$/.test(limpo) ? Number(limpo) : NaN })
+      }}
+      className="w-[4.5rem] rounded-lg border border-ink-200 bg-white px-2 py-1 text-right font-mono text-[12.5px] tabular-nums text-ink-800 focus:border-water-500 focus:outline-none disabled:opacity-50"
       aria-label={rotulo}
     />
   )
@@ -534,18 +545,12 @@ function SeletorDeVarredura({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <span className="flex items-center gap-1.5">
           <span>CAPEX anual de</span>
-          <span className="font-mono text-ink-800">+</span>
-          {campo('Acréscimo mínimo de CAPEX por ano, em %', varredura.minimo, (minimo) =>
-            aoTrocar({ ...varredura, minimo }),
-          )}
+          {campo('Variação mínima de CAPEX por ano, em %', 'minimo')}
           <span>%</span>
         </span>
         <span className="flex items-center gap-1.5">
           <span>a</span>
-          <span className="font-mono text-ink-800">+</span>
-          {campo('Acréscimo máximo de CAPEX por ano, em %', varredura.maximo, (maximo) =>
-            aoTrocar({ ...varredura, maximo }),
-          )}
+          {campo('Variação máxima de CAPEX por ano, em %', 'maximo')}
           <span>%</span>
         </span>
         <label className="flex items-center gap-1.5">
@@ -571,7 +576,7 @@ function SeletorDeVarredura({
       ) : (
         <span className="text-[12px] text-ink-water">
           {degraus.length} {degraus.length === 1 ? 'ponto' : 'pontos'}:{' '}
-          {degraus.map((d) => `+${d}%`).join(', ')}
+          {degraus.map(pctDoDegrau).join(', ')}
         </span>
       )}
     </div>
@@ -608,7 +613,7 @@ function PlanoDaVarredura({ situacao }: { situacao: SituacaoDoDegrau[] }) {
       {situacao.map((s) => (
         <li key={s.degrau}>
           <Tag tom={TOM_DO_ESTADO[s.estado]}>
-            <span className="font-mono tabular-nums">+{s.degrau}%</span>
+            <span className="font-mono tabular-nums">{pctDoDegrau(s.degrau)}</span>
             <span className="font-normal opacity-80">
               {' '}· {rotuloDoDegrau(s)}
               {s.estado === 'pronto' && s.ponto?.estimativa ? ' ○' : ''}
@@ -709,7 +714,7 @@ function Teto({ teto }: { teto: TetoDeSensibilidade }) {
                   scope="row"
                   className="py-1.5 pr-3 text-left font-mono font-semibold text-ink-700"
                 >
-                  +{d.degrau}%
+                  {pctDoDegrau(d.degrau)}
                 </th>
                 {/* O TOTAL NOVO E O ACRÉSCIMO, juntos. `folga` é o dinheiro a
                     mais NO PLANO INTEIRO (a soma dos anos), e não por ano —
@@ -763,14 +768,14 @@ function QuadroDeObras({
   return (
     <QuadroGrafico
       titulo="Obras construídas por tipo"
-      subtitulo={`${inteiro(comparativo.totalHoje)} hoje → ${inteiro(ultimo.total)} com +${ultimo.degrau}%${dinheiro ? ` (${brlMi(dinheiro.aMais)} a mais)` : ''}`}
+      subtitulo={`${inteiro(comparativo.totalHoje)} hoje → ${inteiro(ultimo.total)} com ${pctDoDegrau(ultimo.degrau)}${dinheiro ? ` (${aMaisOuAMenos(dinheiro.aMais)})` : ''}`}
       nota="obra construída pela concessão, sem as de terceiro — a mesma regra do total de obras no cabeçalho da rodada"
       escopo="plano inteiro"
       tabela={{
         colunas: [
           'Componente',
           'hoje',
-          ...comparativo.porDegrau.filter((d) => d.degrau > 0).map((d) => `+${d.degrau}%`),
+          ...comparativo.porDegrau.filter((d) => d.degrau !== 0).map((d) => pctDoDegrau(d.degrau)),
         ],
         linhas: [
           ...comparativo.linhas.map((l) => [
@@ -785,7 +790,7 @@ function QuadroDeObras({
             'Total',
             comparativo.totalHoje,
             ...comparativo.porDegrau
-              .filter((d) => d.degrau > 0)
+              .filter((d) => d.degrau !== 0)
               .map((d) => `${d.total} (${sinal(d.delta)})`),
           ],
         ],
@@ -817,7 +822,7 @@ function QuadroDeObras({
                   <div className="rounded-xl border border-ink-200 bg-white px-3 py-2 shadow-elev">
                     <div className="mb-1 text-[11px] font-bold text-ink-800">
                       {label} · {inteiro(col?.total)} obras
-                      {col && col.degrau > 0 ? ` (${sinal(col.delta)})` : ''}
+                      {col && col.degrau !== 0 ? ` (${sinal(col.delta)})` : ''}
                     </div>
                     <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
                       {payload
@@ -877,7 +882,7 @@ function QuadroDeObras({
         })}
       </ul>
       <p className="mt-2 text-[11.5px] leading-relaxed text-ink-water">
-        A variação é contra o plano de hoje, no maior degrau já rodado (+{ultimo.degrau}%). Um
+        A variação é contra o plano de hoje, no maior degrau já rodado ({pctDoDegrau(ultimo.degrau)}). Um
         componente pode aparecer com <span className="font-mono">−1</span>: com mais orçamento o
         otimizador <strong className="font-semibold text-ink-600">rearranja</strong>, e trocar uma
         rede por um tronco pode render mais vazão por real.
@@ -887,6 +892,16 @@ function QuadroDeObras({
 }
 
 /** "+2", "−1", "0" — o sinal explícito, porque a coluna é de VARIAÇÃO. */
+/** `+R$ 11,0 Mi` / `-R$ 11,0 Mi` — o dinheiro do degrau, com o sinal na frente. */
+function comSinal(aMais: number): string {
+  return `${aMais < 0 ? '-' : '+'}${brlMi(Math.abs(aMais))}`
+}
+
+/** `R$ 11,0 Mi a mais` / `R$ 11,0 Mi a menos`. */
+function aMaisOuAMenos(aMais: number): string {
+  return `${brlMi(Math.abs(aMais))} a ${aMais < 0 ? 'menos' : 'mais'}`
+}
+
 function sinal(n: number): string {
   if (n > 0) return `+${n}`
   if (n < 0) return `−${Math.abs(n)}`
@@ -922,10 +937,10 @@ function Curva({
       subtitulo={
         variacao === null
           ? medida.nota
-          : `${medida.formatar(base as number)} → ${medida.formatar(ultimo.valor)} com +${ultimo.degrau}%${
+          : `${medida.formatar(base as number)} → ${medida.formatar(ultimo.valor)} com ${pctDoDegrau(ultimo.degrau)}${
               orcamento === null
                 ? ''
-                : ` (${brlMi(dinheiroDoDegrau(orcamento, ultimo.degrau).aMais)} a mais)`
+                : ` (${aMaisOuAMenos(dinheiroDoDegrau(orcamento, ultimo.degrau).aMais)})`
             }`
       }
       nota={medida.nota}
@@ -937,7 +952,7 @@ function Curva({
       tabela={{
         colunas: ['CAPEX por ano', 'orçamento do plano', medida.titulo, 'origem'],
         linhas: dados.map((d) => [
-          d.degrau === 0 ? 'orçamento de hoje' : `+${d.degrau}%`,
+          d.degrau === 0 ? 'orçamento de hoje' : pctDoDegrau(d.degrau),
           orcamento === null
             ? '—'
             : brlMi(dinheiroDoDegrau(orcamento, d.degrau).novoTotal),
@@ -958,7 +973,7 @@ function Curva({
             <CartesianGrid stroke="var(--viz-grid)" vertical={false} />
             <XAxis
               dataKey="degrau"
-              tickFormatter={(d: number) => (d === 0 ? 'hoje' : `+${d}%`)}
+              tickFormatter={(d: number) => (d === 0 ? 'hoje' : pctDoDegrau(d))}
               tick={{ fontSize: 11, fill: 'var(--viz-ink-muted)' }}
               axisLine={{ stroke: 'var(--viz-axis)' }}
               tickLine={false}
@@ -977,7 +992,7 @@ function Curva({
                 const g = Number(d)
                 if (g === 0) return 'orçamento de hoje'
                 const r = orcamento === null ? null : dinheiroDoDegrau(orcamento, g)
-                return `+${g}% ao ano${r ? ` · ${brlMi(r.aMais)} a mais no plano` : ''}`
+                return `${pctDoDegrau(g)} ao ano${r ? ` · ${aMaisOuAMenos(r.aMais)} no plano` : ''}`
               }}
               contentStyle={{
                 borderRadius: 10,
@@ -1049,7 +1064,7 @@ function SinalDeVida({
   const d = status.data
 
   if (!d) {
-    return <p className="mt-3 text-[12px] text-ink-water">Consultando a rodada de +{degrau}%…</p>
+    return <p className="mt-3 text-[12px] text-ink-water">Consultando a rodada de {pctDoDegrau(degrau)}…</p>
   }
 
   const fila = d.fila
@@ -1062,7 +1077,7 @@ function SinalDeVida({
     >
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12.5px]">
         <span className="font-semibold text-ink-800">
-          <span className="font-mono">+{degrau}%</span> · {d.status.toLowerCase()}
+          <span className="font-mono">{pctDoDegrau(degrau)}</span> · {d.status.toLowerCase()}
         </span>
         <span className="text-ink-water">
           {estimativa ? 'estimativa · 60s' : 'simulação completa'}

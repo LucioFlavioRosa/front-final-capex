@@ -537,8 +537,8 @@ describe('a variação que pertence a outra curva', () => {
  */
 describe('a varredura', () => {
   const campos = async () => ({
-    minimo: await screen.findByLabelText(/Acréscimo mínimo/i),
-    maximo: await screen.findByLabelText(/Acréscimo máximo/i),
+    minimo: await screen.findByLabelText(/Variação mínima/i),
+    maximo: await screen.findByLabelText(/Variação máxima/i),
     entre: await screen.findByLabelText(/Pontos entre/i),
   })
 
@@ -579,6 +579,32 @@ describe('a varredura', () => {
     expect(corpos.map((c) => c.fator)).toEqual([1.15, 1.35])
   })
 
+  it('variação negativa: "-20% a -10%" roda com fator abaixo de 1, e o botão diz o dinheiro a menos', async () => {
+    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
+    const corpos: Record<string, unknown>[] = []
+    servidor.use(
+      http.post('/api/runs/:runId/variacao', async ({ request }) => {
+        corpos.push((await request.json()) as Record<string, unknown>)
+        return HttpResponse.json({ runId: 'novo', status: 'PENDENTE', jaExistia: false })
+      }),
+    )
+    abrir()
+    const { minimo, maximo, entre } = await campos()
+    await userEvent.clear(minimo)
+    await userEvent.type(minimo, '-20')
+    await userEvent.clear(maximo)
+    await userEvent.type(maximo, '-10')
+    await userEvent.selectOptions(entre, '0')
+
+    expect(await screen.findByText('2 pontos: -20%, -10%')).toBeInTheDocument()
+    const botao = await screen.findByRole('button', { name: /Rodar 2 pontos · -R\$ 22,0 Mi a -R\$ 11,0 Mi no plano/ })
+    await userEvent.click(botao)
+
+    await waitFor(() => expect(corpos).toHaveLength(2))
+    expect(corpos.map((c) => c.fator)).toEqual([0.8, 0.9])
+    expect(String(corpos[0].nome)).toContain('-20%')
+  })
+
   it('mínimo igual ao máximo é um ponto só', async () => {
     servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
     abrir()
@@ -610,10 +636,16 @@ describe('a varredura', () => {
     expect(await screen.findByText(/o máximo precisa ser maior ou igual ao mínimo/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Rodar/ })).toBeDisabled()
 
-    // Mínimo zero: outra frase, mesmo bloqueio.
+    // Mínimo vazio: outra frase, mesmo bloqueio.
     await userEvent.clear(minimo)
-    expect(await screen.findByText(/entre 1% e 200%/)).toBeInTheDocument()
+    expect(await screen.findByText(/digite o mínimo e o máximo/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Rodar/ })).toBeDisabled()
+
+    // Abaixo do piso.
+    await userEvent.type(minimo, '-96')
+    await userEvent.clear(maximo)
+    await userEvent.type(maximo, '10')
+    expect(await screen.findByText(/a menor variação aceita é -95%/)).toBeInTheDocument()
     expect(pediu).toBe(false)
   })
 

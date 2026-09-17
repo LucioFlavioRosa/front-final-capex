@@ -58,8 +58,22 @@ export const FAIXA_PADRAO = { de: DEGRAU_PADRAO, ate: DEGRAU_PADRAO, pontos: 1 }
 export const MINIMO_DE_PONTOS = 1
 export const MAXIMO_DE_PONTOS = 5
 
-/** O maior acréscimo aceito — acima disso a pergunta vira "outro plano". */
-export const MAIOR_DEGRAU = 200
+/**
+ * A FAIXA DE VARIAÇÃO ACEITA, em % do CAPEX anual: de -95% a +500%.
+ *
+ * A variação pode ser NEGATIVA — "e se o CAPEX fosse menor?" é pergunta tão
+ * legítima quanto a outra, e o motor a responde do mesmo jeito. O piso é -95%,
+ * e não -100%: fator zero não é simulação. O teto de +500% é o pedido do dono
+ * do produto (17/09/2026). O ZERO NUNCA É DEGRAU: é a própria rodada de origem,
+ * que a curva já traz como partida — uma faixa que passa por ele o pula.
+ * A mesma regra do servidor (`dominio/teto.py`).
+ */
+export const MENOR_DEGRAU = -95
+export const MAIOR_DEGRAU = 500
+
+/** `+10%`, `-10%` — o degrau como a tela o escreve. */
+export const pctDoDegrau = (degrau: number): string =>
+  degrau > 0 ? `+${degrau}%` : `${degrau}%`
 
 export interface Faixa {
   de: number
@@ -89,14 +103,19 @@ export interface Faixa {
  */
 export function pontosDaFaixa({ de, ate, pontos }: Faixa): number[] {
   if (pontos < MINIMO_DE_PONTOS || pontos > MAXIMO_DE_PONTOS) return []
-  if (de < 1 || ate < 1 || de > MAIOR_DEGRAU) return []
+  if (![de, ate].every((d) => Number.isFinite(d) && d >= MENOR_DEGRAU && d <= MAIOR_DEGRAU)) {
+    return []
+  }
   // UM PONTO NÃO TEM FIM: `de` é a resposta inteira, e exigir `ate > de`
   // recusaria justamente o pedido mais comum. Mesma regra do servidor.
-  if (pontos === 1) return [de]
-  if (ate <= de || ate > MAIOR_DEGRAU) return []
+  if (pontos === 1) return de === 0 ? [] : [de]
+  if (ate <= de) return []
   const passo = (ate - de) / (pontos - 1)
+  // `Math.round` e o `floor(x + 0.5)` do servidor concordam também no negativo:
+  // os dois arredondam meio para cima (-10,5 → -10).
   const brutos = Array.from({ length: pontos }, (_, i) => Math.round(de + passo * i))
-  return [...new Set(brutos)]
+  // O zero sai: é a rodada de origem, que a curva já traz.
+  return [...new Set(brutos)].filter((d) => d !== 0)
 }
 
 /** O pedido faz sentido? A tela usa para recusar antes de chamar o servidor. */
@@ -294,7 +313,7 @@ export function emVooDaBase(
  */
 export function pontosEmVoo(pontos: PontoDaCurva[]): PontoDaCurva[] {
   return pontos
-    .filter((p) => p.degrau > 0 && !FRACASSO.has(p.status) && !temResultado(p))
+    .filter((p) => p.degrau !== 0 && !FRACASSO.has(p.status) && !temResultado(p))
     .sort((a, b) => a.degrau - b.degrau)
 }
 
@@ -440,7 +459,7 @@ export function comparativoDeObras(pontos: PontoDaCurva[]): ComparativoDeObras |
     porDegrau: publicados.map((p) => {
       const linha = {
         degrau: p.degrau,
-        rotulo: p.degrau === 0 ? 'hoje' : `+${p.degrau}%`,
+        rotulo: p.degrau === 0 ? 'hoje' : pctDoDegrau(p.degrau),
         total: totalDe(p),
         delta: totalDe(p) - totalHoje,
         estimativa: p.estimativa,
@@ -452,7 +471,7 @@ export function comparativoDeObras(pontos: PontoDaCurva[]): ComparativoDeObras |
       nome,
       hoje: contagem(base, nome),
       celulas: publicados
-        .filter((p) => p.degrau > 0)
+        .filter((p) => p.degrau !== 0)
         .map((p) => ({
           degrau: p.degrau,
           construidas: contagem(p, nome),
@@ -542,11 +561,17 @@ export function varreduraValida(v: Varredura): boolean {
  * lugar de um 422. `null` quando está tudo certo.
  */
 export function problemaDaVarredura(v: Varredura): string | null {
-  if (v.minimo < 1 || v.maximo < 1) return `os acréscimos ficam entre 1% e ${MAIOR_DEGRAU}%`
-  if (v.maximo > MAIOR_DEGRAU) return `o maior acréscimo aceito é ${MAIOR_DEGRAU}%`
+  if (!Number.isFinite(v.minimo) || !Number.isFinite(v.maximo)) return 'digite o mínimo e o máximo'
+  if (v.minimo < MENOR_DEGRAU || v.maximo < MENOR_DEGRAU) {
+    return `a menor variação aceita é ${MENOR_DEGRAU}%`
+  }
+  if (v.minimo > MAIOR_DEGRAU || v.maximo > MAIOR_DEGRAU) {
+    return `a maior variação aceita é +${MAIOR_DEGRAU}%`
+  }
   if (v.maximo < v.minimo) return 'o máximo precisa ser maior ou igual ao mínimo'
   if (v.intermediarios < 0 || v.intermediarios > MAXIMO_DE_INTERMEDIARIOS) {
     return `entre 0 e ${MAXIMO_DE_INTERMEDIARIOS} pontos intermediários`
   }
-  return varreduraValida(v) ? null : 'a varredura não rende nenhum degrau'
+  if (varreduraValida(v)) return null
+  return '0% é a própria rodada de origem — a faixa precisa passar por outro valor'
 }

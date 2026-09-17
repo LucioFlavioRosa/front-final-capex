@@ -16,7 +16,9 @@ import {
   varreduraValida,
   FAIXA_PADRAO,
   MAIOR_DEGRAU,
+  MENOR_DEGRAU,
   MAXIMO_DE_PONTOS,
+  pctDoDegrau,
   comparativoDeObras,
   curvaPronta,
   dinheiroDoDegrau,
@@ -354,15 +356,17 @@ describe('a faixa é de quem analisa', () => {
   it('faixa que não sobe, ou fora dos limites, não vira varredura', () => {
     expect(faixaValida({ de: 50, ate: 50, pontos: 3 })).toBe(false)
     expect(faixaValida({ de: 50, ate: 10, pontos: 3 })).toBe(false)
-    expect(faixaValida({ de: 0, ate: 50, pontos: 3 })).toBe(false)
+    // Zero como início é PULADO, não recusado: 0..50 em 3 rende 25 e 50.
+    expect(pontosDaFaixa({ de: 0, ate: 50, pontos: 3 })).toEqual([25, 50])
     expect(faixaValida({ de: 10, ate: MAIOR_DEGRAU + 1, pontos: 3 })).toBe(false)
+    expect(faixaValida({ de: MENOR_DEGRAU - 1, ate: 50, pontos: 3 })).toBe(false)
     // UM PONTO E VALIDO, e e o pedido comum da tela: `ate` e ignorado.
     expect(faixaValida({ de: 10, ate: 50, pontos: 1 })).toBe(true)
     expect(pontosDaFaixa({ de: 10, ate: 50, pontos: 1 })).toEqual([10])
     expect(pontosDaFaixa({ de: 25, ate: 25, pontos: 1 })).toEqual([25])
     // e continua sujeito aos limites
     expect(faixaValida({ de: 0, ate: 0, pontos: 1 })).toBe(false)
-    expect(faixaValida({ de: 10, ate: 0, pontos: 1 })).toBe(false)
+    expect(faixaValida({ de: 10, ate: MENOR_DEGRAU - 1, pontos: 1 })).toBe(false)
     expect(faixaValida({ de: MAIOR_DEGRAU + 1, ate: MAIOR_DEGRAU + 1, pontos: 1 })).toBe(false)
     expect(faixaValida({ de: 10, ate: 50, pontos: 6 })).toBe(false)
     expect(faixaValida(FAIXA_PADRAO)).toBe(true)
@@ -514,10 +518,28 @@ describe('a varredura', () => {
   })
 
   it('diz o que consertar, na ordem em que a pessoa digita', () => {
-    expect(problemaDaVarredura({ minimo: 0, maximo: 40, intermediarios: 1 })).toMatch(/entre 1% e 200%/)
-    expect(problemaDaVarredura({ minimo: 10, maximo: 250, intermediarios: 1 })).toMatch(/200%/)
+    expect(problemaDaVarredura({ minimo: -96, maximo: 40, intermediarios: 1 })).toMatch(/-95%/)
+    expect(problemaDaVarredura({ minimo: 10, maximo: 501, intermediarios: 1 })).toMatch(/\+500%/)
     expect(problemaDaVarredura({ minimo: 40, maximo: 10, intermediarios: 1 })).toMatch(/maior ou igual/)
+    expect(problemaDaVarredura({ minimo: 0, maximo: 0, intermediarios: 0 })).toMatch(/0% é a própria rodada/)
+    expect(problemaDaVarredura({ minimo: NaN, maximo: 40, intermediarios: 1 })).toMatch(/digite/)
     expect(problemaDaVarredura({ minimo: 10, maximo: 40, intermediarios: 1 })).toBeNull()
+  })
+
+  it('a variação pode ser negativa — "e se o CAPEX fosse menor?"', () => {
+    expect(degrausDaVarredura({ minimo: -50, maximo: -10, intermediarios: 1 })).toEqual([-50, -30, -10])
+    expect(degrausDaVarredura({ minimo: -95, maximo: -95, intermediarios: 0 })).toEqual([-95])
+    // Passando pelo zero: ele é a rodada de origem, e sai.
+    expect(degrausDaVarredura({ minimo: -20, maximo: 20, intermediarios: 3 })).toEqual([-20, -10, 10, 20])
+    // Até +500%.
+    expect(degrausDaVarredura({ minimo: 100, maximo: 500, intermediarios: 3 })).toEqual([100, 200, 300, 400, 500])
+    // Meio para cima também no negativo, como o servidor: -10,5 → -10.
+    expect(degrausDaVarredura({ minimo: -11, maximo: -10, intermediarios: 1 })).toEqual([-11, -10])
+  })
+
+  it('o degrau se escreve com o sinal', () => {
+    expect(pctDoDegrau(10)).toBe('+10%')
+    expect(pctDoDegrau(-10)).toBe('-10%')
   })
 
   it('o padrão vale', () => {
