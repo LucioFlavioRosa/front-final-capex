@@ -156,6 +156,15 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
   const disparar = useDispararVariacao()
   /** Quantos já foram para a fila neste play — só enquanto o play está em curso. */
   const [enfileirando, setEnfileirando] = useState<{ feito: number; total: number } | null>(null)
+  /**
+   * OS PONTOS QUE JÁ EXISTIAM NA CURVA DE OUTRA RODADA, acumulados durante o play.
+   *
+   * `useMutation` guarda só a ÚLTIMA resposta: com três pedidos em sequência, um
+   * `naCurva: false` no primeiro seria sobrescrito pelo sucesso do segundo, e a
+   * explicação de por que aquele ponto não apareceu se perderia. Aqui cada uma
+   * fica, e a lista zera no próximo play.
+   */
+  const [foraDaCurva, setForaDaCurva] = useState<{ degrau: number; runId: string }[]>([])
 
   /**
    * A ANÁLISE RODA EM MODO RÁPIDO, e isso não é escolha na tela.
@@ -252,20 +261,29 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
    */
   const play = async () => {
     setEnfileirando({ feito: 0, total: aDisparar.length })
+    setForaDaCurva([])
     try {
       for (const [i, s] of aDisparar.entries()) {
         const m = modoDoDegrau(s)
-        await disparar.mutateAsync({
+        const resposta = await disparar.mutateAsync({
           runId: meta.runId,
           fator: fatorDoDegrau(s.degrau),
           nome: `${m === 'rapido' ? 'estimativa' : 'simulação'} +${s.degrau}% de CAPEX`,
           modo: m,
         })
+        if (resposta.jaExistia && resposta.naCurva === false) {
+          setForaDaCurva((lista) => [...lista, { degrau: s.degrau, runId: resposta.runId }])
+        }
         setEnfileirando({ feito: i + 1, total: aDisparar.length })
       }
     } catch {
       // O erro já está em `disparar.error`; o play para aqui.
     } finally {
+      // O BOTÃO SÓ VOLTA DEPOIS QUE A CURVA SOUBE DOS PEDIDOS. Sem isto havia
+      // uma janela de segundos em que os POSTs já tinham voltado 201, mas a
+      // consulta ainda dizia "vai rodar" para os três — e o botão, habilitado
+      // sobre dado velho, aceitava um segundo play da mesma varredura.
+      await consulta.refetch()
       setEnfileirando(null)
     }
   }
@@ -382,19 +400,22 @@ export function PainelSensibilidade({ meta }: { meta: RunMeta }) {
             tinha sido rodado e já pertence à curva de outra rodada, ele devolve
             aquela em vez de abrir uma nova. Sem esta linha, o clique respondia
             "deu certo" e o ponto continuava faltando no gráfico, sem explicação. */}
-        {disparar.data?.jaExistia && disparar.data.naCurva === false && (
-          <p className="mt-3 rounded-xl border border-ink-200 bg-ink-50 px-3.5 py-2.5 text-[12.5px] text-ink-600">
-            Essa variação já foi simulada, mas é ponto da curva de outra rodada —
-            por isso ela não entra neste gráfico. Abra{' '}
+        {foraDaCurva.map((f) => (
+          <p
+            key={f.degrau}
+            className="mt-3 rounded-xl border border-ink-200 bg-ink-50 px-3.5 py-2.5 text-[12.5px] text-ink-600"
+          >
+            +{f.degrau}% já foi simulado, mas é ponto da curva de outra rodada — por isso
+            não entra neste gráfico. Abra{' '}
             <Link
-              to={`/resultados/${disparar.data.runId}`}
+              to={`/resultados/${f.runId}`}
               className="font-semibold text-water-700 underline underline-offset-2"
             >
-              o resultado dela
+              o resultado dele
             </Link>
             .
           </p>
-        )}
+        ))}
 
         {emExecucao?.ponto && (
           <SinalDeVida

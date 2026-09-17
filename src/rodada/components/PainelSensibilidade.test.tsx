@@ -460,11 +460,72 @@ describe('a variação que pertence a outra curva', () => {
     abrir()
     await userEvent.click(await screen.findByRole('button', { name: /Rodar 3 pontos/ }))
 
-    expect(await screen.findByText(/é ponto da curva de outra rodada/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'o resultado dela' })).toHaveAttribute(
+    // Os três pedidos voltaram "de outra curva": três explicações, uma por
+    // degrau — e não só a do último, que é o que `useMutation` guardaria.
+    const avisos = await screen.findAllByText(/é ponto da curva de outra rodada/)
+    expect(avisos).toHaveLength(3)
+    expect(screen.getAllByRole('link', { name: 'o resultado dele' })[0]).toHaveAttribute(
       'href',
       '/resultados/run_de_outra_base',
     )
+  })
+
+  it('a explicação do primeiro pedido sobrevive ao sucesso do segundo', async () => {
+    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
+    let n = 0
+    servidor.use(
+      http.post('/api/runs/:runId/variacao', () => {
+        n += 1
+        return n === 1
+          ? HttpResponse.json({ runId: 'de_outra', status: 'SUCESSO', jaExistia: true, naCurva: false })
+          : HttpResponse.json({ runId: `novo_${n}`, status: 'PENDENTE', jaExistia: false, naCurva: true })
+      }),
+    )
+
+    abrir()
+    await userEvent.click(await screen.findByRole('button', { name: /Rodar 3 pontos/ }))
+
+    expect(await screen.findByText(/\+10% já foi simulado/)).toBeInTheDocument()
+    await waitFor(() => expect(n).toBe(3))
+    expect(screen.getAllByText(/é ponto da curva de outra rodada/)).toHaveLength(1)
+  })
+
+  it('o botão só volta depois que a curva soube dos pedidos', async () => {
+    // Os POSTs voltam 201 antes de a consulta trazer os pontos em fila. Nessa
+    // janela o botão dizia "Rodar 3 pontos" de novo, sobre dado velho.
+    let pedidos = 0
+    servidor.use(
+      http.get('/api/runs/:runId/sensibilidade', () =>
+        HttpResponse.json({
+          teto: TETO,
+          pontos:
+            pedidos === 0
+              ? [BASE_PONTO]
+              : [
+                  BASE_PONTO,
+                  ...[10, 20, 30].map((degrau) => ({
+                    ...BASE_PONTO,
+                    degrau,
+                    runId: `v${degrau}`,
+                    status: 'PENDENTE',
+                    vpl: null,
+                    coberturaFimPct: null,
+                  })),
+                ],
+        }),
+      ),
+      http.post('/api/runs/:runId/variacao', () => {
+        pedidos += 1
+        return HttpResponse.json({ runId: `v${pedidos}`, status: 'PENDENTE', jaExistia: false })
+      }),
+    )
+
+    abrir()
+    await userEvent.click(await screen.findByRole('button', { name: /Rodar 3 pontos/ }))
+
+    const botao = await screen.findByRole('button', { name: /Na fila/ })
+    expect(botao).toBeDisabled()
+    expect(pedidos).toBe(3)
   })
 })
 
