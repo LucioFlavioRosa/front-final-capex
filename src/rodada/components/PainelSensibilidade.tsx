@@ -639,7 +639,15 @@ function PlanoDaVarredura({ situacao }: { situacao: SituacaoDoDegrau[] }) {
  */
 function Teto({ teto }: { teto: TetoDeSensibilidade }) {
   const vezes = vezesOOrcamento(teto)
-  const maiorDegrau = teto.degraus[teto.degraus.length - 1]
+  /**
+   * SÓ OS DEGRAUS POSITIVOS. O teto é uma pergunta sobre dinheiro A MAIS —
+   * "quantas das que ficaram fora cabem na folga?" — e para uma redução a
+   * folga é negativa: nada cabe, e a linha voltaria com o piso, lendo como
+   * "com -50% cabem 8". Para menos, a resposta é o solver, e a tela diz isso.
+   */
+  const acrescimos = teto.degraus.filter((d) => d.degrau > 0)
+  const reducoes = teto.degraus.length - acrescimos.length
+  const maiorDegrau = acrescimos[acrescimos.length - 1]
   const fracaoMaxima = teto.subbaciasFora
     ? (maiorDegrau?.subbaciasNoMaximo ?? 0) / teto.subbaciasFora
     : 0
@@ -668,13 +676,27 @@ function Teto({ teto }: { teto: TetoDeSensibilidade }) {
             orçamento desta rodada
           </>
         )}
-        . Com +{maiorDegrau?.degrau ?? 50}%, no máximo{' '}
-        <strong className="font-semibold text-ink-800">
-          {inteiro(maiorDegrau?.subbaciasNoMaximo ?? 0)}
-        </strong>{' '}
-        delas ({pct(fracaoMaxima * 100)}) caberiam no dinheiro a mais —{' '}
-        {brlMi(maiorDegrau?.folga ?? 0)} somados os{' '}
-        {teto.anosDoPlano > 0 ? `${teto.anosDoPlano} anos` : 'anos'} do plano.
+        .
+        {maiorDegrau && (
+          <>
+            {' '}
+            Com {pctDoDegrau(maiorDegrau.degrau)}, no máximo{' '}
+            <strong className="font-semibold text-ink-800">
+              {inteiro(maiorDegrau.subbaciasNoMaximo)}
+            </strong>{' '}
+            delas ({pct(fracaoMaxima * 100)}) caberiam no dinheiro a mais —{' '}
+            {brlMi(maiorDegrau.folga)} somados os{' '}
+            {teto.anosDoPlano > 0 ? `${teto.anosDoPlano} anos` : 'anos'} do plano.
+          </>
+        )}
+        {reducoes > 0 && (
+          <>
+            {' '}
+            Reduzir o CAPEX não traz sub-bacia nenhuma: o teto só responde a dinheiro a
+            mais — para {reducoes === 1 ? 'a redução' : 'as reduções'} da faixa, a resposta é
+            a simulação.
+          </>
+        )}
         {teto.subbaciasSemCapexProprio > 0 && (
           <>
             {' '}
@@ -685,6 +707,7 @@ function Teto({ teto }: { teto: TetoDeSensibilidade }) {
         )}
       </p>
 
+      {acrescimos.length > 0 && (
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[420px] border-collapse text-[12px] tabular-nums">
           <caption className="sr-only">
@@ -708,7 +731,7 @@ function Teto({ teto }: { teto: TetoDeSensibilidade }) {
             </tr>
           </thead>
           <tbody>
-            {teto.degraus.map((d) => (
+            {acrescimos.map((d) => (
               <tr key={d.degrau} className="border-t border-ink-200/70">
                 <th
                   scope="row"
@@ -733,6 +756,7 @@ function Teto({ teto }: { teto: TetoDeSensibilidade }) {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   )
 }
@@ -762,7 +786,10 @@ function QuadroDeObras({
   comparativo: ComparativoDeObras
   orcamento: number | null
 }) {
-  const ultimo = comparativo.porDegrau[comparativo.porDegrau.length - 1]
+  // O MAIOR DEGRAU NÃO ZERO, e não "o último da lista": numa curva só de
+  // reduções (-50..-10) o último ordenado é o zero da base, e o subtítulo
+  // dizia "hoje → hoje com 0%".
+  const ultimo = comparativo.porDegrau.filter((d) => d.degrau !== 0).at(-1)!
   const dinheiro = orcamento === null ? null : dinheiroDoDegrau(orcamento, ultimo.degrau)
 
   return (
@@ -927,7 +954,8 @@ function Curva({
     }))
 
   const base = dados.find((d) => d.degrau === 0)?.valor ?? null
-  const ultimo = dados[dados.length - 1]
+  // O maior degrau NÃO ZERO: com só reduções, o último ordenado seria a base.
+  const ultimo = dados.filter((d) => d.degrau !== 0).at(-1)
   /** Quanto muda entre a rodada atual e o maior degrau já rodado. */
   const variacao = base !== null && ultimo ? ultimo.valor - base : null
 
@@ -935,7 +963,7 @@ function Curva({
     <QuadroGrafico
       titulo={medida.titulo}
       subtitulo={
-        variacao === null
+        variacao === null || !ultimo
           ? medida.nota
           : `${medida.formatar(base as number)} → ${medida.formatar(ultimo.valor)} com ${pctDoDegrau(ultimo.degrau)}${
               orcamento === null

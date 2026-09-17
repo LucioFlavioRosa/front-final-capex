@@ -605,6 +605,38 @@ describe('a varredura', () => {
     expect(String(corpos[0].nome)).toContain('-20%')
   })
 
+  it('numa curva só de reduções, a referência é o maior degrau não zero — e não a base', async () => {
+    servirSensibilidade({
+      teto: TETO,
+      pontos: [
+        BASE_PONTO,
+        { ...BASE_PONTO, degrau: -50, runId: 'm50', coberturaFimPct: 40, obras: obras({ 'Rede coletora': 9, Tronco: 8, 'ETE (módulo)': 20 }) },
+        { ...BASE_PONTO, degrau: -10, runId: 'm10', coberturaFimPct: 43, obras: obras({ 'Rede coletora': 12, Tronco: 10, 'ETE (módulo)': 23 }) },
+      ],
+    })
+    abrir()
+    expect(await screen.findByText('Cobertura ao fim')).toBeInTheDocument()
+    // "43,8% → 43,0% com -10%", e não "hoje → hoje com 0%".
+    expect(screen.getByText(/43,0% com -10%/)).toBeInTheDocument()
+    expect(screen.queryByText(/com 0%/)).not.toBeInTheDocument()
+    expect(screen.getByText(/46 hoje → 45 com -10%/)).toBeInTheDocument()
+  })
+
+  it('o teto só fala de dinheiro a mais: numa faixa de reduções, diz que a resposta é a simulação', async () => {
+    servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
+    abrir()
+    const { minimo, maximo, entre } = await campos()
+    await userEvent.clear(minimo)
+    await userEvent.type(minimo, '-20')
+    await userEvent.clear(maximo)
+    await userEvent.type(maximo, '-10')
+    await userEvent.selectOptions(entre, '0')
+
+    expect(await screen.findByText(/Reduzir o CAPEX não traz sub-bacia nenhuma/)).toBeInTheDocument()
+    expect(screen.queryByText(/caberiam no dinheiro a mais/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
   it('mínimo igual ao máximo é um ponto só', async () => {
     servirSensibilidade({ teto: TETO, pontos: [BASE_PONTO] })
     abrir()
