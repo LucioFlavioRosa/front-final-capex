@@ -1,47 +1,47 @@
 # Retomar daqui
 
-Pausado em **24/08/2026**. Este arquivo é o ponto de entrada: onde as peças estão,
-como pôr no ar, o que está pronto e o que ficou em aberto.
+Este arquivo é o ponto de entrada do repositório: o que este front é, onde as
+peças estão, como pôr no ar, o que ele faz e o que está em aberto. Ele descreve
+o estado atual — não o caminho até ele.
 
 ---
 
 ## 1 · O que é este repositório
 
-O front do Cadastro do Otimizador CAPEX, na linha do protótipo que o cliente pediu
-(React 18 + Vite + TS + Tailwind), ligado ao backend que já existia.
+O front do Otimizador CAPEX (React 18 + Vite + TypeScript + Tailwind), ligado ao
+backend FastAPI. Duas regras valem como invariante:
 
-Duas decisões dele valem como invariante, e não como preferência:
-
-- **Mantém o backend, modifica o front.** Mudança no servidor só quando não há como
-  resolver do lado de cá — foi o caso de expor campos que o banco tinha e a API não
-  mandava.
-- **Nada mockado.** Todo dado vem do backend, que consulta o Postgres. `src/data/mock.ts`
-  e `src/data/ses.ts` foram apagados por isso; se algo parecer precisar de mock, é sinal
-  de que falta rota, não de que falta fixture.
+- **Mantém o backend, modifica o front.** Mudança no servidor só quando não há
+  como resolver do lado de cá — expor dado que o banco tem e a API não manda.
+- **Nada mockado.** Todo dado vem do backend, que consulta o Postgres. Se algo
+  parecer precisar de mock, falta rota, não fixture.
 
 ## 2 · Onde está cada coisa
 
-| | repositório | branch | último commit |
-|---|---|---|---|
-| **Front** (este) | `LucioFlavioRosa/front-final-capex` | `main` | `a85857e` |
-| **Backend** | `LucioFlavioRosa/back` | `feat/executor-com-lease-e-4-paralelo` | (ver §6) |
+| | repositório | branch |
+|---|---|---|
+| **Front** (este) | `LucioFlavioRosa/front-final-capex` | `main` |
+| **Backend** | `LucioFlavioRosa/back` | ver `git branch` — o trabalho corrente costuma estar numa `feat/*` |
 
-Na máquina: o backend em `~/projetos/otimizador-backend`, o front original — que segue
-sendo a referência de completude — em `~/projetos/otimizador-cadastro-web`, e o motor em
-`~/projetos/pacote-otimizador-main` (**não** é repositório git).
+Na máquina: o backend em `~/projetos/otimizador-backend`, o front original
+(referência de completude, porta 8080) em `~/projetos/otimizador-cadastro-web`,
+e o motor em `~/projetos/pacote-otimizador-main` (**não** é repositório git).
 
 ## 3 · Pôr no ar
 
 O guia completo é `SUBIR_LOCAL.md`, no repositório do backend. O caminho curto:
 
 ```bash
-# backend + banco + fila
+# backend + banco + fila (containers já criados: start, NÃO up)
 cd ~/projetos/otimizador-backend
-docker compose -f docker-compose.yml -f docker-compose.e2e.yml start   # start, NÃO up
+docker compose -f docker-compose.yml -f docker-compose.e2e.yml start
 
-# este front
+# o executor da rodada, FORA do Docker (sem ele a rodada fica PENDENTE)
+python -u dev/worker.py --tempo 1000
+
+# este front (serviço `ses-web`; --build quando o código mudou)
 cd <este repositório>
-docker compose -f docker-compose.local.yml up -d ses-web               # serviço: ses-web
+docker compose -f docker-compose.local.yml up -d --build ses-web
 ```
 
 | endereço | o que é |
@@ -51,89 +51,109 @@ docker compose -f docker-compose.local.yml up -d ses-web               # serviç
 | `localhost:8000` | a API (`/readyz`, rotas sob `/api`) |
 | `localhost:55432` | Postgres (`otim` / `otim` / `otimizador`) |
 
-> ### O banco mora no volume `db-dados`
->
-> O serviço `db` usa um volume **nomeado**, declarado no `docker-compose.yml` do backend. Ele
-> sobrevive a `up`, a `down` e ao `docker volume prune`; some só com `docker compose down -v`.
->
-> Se sumir mesmo assim, a volta são os dumps: `dev/cadastro_base.dump` no repositório do
-> backend traz o cadastro do §4, e `otimizador_completo_20260824.dump` (OneDrive do Teams)
-> traz também as 47 rodadas já executadas. É o passo 3 do `SUBIR_LOCAL.md`.
+O banco mora no volume nomeado `db-dados` (declarado no `docker-compose.yml`
+do backend): sobrevive a `up`, `down` e `docker volume prune`; some só com
+`down -v`. Os dumps de volta são `dev/cadastro_base.dump` no repositório do
+backend (só cadastro) e `otimizador_completo_*.dump` no OneDrive do Teams
+(cadastro + rodadas). Para conferir dado, use o dump completo mais recente em
+`Downloads`, restaurado num banco à parte — o banco de desenvolvimento é
+parcialmente semeado e engana.
 
-## 4 · Em que estado o banco está
+## 4 · O que o front faz
 
-O dump do backend reproduz exatamente isto:
+**Cadastro** (`/cadastro`, `src/components/ses/cadastro`, `src/domain`,
+`src/lib/cadastroApi.ts`)
 
-| | |
-|---|---|
-| ids das CTS | 337, todos no padrão `cts_001` — sem sub-bacia no nome |
-| CTS esperando sistema | 151 (cadastradas, ainda não colocadas em sistema nenhum) |
-| régua de cobertura | as 141 cidades preenchidas |
-| trilha de auditoria | 283 linhas, **zero órfãs** em qualquer tipo |
-| rodadas | nenhuma — você gera as suas |
+- A ponte com o backend é `cadastroApi.ts`: lê 5 endpoints e monta as abas do
+  `SCHEMA` (`src/data/cadastroUnidade/schema.ts`). `lerCadastro` devolve a
+  `BaseDoCadastro` — o payload cru —, e `salvarCadastro` grava ficha a ficha só
+  o que mudou em relação a ela; sem base, recusa (`CadastroSemLeitura`).
+- Ordem do Salvar: empresa, contrato, sub-bacias, ETEs, unidade (desmarcar
+  macrorregião), **topologia**, **fichas de CTS**, unidade (marcar). A ficha da
+  CTS vai depois da topologia porque a ficha da macrorregião nasce no servidor
+  na colocação.
+- **Macrorregião de CTS** é regime da unidade (caixa na aba Unidade, grava na
+  hora e relê). Marcada, cada sistema aceita uma CTS e o Fluxo oferece
+  macrorregiões; desmarcada, aceita várias e oferece coletores. O motor não
+  conta CTS por sistema; isso é cadastro. Não confundir com `USAR_CTS`, o
+  parâmetro de rodada (Sim/Não) que decide se a CTS entra na simulação.
+- A CTS pertence ao SISTEMA (`sistema-topologia`); `subbacia-cts` é
+  sobreposição de área, não pertinência, e não aparece na tela.
+- **CTS fora de sistema** vêm na leitura (`GET /cts?incluirLivres=1`) com a
+  ficha e as obras da origem, sistema em branco. Elas não contam na completude
+  nem no portão da Revisão (`linhasQueContam`, `validarTopologia`): o motor só
+  lê o que está num sistema.
+- **Planilha do cadastro** (aba Unidade, cartão abaixo da caixa de
+  macrorregião): "Baixar planilha preenchida" gera um `.xlsx` com o cadastro
+  inteiro — `Leia-me`, uma aba por aba visível, aba de apoio `Sistemas` —, e
+  "Importar planilha preenchida" mescla a volta no estado da tela. Nada é
+  gravado na importação; Salvar é o mesmo de sempre. O modelo e a mescla estão
+  em `src/domain/planilha.ts`; o arquivo em `src/lib/planilhaCadastro.ts`
+  (exceljs, carregado sob demanda). Regras: só colunas que a unidade preenche
+  voltam; ids não mudam; a aba Unidade carrega o `unidade_id` e o regime, e
+  arquivo de outra unidade ou de outro regime é recusado (no segundo caso, só
+  as abas de CTS); Metas de cobertura e Escala de paridade são listas (a do
+  arquivo substitui a da tela) e toda cidade sem registro ganha uma
+  linha-modelo no arquivo; a CTS livre entra num sistema pela coluna
+  `sistema_id` de "Dados da CTS" (id ou nome) — mudar ou sair é pela tela; a
+  caixa da macrorregião é só leitura na planilha.
+- Recorte por nível: as abas grandes abrem recortadas pela barra de escopo
+  (empresa · sistema · cidade), derivado no render.
+- Editar/Salvar por botão; não existe "abrir todos os sistemas".
 
-## 5 · O que está pronto
+**Simular** (`/simular`, `src/rodada/pages/Simular.tsx`): os parâmetros da
+rodada (orçamento, janela, base de receita, cobertura medida em, objetivo,
+usar CTS Sim/Não, recorte da cobertura), a prontidão da unidade e o disparo.
 
-- Adaptação ao backend: a ponte é `src/lib/cadastroApi.ts`, que lê 5 endpoints e monta as
-  15 abas. `ultimaLeitura` guarda o payload cru como base do diff — e é por isso que
-  `salvarCadastro` recusa gravar sem uma leitura da mesma sessão.
-- Recorte por nível: as abas grandes abrem recortadas (a de obras vai de 3.755 linhas
-  para 5), derivado **durante o render** e não num efeito.
-- Performance: abrir Sub-bacias custava 3.084ms para pintar UMA linha; hoje 17ms. A causa
-  eram os funis de coluna refazendo `Set` + ordenação a cada render, com o painel fechado.
-- Campos: as 4 colunas residenciais, `ticket_medio` (derivado, só leitura), e a janela da
-  obra (`obra_obrigatoria_ano`, `obra_proibida_ate`) nas **três** abas de obra.
-- "Cobertura medida em" é PARÂMETRO DE RODADA, na tela de Simular, com as
-  três réguas. Saiu do cadastro na migração 019.
-- Editar/Salvar por botão, excluir CTS do sistema, e a caixa **"esta unidade usa
-  macrorregião de CTS"** — na aba da unidade, não por sistema. Marcada, cada sistema
-  aceita UMA CTS; desmarcada (microrregião), aceitam várias. É cadastro: o motor não
-  conta CTS por sistema. Não confundir com `USAR_CTS`, parâmetro de rodada que decide
-  se a CTS existe na simulação.
+**Resultados** (`/resultados/:runId`, `src/rodada`): visão global com abas
+(plano, por quê, sensibilidade, mapeamento por cidade), cidade, sistema,
+sub-bacia e obra; histórico e comparação de rodadas; sensibilidade como
+varredura de variação de CAPEX (−95% a +500%), acompanhando a fila do
+servidor.
 
-### Testes — três suítes, cada uma com um propósito
+## 5 · Testes
 
 ```bash
 npm run lint             # tsc --noEmit
-npm test                 # 184 unitários, com MSW
-npm run test:integracao  # 26, contra o backend REAL (precisa dele no ar)
-npm run test:perf        # 3, medição — fileParallelism: false de propósito
+npm test                 # unitários, com MSW
+npm run test:integracao  # contra o backend REAL (precisa dele no ar; grava e restaura)
+npm run test:perf        # medição — fileParallelism: false de propósito
 ```
 
-No backend, `python -m pytest -q` — mas com `POSTGRES_URL` apontando para o banco, senão
-**5 testes se pulam em silêncio**, entre eles o que valida a lista de campos inteiros
-contra o schema real:
+No backend, `python -m pytest -q` — com `POSTGRES_URL` apontando para o banco,
+senão os testes de banco pulam em silêncio:
 
 ```bash
 POSTGRES_URL="postgresql://otim:otim@localhost:55432/otimizador" python -m pytest -q
 ```
 
-Um deles (`janelaDaObra.integracao`) **escreve no banco real** e restaura no `afterAll`.
-Não rode sondagem manual em paralelo: sujar o dado no meio faz o teste reportar como
-defeito algo que foi você.
+Não rode sondagem manual em paralelo com a suíte de integração: ela escreve no
+banco real e restaura no fim.
 
-## 6 · O que ficou em aberto — decisões suas
+## 6 · Em aberto
 
-1. **A uB2 continua com suas 186 CTS atreladas.** Nunca foi decidido se elas ficam ou se
-   voltam para a lista de "esperando sistema", como as 151 da uB1.
-2. **A correção definitiva dos ids das CTS é na planilha do Databricks.** Enquanto ela
-   gerar `cts_d1b100_1_1`, o script `dev/normalizar_ids_cts.sql` tem de rodar depois de
-   cada carga. Ele é idempotente e trava as tabelas enquanto roda.
-3. **`unidade_capacidade` da ETE** — o motor lê (`otimizador_capex_v62.py:1323`) e o banco
-   tem valor real (`L/s`), mas API e tela não expõem. Não há perda de dado (o PUT não toca
-   no campo); é lacuna funcional. Ficou de fora por ser assunto diferente da janela da obra.
-4. **O front original (`:8080`) segue no ar em paralelo.** Nunca foi dito quando ele sai.
+1. **Teste de integração `unidadeDoCadastro › recusa a SEGUNDA CTS`** falha:
+   escolhe uma macrorregião livre de uma empresa e um sistema vazio de outra,
+   e o servidor recusa pela regra "macrorregião só entra em sistema da empresa
+   que a opera". O teste precisa escolher sistema da mesma empresa.
+2. A uB2 continua com suas 186 CTS colocadas; nunca foi decidido se ficam.
+3. Os ids das CTS nascem `cts_d1b100_1_1` na planilha do Databricks; enquanto
+   isso, `dev/normalizar_ids_cts.sql` (backend) roda após cada carga.
+4. `unidade_capacidade` da ETE: o motor lê e o banco tem, mas API e tela não
+   expõem.
+5. Quando o front original (`:8080`) sai do ar.
 
-## 7 · Armadilhas que já custaram caro
+## 7 · Armadilhas
 
-- **O `PUT` substitui a ficha inteira.** Campo que a tela não manda vira `NULL` no banco.
-  Foi assim que a régua de cobertura de 21 cidades foi apagada — restaurada pela trilha de
-  auditoria. Ao acrescentar coluna, confira os **dois** sentidos da ponte.
-- **Campo derivado não volta na gravação.** `ticket_medio` e `capacidade_ociosa` são conta
-  do servidor; devolvê-los faria o cliente responder uma conta que o servidor mesmo fez.
-- **Ano não é quantidade.** `pt_br(2028)` devolve `"2.028"`. Existe `pt_br_ano` para isso.
-- **A CTS pertence ao SISTEMA** (linha em `input.sistema_topologia`). `input.subbacia_cts`
-  é sobreposição de **área**, não pertinência — a relação CTS↔sub-bacia não existe mais.
-- **Revisão do Codex no Windows:** pelo plugin ele nunca executa (`blocked by policy`).
-  Pelo CLI direto funciona:
-  `codex exec --sandbox danger-full-access --skip-git-repo-check "$(cat prompt.md)"`
+- **O `PUT` substitui a ficha inteira.** Campo que a tela não manda vira `NULL`
+  no banco. Ao acrescentar coluna, confira os **dois** sentidos da ponte.
+- **Campo derivado não volta na gravação.** `ticket_medio` e `capacidade_ociosa`
+  são conta do servidor.
+- **Número viaja como texto pt-BR estrito** (`1.234,5`); ano sem separador de
+  milhar (`pt_br_ano` no servidor, `COLUNAS_SEM_SEPARADOR` na planilha).
+- **As linhas sem sistema da topologia carregam `emp_codigo`, `cidade_id` e
+  `macro`**, que não são colunas da grade — o seletor de CTS depende delas.
+  Toda mescla parte das linhas da tela.
+- **Revisão do Codex no Windows:** pelo CLI direto, e com `stdin` fechado
+  quando em segundo plano:
+  `codex exec --sandbox danger-full-access --skip-git-repo-check -o relatorio.md "$(cat prompt.md)" < /dev/null`

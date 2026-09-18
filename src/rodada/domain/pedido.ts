@@ -33,7 +33,7 @@ const ROTULOS: Record<string, string> = {
   DATA_INICIO: 'Data de início',
   CURVA_ADOCAO: 'Curva de adoção',
   BASE_RECEITA: 'Base de receita',
-  USAR_CTS: 'Coletores de tempo seco',
+  USAR_CTS: 'Usar Coletores de tempo seco (CTS)',
   COBERTURA_SO_RESIDENCIAL: 'Recorte da cobertura',
   ANOS_EXTRA_CONCLUSAO: 'Anos extras para concluir',
   INCLUIR_INDUSTRIAL: 'Incluir indústria',
@@ -106,10 +106,17 @@ export function valorDoParametro(chave: string, v: unknown): string {
  * Devolve sempre pelo menos um elemento, para nenhum chamador precisar tratar
  * lista vazia.
  */
+/**
+ * "USAR CTS: SIM | NÃO" — as duas palavras do controle, e as mesmas em todo
+ * resumo. A pergunta é uma só (os coletores entram ou não); o efeito de cada
+ * resposta no motor está no dicionário, não na pílula.
+ */
+export const rotuloUsarCts = (v: boolean): string => (v ? 'Sim' : 'Não')
+
 export function segmentosDoParametro(chave: string, v: unknown): string[] {
   if (v === null || v === undefined || v === '') return ['—']
   if (chave === 'USAR_CTS' && typeof v === 'boolean') {
-    return [v ? 'orçar à parte' : 'somar à sub-bacia']
+    return [rotuloUsarCts(v)]
   }
   if (chave === 'COBERTURA_SO_RESIDENCIAL' && typeof v === 'boolean') {
     return [v ? 'só residenciais' : 'todas as ligações']

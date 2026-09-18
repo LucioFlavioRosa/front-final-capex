@@ -1,4 +1,4 @@
-import { rotuloObjetivo } from '@/rodada/domain/pedido'
+import { rotuloObjetivo, rotuloUsarCts } from '@/rodada/domain/pedido'
 import { Link, useParams } from 'react-router-dom'
 import { Estado } from '@/rodada/components/Estado'
 import { BotaoExportar } from '@/rodada/components/BotaoExportar'
@@ -47,9 +47,9 @@ import { idCurtoDaRodada } from '@/rodada/domain/rodadaId'
  *   `/ebitda`  → quadro próprio.
  *   `/cidades` → a tabela de drill-down.
  *   `/explicabilidade` → o resumo de "por que não fatura 100%", logo após a
- *                faixa de KPIs — usuários reportavam que descer até a
- *                sub-bacia (nível 4) só para entender o motivo do otimizador
- *                não era intuitivo. Quadro próprio, carrega e falha sozinho.
+ *                faixa de KPIs — descer até a sub-bacia (nível 4) só para
+ *                entender o motivo do otimizador não é intuitivo. Quadro
+ *                próprio, carrega e falha sozinho.
  */
 export function Global() {
   const { runId } = useParams<{ runId: string }>()
@@ -73,18 +73,11 @@ export function Global() {
   const trilha = useTrilhaCompleta(runId, meta.data?.nome)
 
   /**
-   * O TEMA DO MAPEAMENTO NÃO É APLICADO AQUI. Até 09/09/2026 este componente
-   * condicionava `rr-tela rr-noturno`/`rr-claro` na própria `<section>`
-   * quando `aba === 'mapa'`, porque na época "a tela inteira" queria dizer
-   * "a aba inteira, dentro desta página" — a faixa de KPI escurecia junto
-   * com o painel do mapa, mas Header/Footer/barra de abas ficavam de fora.
-   *
-   * Por pedido explícito de 09/09/2026, "a tela inteira" passou a incluir
-   * Header e Footer — que são irmãos desta página em `AppLayout`, fora do
-   * alcance de qualquer classe posta aqui. A âncora subiu para o `<html>`
-   * (`useTemaResultadosNoDocumento`, chamada uma vez em `AppLayout`), e o
-   * efeito é o mesmo (a faixa de KPI abaixo continua escurecendo com o
-   * resto), só que decidido lá em cima em vez de aqui.
+   * O TEMA DO MAPEAMENTO NÃO É APLICADO AQUI. Na aba do mapa, "a tela inteira"
+   * inclui Header e Footer — irmãos desta página em `AppLayout`, fora do
+   * alcance de qualquer classe posta nesta `<section>`. A âncora é o `<html>`
+   * (`useTemaResultadosNoDocumento`, chamada uma vez em `AppLayout`); a faixa
+   * de KPI abaixo escurece com o resto, decidido lá em cima.
    */
   return (
     <section className="animate-fade-in">
@@ -100,14 +93,14 @@ export function Global() {
             <FaixaKpi
               nivel="Nível 1 · Geral"
               titulo={m.nome || `Rodada ${idCurtoDaRodada(m.runId)}`}
-              /* SEM SUBTÍTULO. Aqui saía o `statusTexto` cru do solver —
-                 "OTIMO | obrig 3/9 | lexicografico: min metas_nao=2, 2a
-                 prior=cobertura". Dele, a única coisa que respondia a uma
-                 pergunta de negócio era a contagem de obrigatórias, que virou
-                 KPI abaixo (e sai de campo tipado, não de um `split` desta
-                 string). O resto é vocabulário do solver, e continua no payload
-                 e no histórico — que é onde ele serve, para explicar uma rodada
-                 que morreu entre o solver e a publicação. */
+              /* SEM SUBTÍTULO. O `statusTexto` cru do solver — "OTIMO | obrig
+                 3/9 | lexicografico: min metas_nao=2, 2a prior=cobertura" — não
+                 entra aqui: a única coisa dele que responde a uma pergunta de
+                 negócio é a contagem de obrigatórias, que é KPI abaixo (de
+                 campo tipado, não de um `split` desta string). O resto é
+                 vocabulário do solver, e fica no payload e no histórico — que é
+                 onde ele serve, para explicar uma rodada que morreu entre o
+                 solver e a publicação. */
               acoes={
                 <>
                   <BotaoParametros meta={meta.data} />
@@ -131,9 +124,9 @@ export function Global() {
                 aba !== 'porque'
                   ? { rotulo: 'VPL do plano', valor: brlMi(m.kpis.vpl), ajuda: 'VPL_PLANO' }
                   : {
-                      // OBRAS, e nao sub-bacias: a aba inteira passou a contar
-                      // obra, e um destaque em outra unidade fazia o numero de
-                      // cima nao fechar com nada do quadro logo abaixo.
+                      // OBRAS, e nao sub-bacias: a aba inteira conta obra, e um
+                      // destaque em outra unidade nao fecharia com nada do
+                      // quadro logo abaixo.
                       rotulo: 'Obras fora do plano',
                       // `deTotal` e nao o absoluto: 7.799 sozinho nao diz se e
                       // muito. "de 8.079" diz, e e a mesma regua do quadro
@@ -147,11 +140,10 @@ export function Global() {
               }
               itens={aba === 'porque' ? [
                 {
-                  // A SUB-BACIA DESCE DO DESTAQUE PARA CA quando a aba passou a
-                  // contar OBRA. Ela continua sendo informacao — quantos nos
-                  // ficaram sem faturar —, mas deixou de ser a manchete: o que
-                  // entra ou nao no plano e a obra, e era isso que o destaque
-                  // precisava dizer.
+                  // A SUB-BACIA FICA AQUI, E NAO NO DESTAQUE: e informacao —
+                  // quantos nos ficaram sem faturar —, mas nao e a manchete. O
+                  // que entra ou nao no plano e a obra, e e isso que o destaque
+                  // diz.
                   rotulo: 'Sub-bacias que não faturam',
                   valor: deTotal(
                     m.kpis.subbaciasTotal - m.kpis.subbaciasFaturando,
@@ -199,9 +191,8 @@ export function Global() {
                    * desconta inadimplência. Quem printa este card e manda por
                    * e-mail manda um número sem a régua dele.
                    *
-                   * Servidor antigo (ou rodada sem `params_extra`) não manda a
-                   * base: aí o rótulo volta a ser "Receita" seco, em vez de
-                   * afirmar uma das duas.
+                   * Rodada sem `params_extra` não traz a base: aí o rótulo é
+                   * "Receita" seco, em vez de afirmar uma das duas.
                    */
                   rotulo: m.parametros.baseReceita
                     ? `Receita (${m.parametros.baseReceita})`
@@ -292,10 +283,7 @@ export function Global() {
                     valor={`${inteiro(m.parametros.janelaCapex)} anos`}
                   />
                   <ItemRodape rotulo="Base de receita" valor={m.parametros.baseReceita} />
-                  <ItemRodape
-                    rotulo="Coletores de tempo seco"
-                    valor={m.parametros.usarCts ? 'orçar à parte' : 'somar à sub-bacia'}
-                  />
+                  <ItemRodape rotulo="Usar CTS" valor={rotuloUsarCts(m.parametros.usarCts)} />
                   <ItemRodape rotulo="Objetivo" valor={rotuloObjetivo(m.parametros.focoCobertura)} />
                   <ItemRodape rotulo="Criada por" valor={m.autor} />
                   <ItemRodape rotulo="Em" valor={dataHora(m.dataHora)} />
@@ -455,17 +443,11 @@ export function Global() {
 
                   </div>
 
-                  {/* O ÚLTIMO BLOCO DESTA ABA, a pedido.
-                      Depois dele vinha a seção "Cidades" — o quadro de cobertura
-                      × meta por cidade e os cartões para descer de nível —, e ela
-                      saiu inteira. A justificativa da época era que descer para
-                      uma cidade era papel da árvore de escopo, à esquerda; só
-                      que a árvore saiu no mesmo movimento, e por alguns dias o
-                      nível 1 não teve caminho NENHUM para o nível 2. Hoje o
-                      caminho é a aba "Mapeamento por Cidade": clicar no
-                      polígono abre o cartão, e o cartão leva à tela da cidade.
-                      É também onde a leitura de cobertura × meta por cidade
-                      voltou a existir, comparando cidades entre si. */}
+                  {/* O ÚLTIMO BLOCO DESTA ABA. Não há seção "Cidades" aqui: o
+                      caminho do nível 1 para o nível 2 é a aba "Mapeamento por
+                      Cidade" — clicar no polígono abre o cartão, e o cartão
+                      leva à tela da cidade. É lá que a leitura de cobertura ×
+                      meta por cidade vive, comparando cidades entre si. */}
                   <SecaoElementos anos={p.elementosPorAno} />
                 </>
               )}

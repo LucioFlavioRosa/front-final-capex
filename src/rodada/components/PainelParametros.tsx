@@ -6,6 +6,7 @@ import {
   ordenarParametros,
   rotuloDoParametro,
   rotuloObjetivo,
+  rotuloUsarCts,
   segmentosDoParametro,
 } from '@/rodada/domain/pedido'
 import type { RunMeta } from '@/rodada/domain/resultado'
@@ -115,7 +116,7 @@ function TabelaParametrosTipados({ meta }: { meta: RunMeta }) {
     ['Base de receita', p.baseReceita],
     ['Cobertura medida em', ROTULO_REGUA[p.unidadeCobertura] ?? p.unidadeCobertura],
     ['Objetivo', rotuloObjetivo(p.focoCobertura)],
-    ['Coletores de tempo seco', p.usarCts ? 'orçar à parte' : 'somar à sub-bacia'],
+    ['Usar CTS', rotuloUsarCts(p.usarCts)],
     ['Recorte da cobertura', p.coberturaSoResidencial ? 'só residenciais' : 'todas as ligações'],
   ]
   return (

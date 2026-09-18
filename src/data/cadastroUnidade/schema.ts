@@ -142,21 +142,17 @@ export const SELECTS: Record<string, [string, string][]> = {
   nova: [['Sim', 'Sim'], ['Não', 'Não']],
 
   /*
-   * A RÉGUA DA COBERTURA SAIU DAQUI (migração 019): não é dado de cadastro, é a
-   * lente com que se olha o cadastro, e virou parâmetro de rodada — na tela de
-   * Simular, valendo para a unidade inteira.
+   * A RÉGUA DA COBERTURA NÃO É CADASTRO: é a lente com que se olha o cadastro,
+   * e é parâmetro de rodada — na tela de Simular, valendo para a unidade
+   * inteira. Por isso não há select dela aqui.
    *
-   * O QUE ELA DEIXOU COMO AVISO: o valor gravado era o código (`ligacoes`) e o
-   * rótulo era a palavra em português, e mesmo com `<select>` uma cidade da base
-   * ficou anos com 'ligações' acentuado gravado no lugar do valor. Onde houver
-   * par código/rótulo, é o código que viaja.
+   * ONDE HOUVER PAR CÓDIGO/RÓTULO, É O CÓDIGO QUE VIAJA (`ligacoes`, e não
+   * "ligações"): gravar o rótulo deixa no banco um valor que nenhum código
+   * reconhece.
    *
-   * O texto abaixo era a continuação deste bloco, sobre as colunas de população
-   * na sub-bacia e na CTS. Elas continuam existindo; o que mudou é que ninguém
-   * mais as EXIGE pelo cadastro, porque a escolha que as exigia mora na rodada.
-   * Aqui as duas colunas já apareciam sempre, em
-   * `colsOperacionalComercial` — não há nada a mostrar ou esconder; o que muda é
-   * a conta de completude, e essa vem pronta do servidor.
+   * As colunas de população da sub-bacia e da CTS aparecem sempre
+   * (`colsOperacionalComercial`); quem as exige ou não é a régua escolhida na
+   * rodada, e a conta de completude que depende disso vem pronta do servidor.
    *
    * A receita NÃO segue a régua: é sempre por ligação, em qualquer das três.
    */
@@ -187,12 +183,13 @@ export const COLUNA_LABELS: Record<string, string> = {
    * EMPRESA · CIDADE).
    *
    * Colunas PRÓPRIAS, e não `unidade_id`/`unidade_name` reaproveitados, mesmo
-   * carregando hoje o mesmo valor: se EMPRESA é ou não a mesma coisa que
-   * UNIDADE é justamente a pergunta em aberto (§6). Colunas separadas deixam a
-   * resposta livre — se forem níveis distintos, cada uma já tem seu lugar; se
-   * forem a mesma coisa, some uma. Fundir agora seria decidir por antecipação.
+   * carregando o mesmo valor: se EMPRESA é ou não a mesma coisa que UNIDADE é
+   * justamente a pergunta em aberto (§6). Colunas separadas deixam a resposta
+   * livre — se forem níveis distintos, cada uma já tem seu lugar; se forem a
+   * mesma coisa, some uma. Fundir seria decidir por antecipação.
    */
   wacc_medio: 'WACC médio da unidade',
+  usa_macrorregiao_cts: 'Usa macrorregião de CTS?',
   ano_base: 'Ano-base do cronograma',
   // O ÚNICO QUE MANTÉM O NOME TÉCNICO, e de propósito. Os vizinhos seguem
   // `<nível>_id` e viram "ID Cidade", "ID Sistema"; a empresa não — a coluna se
@@ -207,8 +204,8 @@ export const COLUNA_LABELS: Record<string, string> = {
   sistema_name: 'Sistema',
   /**
    * A planilha chama de "componente do sistema", mas cada linha do Fluxo de
-   * escoamento é uma sub-bacia, uma ETE **ou** uma CTS — "Componente" fazia
-   * parecer que era só um dos cinco componentes de obra (Ligação/Rede/Coletor
+   * escoamento é uma sub-bacia, uma ETE **ou** uma CTS — "Componente" faria
+   * parecer que é um dos cinco componentes de obra (Ligação/Rede/Coletor
    * Tronco/EEE/Linha de recalque), que é outra coisa e existe como coluna
    * própria nas abas de CAPEX.
    *
@@ -651,30 +648,25 @@ export const SCHEMA: AbaDef[] = [
     key: 'cidade-operacional', icone: Buildings, titulo: 'Municípios', bloco: 'Município',
     /**
      * FORA DA TELA (`ocultaNoWizard`): as 4 colunas são 'db', não há o que
-     * preencher.
+     * preencher — a régua da cobertura é parâmetro de rodada, e emp_codigo,
+     * empresa, cidade_id e cidade_name já aparecem em Organização e em Empresas.
      *
-     * A aba se chamava RÉGUA DE COBERTURA e existia para um campo só —
-     * `unidade_cobertura`. Ele virou parâmetro de rodada e a aba ficou sem nada
-     * que a unidade informe: emp_codigo, empresa, cidade_id e cidade_name já
-     * aparecem em Organização e em Empresas.
+     * A ABA EXISTE porque o DADO serve: `cidade-operacional` é onde a tela do
+     * Fluxo acha o NOME da cidade de um sistema, é por ele que o seletor de CTS
+     * diz de qual município a lista é, e é dela que a planilha tira a
+     * linha-modelo por cidade nas listas de metas e faixas.
      *
-     * A ABA NÃO É APAGADA porque o DADO continua servindo: `cidade-operacional`
-     * é onde a tela do Fluxo acha o NOME da cidade de um sistema, e é por ele
-     * que o seletor de CTS diz de qual município a lista é.
-     *
-     * `escopo` e `replicarPor` saíram junto: os dois existiam para a régua —
-     * recortar por cidade e replicar a escolha dentro da operadora. Sem campo
-     * editável, replicar o quê?
+     * Sem `escopo` nem `replicarPor`: sem campo editável, não há o que recortar
+     * nem replicar.
      */
     ocultaNoWizard: true,
-    desc: 'Os municípios da unidade, como vêm do de-para oficial da Aegea. A régua da cobertura saiu daqui: virou parâmetro da simulação, em Simular ▸ Cobertura medida em. O fim da concessão é da empresa, em Organização ▸ Empresas.',
+    desc: 'Os municípios da unidade, como vêm do de-para oficial da Aegea. A régua da cobertura é parâmetro da simulação, em Simular ▸ Cobertura medida em. O fim da concessão é da empresa, em Organização ▸ Empresas.',
     cols: [
       { coluna: 'emp_codigo', origem: 'db', procedencia: 'depara', oque: 'Código real da empresa operadora responsável por esta cidade.', exemplo: '57' }, { coluna: 'empresa', origem: 'db', procedencia: 'depara', oque: 'Nome da empresa operadora responsável por esta cidade.', exemplo: 'Águas do Rio 04' },
       { coluna: 'cidade_id', origem: 'db', procedencia: 'mock', oque: 'Identifica esta cidade dentro do cadastro.', exemplo: 'c001' }, { coluna: 'cidade_name', origem: 'db', procedencia: 'depara', oque: 'Nome da cidade.', exemplo: 'Belford Roxo' },
-      // `unidade_cobertura` SAIU DAQUI. A régua da cobertura não é dado de
-      // cadastro: é a lente com que se olha o cadastro, e trocá-la não corrige
-      // informação nenhuma. Virou parâmetro de rodada (`UNIDADE_COBERTURA`), na
-      // tela de Simular, valendo para a unidade inteira.
+      // Sem `unidade_cobertura`: a régua da cobertura é a lente com que se olha
+      // o cadastro, não dado dele — é parâmetro de rodada (`UNIDADE_COBERTURA`),
+      // na tela de Simular, valendo para a unidade inteira.
     ],
   },
   {

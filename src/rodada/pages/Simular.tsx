@@ -1,4 +1,4 @@
-import { rotuloObjetivo } from '@/rodada/domain/pedido'
+import { rotuloObjetivo, rotuloUsarCts } from '@/rodada/domain/pedido'
 import { useMemo, useReducer, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle, Play, Plus, XCircle, X } from '@phosphor-icons/react'
@@ -112,8 +112,8 @@ export function Simular() {
    * OS ANOS REPETIDOS, para marcar os cards culpados.
    *
    * MESMA REGRA de `validar()`, e é ela que bloqueia — aqui só se aponta ONDE.
-   * Numa lista rolável o ano repetido era invisível; numa grade de quinze cards
-   * seria pior, porque tudo cabe na tela e o erro continua igual aos vizinhos.
+   * Numa grade de quinze cards tudo cabe na tela e o card errado é igual aos
+   * vizinhos: sem a marca, o ano repetido é invisível.
    *
    * Só ano VÁLIDO entra: o card de ano em branco já se anuncia tracejado, e
    * pintá-lo de vermelho por "repetido" nomearia o problema errado.
@@ -196,7 +196,7 @@ export function Simular() {
           return
         }
         // `jaExistia` ausente significa "não sei", e é tratado como caminho
-        // normal — servidor antigo não manda o campo.
+        // normal.
         toast(
           r.jaExistia
             ? 'Já havia uma rodada igual em execução — acompanhando aquela.'
@@ -455,35 +455,30 @@ export function Simular() {
                     ]}
                   />
                 </div>
-                {/* OS DOIS BOOLEANOS ENTRAM NA MESMA GRAMÁTICA DOS OUTROS.
-                    Eram caixas de marcar em linha inteira, no fim da seção: um
-                    controle diferente, num lugar diferente, para decisões do
-                    mesmo tipo. Quem lia a seção via cinco parâmetros com rótulo
-                    técnico e pílulas, e depois duas frases com caixinha — e uma
-                    caixa desmarcada não diz o que acontece quando ela está
-                    desmarcada. "Ignorar" e "Todas as ligações" dizem.
+                {/* OS DOIS BOOLEANOS ENTRAM NA MESMA GRAMÁTICA DOS OUTROS —
+                    pílulas, e não caixas de marcar: uma caixa desmarcada não
+                    diz o que acontece quando está desmarcada; "Não" e "Todas as
+                    ligações" dizem.
 
                     O RÓTULO NOMEIA A COISA e as pílulas nomeiam a escolha, como
                     em "Base de receita: Arrecadada | Faturada". O default é a
                     primeira pílula, que é onde se espera encontrá-lo. */}
                 <div>
                   <RotuloParametro
-                    texto="Coletores de tempo seco (CTS)"
+                    texto="Usar Coletores de tempo seco (CTS)"
                     tecnico="USAR_CTS"
                   />
                   <SegmentedControl
-                    aria-label="Coletores de tempo seco (CTS)"
-                    value={estado.usarCts ? 'orcar' : 'somar'}
-                    onChange={(v) => despachar({ tipo: 'set', patch: { usarCts: v === 'orcar' } })}
-                    /* "IGNORAR" MENTIA, e o próprio verbete do dicionário
-                       entregava a mentira: desligado, o coletor não é ignorado —
-                       ligações, economias, população, receita e vazão dele são
-                       SOMADAS à sub-bacia irmã. A demanda continua no plano; o
-                       que muda é quem a atende, e portanto se há obra de CTS
-                       para orçar. As duas pílulas nomeiam esse par. */
+                    aria-label="Usar Coletores de tempo seco (CTS)"
+                    value={estado.usarCts ? 'sim' : 'nao'}
+                    onChange={(v) => despachar({ tipo: 'set', patch: { usarCts: v === 'sim' } })}
+                    /* SIM | NÃO, e o rótulo faz a pergunta: os coletores entram
+                       ou não. O efeito de cada resposta no motor (com "Não", a
+                       demanda do coletor é SOMADA à sub-bacia irmã, e continua no
+                       plano) está no dicionário, no `?` do rótulo. */
                     options={[
-                      { value: 'orcar', label: 'Orçar à parte' },
-                      { value: 'somar', label: 'Somar à sub-bacia' },
+                      { value: 'sim', label: rotuloUsarCts(true) },
+                      { value: 'nao', label: rotuloUsarCts(false) },
                     ]}
                   />
                 </div>
@@ -726,10 +721,7 @@ function ResumoDaRodada({
         {/* AS MESMAS PALAVRAS DO CONTROLE. O resumo existe para conferir a
             escolha que se acabou de fazer ao lado; "sim" e "não" obrigavam a
             traduzir de volta para as opções que aparecem nas pílulas. */}
-        <Item
-          rotulo="Coletores de tempo seco"
-          valor={estado.usarCts ? 'orçar à parte' : 'somar à sub-bacia'}
-        />
+        <Item rotulo="Usar CTS" valor={rotuloUsarCts(estado.usarCts)} />
         <Item
           rotulo="Recorte da cobertura"
           valor={estado.coberturaSoResidencial ? 'só residenciais' : 'todas as ligações'}
@@ -814,9 +806,9 @@ function Item({
 /**
  * O checklist, com DOIS estados.
  *
- * `'avisa'` cai em `warning` pelo mapa, sem tela dedicada: o `validar()` nunca
- * o emite hoje, e desenhar um terceiro estado seria implementar e estilizar
- * algo que ninguém vê. Se o produto voltar a emiti-lo, ele nasce coerente.
+ * `'avisa'` cai em `warning` pelo mapa, sem tela dedicada: o `validar()` não
+ * o emite, e desenhar um terceiro estado seria implementar e estilizar algo
+ * que ninguém vê. Se o produto vier a emiti-lo, ele nasce coerente.
  */
 const ICONE = {
   bloqueia: { Icone: XCircle, cor: 'text-danger' },

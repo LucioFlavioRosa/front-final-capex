@@ -160,15 +160,40 @@ export function garantirFaixaZero(rows: Row[]): Row[] {
   return novas.length ? [...rows, ...novas] : rows
 }
 
+/**
+ * A CTS FORA DE SISTEMA NÃO CONTA — nem na completude, nem no portão da rodada.
+ *
+ * A ficha dela existe desde a carga (a planilha a traz para preencher antes de
+ * se decidir o sistema), mas o motor só lê o que está num sistema: uma CTS
+ * livre com os parâmetros em branco não é campo faltando para a rodada, é
+ * trabalho que ainda não começou. Uma unidade pode ter centenas de livres com
+ * tudo vazio (uB1 tem 151), e a simulação não lê nenhuma delas.
+ *
+ * Quem diz se a CTS está num sistema é a TOPOLOGIA, não a linha da ficha: é lá
+ * que a tela (e a importação) escrevem ao colocar. Sem `dados`, conta tudo — é
+ * o comportamento de quem só tem as linhas na mão.
+ */
+const ABAS_DE_CTS = new Set(['cts-operacional', 'componentes-cts-capex'])
+
+export function linhasQueContam(abaKey: string, rows: Row[], dados?: Dados): Row[] {
+  if (!dados || !ABAS_DE_CTS.has(abaKey)) return rows
+  const colocadas = new Set(
+    (dados['sistema-topologia'] ?? [])
+      .filter((t) => (t.sistema_id ?? '').trim() !== '')
+      .map((t) => (t.componente_sistema_id ?? '').trim()),
+  )
+  return rows.filter((r) => colocadas.has((r.cts_id ?? '').trim()))
+}
+
 /** Conta quantos campos de origem "un" estão preenchidos numa aba, dado o estado de dados. */
-export function contarAba(abaKey: string, rows: Row[]): { feitos: number; total: number } {
+export function contarAba(abaKey: string, rows: Row[], dados?: Dados): { feitos: number; total: number } {
   const aba = SCHEMA.find((s) => s.key === abaKey)
   if (!aba) return { feitos: 0, total: 0 }
-  // `opcional` FICA DE FORA DA CONTA. Sem isso a tela anunciava "89% · 4 abas
-  // incompletas" para uma unidade que o servidor dava como pronta — o campo
-  // vazio era legítimo (WACC que herda o da unidade, jusante de nó terminal,
-  // população onde a cobertura é medida por ligações), mas o contador não
-  // distinguia "não preenchido" de "não se aplica".
+  rows = linhasQueContam(abaKey, rows, dados)
+  // `opcional` FICA DE FORA DA CONTA: campo vazio legítimo (WACC que herda o
+  // da unidade, jusante de nó terminal, população onde a cobertura é medida por
+  // ligações) não é campo faltando. Contá-lo faria a tela anunciar aba
+  // incompleta para uma unidade que o servidor dá como pronta.
   const uncols = aba.cols
     .filter((c) => c.origem === 'un' && !c.opcional)
     .map((c) => c.coluna)
@@ -201,7 +226,7 @@ export function totalGeral(data: Record<string, Row[]>): { feitos: number; total
   let feitos = 0
   let total = 0
   SCHEMA.filter((aba) => !aba.ocultaNoWizard).forEach((aba) => {
-    const c = contarAba(aba.key, data[aba.key] ?? [])
+    const c = contarAba(aba.key, data[aba.key] ?? [], data)
     feitos += c.feitos
     total += c.total
   })

@@ -22,7 +22,7 @@ export function RevisaoCadastro() {
    * oferecer para onde ir — a lista abaixo (também derivada das visíveis) não
    * teria o botão para chegar até ela.
    */
-  const faltam = ABAS_VISIVEIS.some((s) => !progressoAba(s, unidade.data[s.key] ?? []).pronta)
+  const faltam = ABAS_VISIVEIS.some((s) => !progressoAba(s, unidade.data[s.key] ?? [], unidade.data).pronta)
   const geral = totalGeral(unidade.data)
 
   /**
@@ -110,9 +110,9 @@ export function RevisaoCadastro() {
 
         {/* A lista é a MESMA do popover de progresso (`ListaAbasProgresso`), na
             variante 'revisao': aqui entram o selo de estado, a contagem
-            feitos/total e a origem da aba. Eram duas listas escritas duas vezes,
-            com visuais diferentes para a mesma pergunta; agora o agrupamento por
-            bloco é o mesmo da navegação do wizard. */}
+            feitos/total e a origem da aba. Uma lista só, com o agrupamento por
+            bloco da navegação do wizard — duas listas para a mesma pergunta
+            divergiriam. */}
         <div className="mt-3">
           <ListaAbasProgresso dados={unidade.data} onIrParaAba={abrirAba} variante="revisao" />
         </div>

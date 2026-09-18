@@ -1,18 +1,14 @@
 /**
  * CADASTRO — a ponte entre o wizard e as rotas normalizadas do backend.
  *
- * ## O que mudou, e por quê
+ * ## Por que a tradução mora aqui
  *
- * Antes este módulo falava com `POST /api/cadastro`, que gravava o estado do
- * wizard inteiro como um DOCUMENTO (`{aba: [{coluna: valor}]}`) e sobrescrevia a
- * unidade a cada chamada. O backend do Otimizador não tem essa rota, e não é
- * lacuna: ele grava **uma ficha por vez**, em tabelas normalizadas, e cada
- * gravação carrega junto a trilha de override, a contagem de pendências e —
- * na topologia — validações que recusam um sistema incoerente.
- *
- * Gravar por documento passaria por cima das três. Por isso a adaptação é aqui,
- * no transporte, e não no backend: o wizard continua sendo o que era, e este
- * módulo traduz.
+ * O wizard trabalha com o cadastro como um DOCUMENTO (`{aba: [{coluna:
+ * valor}]}`). O backend grava **uma ficha por vez**, em tabelas normalizadas, e
+ * cada gravação carrega junto a trilha de override, a contagem de pendências
+ * e — na topologia — validações que recusam um sistema incoerente. Gravar por
+ * documento passaria por cima das três. Por isso a adaptação é aqui, no
+ * transporte: o wizard não conhece as rotas, e este módulo traduz.
  *
  * ## O encaixe é quase 1:1
  *
@@ -41,15 +37,14 @@
  * de regional e unidade não gravam, mas `wacc_medio` e `usa_macrorregiao_cts`
  * sim, pelo mesmo `PUT /unidades/{id}`. São os dois campos da unidade que ninguém
  * importa do Databricks — quem os informa é gente. A decisão de usar
- * macrorregião de CTS é da unidade e vale para todos os sistemas dentro dela —
- * era por sistema até a migração 016.
+ * macrorregião de CTS é da unidade e vale para todos os sistemas dentro dela.
  *
  * `subbacia-cts` não é lida nem gravada, e some da tela. O pareamento
  * CTS↔sub-bacia é SOBREPOSIÇÃO DE ÁREA, e nunca significou pertencimento — quem
  * diz em que sistema a CTS está é a topologia. Servi-la vazia deixaria uma aba
  * que só pode enganar.
  */
-import { api, apiBlob, apiUpload } from './api'
+import { api } from './api'
 import type { Row, UnidadeState } from '../data/cadastroUnidade/types'
 
 export interface CadastroSalvo {
@@ -96,7 +91,7 @@ interface Hierarquia {
   cidades: { id: string; nome: string; empId: string }[]
   sistemas: { id: string; nome: string; cidId: string; usaCts?: string }[]
   topo: { sis: string; id: string; nome: string; jus: string; tipo?: string }[]
-  /** Componentes fora de qualquer sistema — hoje, as CTS ainda não colocadas. */
+  /** Componentes fora de qualquer sistema — as CTS ainda não colocadas. */
   semSistema?: {
     id: string; nome: string; tipo?: string; cidId?: string
     macro?: string; empId?: string
@@ -104,9 +99,8 @@ interface Hierarquia {
 }
 
 interface Contrato {
-  // `cob` saiu da cidade na migração 019 — a régua da cobertura virou parâmetro
-  // de rodada. O `cob` que sobrou em `fator` é outra coisa: o percentual da
-  // faixa de paridade.
+  // A régua da cobertura é parâmetro de rodada, e não campo da cidade. O `cob`
+  // de `fator` é outra coisa: o percentual da faixa de paridade.
   cidades: { id: string; nome: string; empId: string; empNome: string; fim: string }[]
   metas: { cid: string; ano: string; pct: string }[]
   fator: { cid: string; cob: string; par: string }[]
@@ -275,26 +269,19 @@ export const ABAS_SEM_ESCRITA = [
  * Então o corpo sai do que veio do servidor, com as colunas do wizard aplicadas
  * por cima. `salvarCadastro` EXIGE esta base: sem ela, recusa em vez de adivinhar.
  *
- * ERA UM `Map` DE MÓDULO, preenchido por `lerCadastro` e lido por
- * `salvarCadastro` pelas costas. A assinatura dizia que bastava a unidade, e não
- * bastava: era preciso ter lido antes, no mesmo processo. Restrição de ordem faz
- * parte da interface tanto quanto o tipo — e escondê-la custou caro em dois
- * lugares. Gravar só tinha teste de integração, contra backend no ar, porque não
- * havia como montar uma base falsa; e o estado de módulo compartilhado ajudou a
- * criar a corrida que obrigou a serializar a suíte de integração.
- *
- * Agora a base é um VALOR: `lerCadastro` devolve, quem salva entrega. O tipo
- * cobra, o teste fabrica, e não há estado escondido entre as duas chamadas.
+ * A BASE É UM VALOR, e não estado de módulo: `lerCadastro` devolve, quem salva
+ * entrega. "Ter lido antes, no mesmo processo" é restrição de ordem, e restrição
+ * de ordem faz parte da interface tanto quanto o tipo — como valor, o tipo a
+ * cobra, um teste a fabrica sem backend, e não há estado escondido entre as
+ * duas chamadas.
  */
 export interface BaseDoCadastro {
   /**
    * De QUEM é esta base.
    *
-   * O `Map` era chaveado por unidade, e isso não era detalhe: trocar de unidade
-   * e salvar antes de a leitura nova chegar buscava a chave nova, não achava, e
-   * recusava. Com a base solta esse acidente vira gravar a unidade A com a
-   * régua da B, que apagaria coluna de verdade. Por isso o id viaja junto e
-   * `salvarCadastro` confere.
+   * Trocar de unidade e salvar antes de a leitura nova chegar entregaria a base
+   * da unidade A para gravar a B — e a régua da A apagaria coluna de verdade na
+   * B. Por isso o id viaja junto e `salvarCadastro` confere.
    */
   unidadeId: string
   subs: SubBacias
@@ -337,7 +324,12 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
     api.get<Contrato>(`/api/unidades/${u}/contrato`),
     api.get<SubBacias>(`/api/unidades/${u}/sub-bacias`),
     api.get<Etes>(`/api/unidades/${u}/etes`),
-    api.get<Cts>(`/api/unidades/${u}/cts`),
+    // `incluirLivres`: as CTS da unidade AINDA FORA DE SISTEMA vêm junto, com
+    // `sisId` vazio. A ficha delas existe desde a carga; o que falta é a
+    // decisão de em que sistema entram — e a planilha do cadastro as traz para
+    // preencher antes dessa decisão. O front original não pede, e continua
+    // vendo só as colocadas.
+    api.get<Cts>(`/api/unidades/${u}/cts?incluirLivres=1`),
   ])
 
   // `dados` entra na base junto: ele e a LINHA-BASE contra a qual a gravacao
@@ -361,10 +353,9 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
    * nível acima dela.
    *
    * As três abas do bloco Município (régua, metas, paridade) declaram
-   * `emp_codigo` e `empresa`, e as três montavam a linha com string vazia fixa:
-   * a coluna existia na tela e nunca teve dado. O servidor sempre soube — a
-   * cidade tem uma empresa por definição (`cidade_empresa`) —, faltava trazer e
-   * ligar aqui.
+   * `emp_codigo` e `empresa`, e a cidade tem uma empresa por definição
+   * (`cidade_empresa`): o servidor a manda na lista de cidades, e este mapa a
+   * liga a cada linha.
    */
   const empresaDaCidade = new Map(
     contrato.cidades.map((c) => [c.id, { cod: c.empId ?? '', nome: c.empNome ?? '' }]),
@@ -397,10 +388,9 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
       data_fim_concessao: s.fimConcessao,
     })),
 
-    // O NOME DA EMPRESA VEM POR BUSCA, e não vazio como antes: a hierarquia
-    // manda as empresas numa lista e as cidades noutra, ligadas pelo código.
-    // Deixar a coluna em branco obrigava quem lê a aba a cruzar as duas de
-    // cabeça — e era o que acontecia enquanto o nível era só um reservado.
+    // O NOME DA EMPRESA VEM POR BUSCA: a hierarquia manda as empresas numa
+    // lista e as cidades noutra, ligadas pelo código. Deixar a coluna em branco
+    // obrigaria quem lê a aba a cruzar as duas de cabeça.
     'cidade-empresa': hier.cidades.map((c) => ({
       emp_codigo: c.empId,
       empresa: hier.empresas.find((e) => e.id === c.empId)?.nome ?? '',
@@ -419,10 +409,10 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
     // A topologia traz TAMBÉM o que está fora de sistema (`semSistema`), com
     // `sistema_id` em branco: é o estado normal de uma CTS antes de a Regional
     // decidir em que sistema ela entra, e escondê-la faria a tela dizer que ela
-    // não existe. A lista já vem recortada PELA UNIDADE (o servidor sabe onde
-    // cada CTS está desde a migração 018); o seletor do Fluxo estreita mais uma
-    // vez, para as EMPRESAS do sistema — cidade deixou de ser a régua quando o
-    // sistema passou a poder estar em várias (migração 022).
+    // não existe. A lista já vem recortada PELA UNIDADE (o servidor sabe a
+    // cidade de cada CTS); o seletor do Fluxo estreita mais uma vez, para as
+    // EMPRESAS do sistema — um sistema pode estar em várias cidades, e a
+    // empresa é a régua que sobrevive a isso.
     'sistema-topologia': [
       ...hier.topo.map((t) => ({
         sistema_id: t.sis,
@@ -455,12 +445,11 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
       })),
     ],
 
-    // `emp_codigo`/`empresa` vinham vazios FIXOS aqui — a coluna existia na aba e
-    // nunca teve dado. Agora vêm do servidor, que sempre soube (a cidade tem uma
-    // empresa por definição, é o elo `cidade_empresa`).
+    // `emp_codigo`/`empresa` vêm do servidor: a cidade tem uma empresa por
+    // definição (é o elo `cidade_empresa`).
     //
-    // `data_fim_concessao` saiu: a coluna não está mais nesta aba, e mandá-la
-    // faria a linha carregar um campo que a tela não mostra.
+    // `data_fim_concessao` não entra: a coluna não é desta aba (é da empresa), e
+    // mandá-la faria a linha carregar um campo que a tela não mostra.
     'cidade-operacional': contrato.cidades.map((c) => ({
       emp_codigo: c.empId ?? '',
       empresa: c.empNome ?? '',
@@ -498,8 +487,7 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
       const linha: Row = { ete_id: e.id ?? '', ete_name: e.nome ?? e.id ?? '', sistema_id: e.sisId ?? '' }
       for (const [curto, coluna] of Object.entries(ETE)) linha[coluna] = e[curto] ?? ''
       linha.capacidade_ociosa = e.ociosa ?? ''
-      // Prazo e janela da obra da ETE. `tPred` já era lido aqui, mas o servidor
-      // nunca o mandava — chegava sempre vazio. Agora manda os três.
+      // Prazo e janela da obra da ETE, que o servidor manda ao lado das colunas de `ETE`.
       linha.tempo_predecessoras = e.tPred ?? ''
       linha.obra_obrigatoria_ano = e.anoObrig ?? ''
       linha.obra_proibida_ate = e.proibAte ?? ''
@@ -593,15 +581,18 @@ export class CadastroSemLeitura extends Error {
  * (tirar um componente do sistema só vale se ninguém mais escoa para ele), e
  * disparar tudo de uma vez tornaria o resultado dependente de quem chegasse
  * primeiro. Uma unidade grande manda centenas de requisições — é o custo de
- * gravar com trilha por ficha, e é o que o wizard trocava por um POST só.
+ * gravar com trilha por ficha.
  *
- * A ORDEM importa, e é por isso que a topologia vai por último — ela é a única
- * parte que NÃO é gravada ficha a ficha: o sistema inteiro vai num `PUT` só, e o
- * servidor confere o desenho final em vez de cada passo até ele. Dentro do
- * cadastro sobrou uma dependência de ordem, a do `usaCts` da UNIDADE:
- * desmarcar precisa valer antes de a segunda CTS entrar, e marcar só depois de
- * as excedentes saírem — por isso a marcação é a última coisa que sai daqui. O
- * WACC não tem ordem, e viaja junto da primeira ida à rota da unidade.
+ * A ORDEM importa, e é por isso que a topologia vai depois das outras fichas —
+ * ela é a única parte que NÃO é gravada ficha a ficha: o sistema inteiro vai num
+ * `PUT` só, e o servidor confere o desenho final em vez de cada passo até ele.
+ * Duas coisas vão DEPOIS dela: a ficha da CTS, porque uma CTS pode estar
+ * entrando num sistema nesta mesma gravação e a ficha da macrorregião só passa
+ * a existir na colocação; e a marcação do `usaCts` da UNIDADE, que o servidor
+ * recusa enquanto um sistema tiver duas CTS — tirar a excedente é o que a
+ * topologia acabou de gravar. Desmarcar, ao contrário, vai ANTES: precisa valer
+ * antes de a segunda CTS entrar. O WACC não tem ordem, e viaja junto da primeira
+ * ida à rota da unidade.
  */
 /**
  * A topologia agrupada por sistema: `sistema → (componente → jusante)`.
@@ -641,11 +632,8 @@ export type EnvioDeTopologia = {
 /**
  * O corpo do `PUT` de topologia, ou `null` quando nenhum sistema mudou.
  *
- * Exportada porque é AQUI que mora a decisão que já esteve errada uma vez: o
- * envio anterior era um `PUT` por componente, ordenado por uma heurística que
- * mandava a saída da CTS antes do reapontamento de quem escoava para ela. O
- * servidor recusava, e o teste que faltava era exatamente este — qual sistema
- * vai, e com quais componentes dentro.
+ * Exportada porque é AQUI que mora a decisão que mais merece teste: qual
+ * sistema vai, e com quais componentes dentro.
  *
  * Vão os sistemas cujo DESENHO mudou, dos dois lados: um sistema que só perdeu
  * componentes também mudou, e é a ausência dele na lista que o remove.
@@ -723,8 +711,8 @@ export async function salvarCadastro(
     await api.put(`/api/unidades/${u}/contrato/${encodeURIComponent(c.cidade_id)}`, {
       // `fim` NAO VAI: a concessao e da empresa, e tem PUT proprio. O backend
       // ignora a chave se ela vier, e o upsert preserva o valor que a cidade ja
-      // tem. `cob` (a régua da cobertura) também saiu — virou parâmetro de
-      // rodada, e a ficha da cidade ficou só com nome e id.
+      // tem. A régua da cobertura é parâmetro de rodada, não campo da cidade —
+      // a ficha da cidade é só nome e id.
       cidade: {
         id: c.cidade_id,
         nome: c.cidade_name,
@@ -742,12 +730,9 @@ export async function salvarCadastro(
     })
   }
 
-  // ---- coleta: sub-bacia e CTS são a mesma ficha em duas rotas ----
+  // ---- coleta: a sub-bacia agora; a CTS só DEPOIS da topologia (ver abaixo) ----
   await gravarColeta(u, 'sub-bacias', 'sub_bacia_id', d, base, 'subbacia-operacional',
     'componentes-subbacias-capex', base.subs.subs, { dbInv, paramsInv, obraInv })
-
-  await gravarColeta(u, 'cts', 'cts_id', d, base, 'cts-operacional',
-    'componentes-cts-capex', base.cts.ctss, { dbInv, paramsInv, obraInv })
 
   // ---- ETE ----
   const eteBase = porChave(base.dados['ete-capex'], 'ete_id')
@@ -793,22 +778,30 @@ export async function salvarCadastro(
 
   // ---- topologia: o SISTEMA INTEIRO, numa transação só ----
   //
-  // Aqui havia um PUT por componente, ordenado por uma heurística de "quem solta
-  // vai antes de quem liga" — e ela estava errada, de um jeito que só aparecia na
-  // reorganização: `solta` olhava o estado final da PRÓPRIA linha, então tirar a
-  // CTS do sistema (sem sistema ⇒ solta) ia na frente de reapontar quem escoava
-  // para ela (com jusante ⇒ liga). O servidor recebia a saída da CTS enquanto o
-  // banco ainda tinha alguém apontando para ela, e recusava com razão.
+  // O sistema inteiro, e não um PUT por componente: mover uma cadeia de sistema
+  // não tem ordem de componentes que funcione — um reapontamento É um "solta" do
+  // ponto de vista de quem ele larga, e o servidor recusa com razão a saída de
+  // uma CTS enquanto alguém ainda aponta para ela. O estado intermediário é que
+  // é impossível, não o final; o servidor confere o desenho final.
   //
-  // Não havia heurística que consertasse: um reapontamento É um "solta" do ponto
-  // de vista de quem ele larga, e mover uma cadeia inteira de sistema não tem
-  // ordem que funcione — o estado intermediário é que é impossível, não o final.
-  //
-  // `componentes` é a lista COMPLETA de cada sistema: quem está lá hoje e não vem
-  // na lista sai dele. É assim que remover se expressa, e é o que torna o envio
+  // `componentes` é a lista COMPLETA de cada sistema: quem está lá e não vem na
+  // lista sai dele. É assim que remover se expressa, e é o que torna o envio
   // idempotente. Só vão os sistemas cujo desenho mudou.
   const envio = envioDaTopologia(base.dados['sistema-topologia'], d['sistema-topologia'])
   if (envio) await api.put(`/api/unidades/${u}/topologia`, envio)
+
+  // ---- a CTS: DEPOIS da topologia, e a ordem é a única coisa que importa aqui ----
+  //
+  // A ficha de uma CTS livre chega na leitura (`incluirLivres`) e pode ser
+  // preenchida antes de a CTS entrar num sistema — pela planilha, inclusive, que
+  // coloca e preenche na mesma volta. Com a macrorregião marcada, a ficha da
+  // macrorregião NEM EXISTE no banco até a colocação: é o `PUT /topologia` que
+  // a cria, somada dos coletores e com as obras em branco. Gravar a ficha antes
+  // daria 404 na primeira vez que alguém preenchesse uma macrorregião pela
+  // planilha. Depois da topologia, a ficha existe e é da unidade — para a CTS
+  // livre comum também, pela cidade dela.
+  await gravarColeta(u, 'cts', 'cts_id', d, base, 'cts-operacional',
+    'componentes-cts-capex', base.cts.ctss, { dbInv, paramsInv, obraInv })
 
   // MARCAR VAI DEPOIS da topologia: o servidor recusa marcar enquanto algum
   // sistema tiver duas CTS, e tirar a excedente é justamente o que a topologia
@@ -901,56 +894,4 @@ function listasIguais(a: Row[] | undefined, b: Row[] | undefined): boolean {
   const y = b ?? []
   if (x.length !== y.length) return false
   return x.every((linha, i) => igual(linha, y[i]))
-}
-
-/* ===========================================================================
- *  TEMPLATE DE EXCEL — baixar e importar
- *
- *  As duas funções abaixo vieram do front do cliente e falam com rotas que o
- *  backend do Otimizador AINDA NÃO TEM: `GET /api/cadastro/{u}/template` e
- *  `POST /api/cadastro/{u}/importar`, servidas lá por `app/cadastro/routes.py`
- *  e `app/cadastro/template_excel.py`.
- *
- *  Ficam aqui, e não fora, porque os botões que as chamam vieram junto com o
- *  resto do wizard. Enquanto as rotas não existirem, cada botão responde 404 e
- *  o `CadastroWizard` mostra o erro do servidor num toast — falha visível, que
- *  é o que se quer: um botão que não faz nada e não diz nada é pior.
- *
- *  O resto deste módulo é o adaptador para as rotas normalizadas — `lerCadastro`
- *  e `salvarCadastro` acima —, e ele não passa por aqui.
- * ======================================================================== */
-
-/**
- * Baixa o template Excel desta unidade e dispara o download no navegador.
- *
- * `URL.createObjectURL` e o clique sintético são o jeito padrão de entregar um
- * blob como download sem navegar a aba para longe da tela de cadastro.
- */
-export async function baixarTemplateCadastro(unidadeId: string): Promise<void> {
-  const { blob, nomeArquivo } = await apiBlob(
-    `/api/cadastro/${encodeURIComponent(unidadeId)}/template`,
-  )
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = nomeArquivo
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
-}
-
-/**
- * Sobe a planilha preenchida e devolve `dados` no formato de
- * `UnidadeState['data']` — pronto para mesclar no estado do wizard.
- *
- * NÃO salva no banco: o servidor só lê e devolve. Quem chama decide o que fazer
- * com o resultado — no wizard, mesclar no estado e deixar a pessoa revisar antes
- * de clicar em Salvar.
- */
-export function importarTemplateCadastro(
-  unidadeId: string,
-  arquivo: File,
-): Promise<{ dados: Record<string, Row[]> }> {
-  return apiUpload(`/api/cadastro/${encodeURIComponent(unidadeId)}/importar`, arquivo)
 }

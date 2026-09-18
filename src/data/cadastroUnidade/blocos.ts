@@ -1,11 +1,10 @@
 /**
  * BLOCOS — o agrupamento das abas do cadastro nos 6 blocos de navegação.
  *
- * Era uma const privada dentro de `CadastroWizard.tsx`. Saiu de lá quando três
- * telas passaram a precisar do mesmo agrupamento: o wizard (navegação em dois
- * níveis), o chip de progresso (lista expandida) e a Revisão (completude por
- * aba). Manter cópias em três lugares é o caminho garantido para elas
- * discordarem entre si.
+ * Três telas usam o mesmo agrupamento: o wizard (navegação em dois níveis), o
+ * chip de progresso (lista expandida) e a Revisão (completude por aba). Ele
+ * vive aqui, uma vez só, porque cópias em três lugares é o caminho garantido
+ * para elas discordarem entre si.
  *
  * É derivação PURA do `SCHEMA`: cada aba que declara `bloco` abre um bloco
  * novo, e as seguintes sem `bloco` pertencem a ele. Acrescentar uma aba
@@ -64,7 +63,7 @@ export const ABAS_VISIVEIS: AbaDef[] = SCHEMA.filter((a) => !a.ocultaNoWizard)
  *
  * Aba OCULTA não tem posição: cai no `{0, 0}` do fallback. Não é caso a tratar —
  * nada na tela oferece navegação para ela (a Revisão só lista as visíveis), e o
- * fallback existia antes justamente para chave desconhecida.
+ * fallback é o mesmo de chave desconhecida.
  */
 export const POSICAO_POR_SCHEMA: { bloco: number; aba: number }[] = SCHEMA.map((alvo) => {
   for (let b = 0; b < BLOCOS.length; b++) {
@@ -99,8 +98,9 @@ export interface ProgressoAba {
   pronta: boolean
 }
 
-export function progressoAba(aba: AbaDef, rows: Row[]): ProgressoAba {
-  const { feitos, total } = contarAba(aba.key, rows)
+/** `dados` é o cadastro inteiro: a CTS fora de sistema não conta (ver `linhasQueContam`). */
+export function progressoAba(aba: AbaDef, rows: Row[], dados?: Record<string, Row[]>): ProgressoAba {
+  const { feitos, total } = contarAba(aba.key, rows, dados)
   const estado: EstadoAba =
     total === 0 ? 'so-db' : feitos === total ? 'completa' : feitos === 0 ? 'vazia' : 'parcial'
   return {
@@ -125,6 +125,6 @@ export function progressoPorBloco(
   return BLOCOS.map((bloco, indice) => ({
     nome: bloco.nome,
     indice,
-    abas: bloco.abas.map((aba) => progressoAba(aba, dados[aba.key] ?? [])),
+    abas: bloco.abas.map((aba) => progressoAba(aba, dados[aba.key] ?? [], dados)),
   }))
 }

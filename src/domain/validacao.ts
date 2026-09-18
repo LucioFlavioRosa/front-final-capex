@@ -75,7 +75,17 @@ const listar = (xs: string[], max = 4) =>
  */
 export function validarTopologia(dados: Dados): Problema[] {
   const p: Problema[] = []
-  const fluxo = (dados['sistema-topologia'] ?? []).filter((r) => naoVazio(r.componente_sistema_id))
+  /**
+   * SÓ QUEM ESTÁ NUM SISTEMA É FLUXO. A topologia traz também as CTS ainda fora
+   * de sistema (`semSistema` da hierarquia): sistema e jusante vazios. Elas não
+   * estão em cadeia nenhuma — não são "origem sem destino", são componente
+   * esperando ser colocado — e o motor não as lê; uma unidade pode ter
+   * centenas delas (uB1 tem 151). A régua é a mesma da completude
+   * (`linhasQueContam`): a topologia decide, pelo `sistema_id`.
+   */
+  const fluxo = (dados['sistema-topologia'] ?? []).filter(
+    (r) => naoVazio(r.componente_sistema_id) && naoVazio(r.sistema_id),
+  )
   // Mesmo objeto, nome diferente só para deixar claro nas chamadas abaixo que ele
   // está sendo lido como grafo, e não como tabela.
   const dadosFluxo = dados
@@ -276,10 +286,9 @@ export function validarCadastro(dados: Dados): Problema[] {
     }
   }
 
-  // O antigo bloco "jusante apontando para nó que não existe" mudou de casa: virou
-  // uma das cinco regras de `validarTopologia`, junto das quatro que o item 23
-  // pediu. Elas aparecem aqui (a Revisão continua sendo o portão que bloqueia a
-  // rodada) E na própria aba do Fluxo, que é onde se corrige.
+  // As cinco regras do fluxo moram em `validarTopologia` (inclusive "destino que
+  // não existe"). Elas aparecem aqui — a Revisão é o portão que bloqueia a
+  // rodada — E na própria aba do Fluxo, que é onde se corrige.
   p.push(...validarTopologia(dados))
 
   // ------------------------------------------------------ (c) o que impede rodar

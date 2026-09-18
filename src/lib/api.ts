@@ -65,18 +65,6 @@ export class ApiError extends Error {
   }
 }
 
-/** Extrai a mensagem de erro no mesmo formato que `request` já trata (`erro` →
- * `detail` → `message` → statusText), para os dois clientes abaixo não
- * divergirem de como `ApiError` já fala com o resto do app. */
-async function erroDoBody(res: Response): Promise<string> {
-  try {
-    const body = await res.json()
-    return body.erro ?? body.detail ?? body.message ?? res.statusText
-  } catch {
-    return res.statusText
-  }
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include', // manda o cookie de sessão
@@ -93,18 +81,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     try {
       const body = await res.json()
       /**
-       * `erro` ANTES de `detail`, e o motivo está registrado no plano de
-       * integração: a fase 5 trouxe o `erros.registrar(app)` do repo do Lucio,
-       * cujos handlers de `RequestValidationError` e `HTTPException` são
-       * GLOBAIS. O formato de erro do backend inteiro passou de
-       * `{"detail": …}` para `{"erro": …}` — inclusive nas rotas antigas do
-       * cadastro. Sem esta linha, toda mensagem de erro do app cairia no
-       * `res.statusText` e o usuário leria "Bad Request" no lugar da frase que
-       * o servidor escreveu.
+       * `erro` ANTES de `detail`: os handlers globais do backend
+       * (`erros.registrar(app)`, para `RequestValidationError` e
+       * `HTTPException`) respondem `{"erro": …}`. Sem esta linha, a mensagem
+       * de erro cairia no `res.statusText` e o usuário leria "Bad Request" no
+       * lugar da frase que o servidor escreveu.
        *
-       * `detail` fica como fallback porque a padronização do backend é a fase
-       * 10: até lá, rota que ainda não passou pelos handlers novos responde no
-       * formato velho.
+       * `detail` fica como fallback para rota que ainda responda no formato
+       * padrão do FastAPI.
        */
       message = body.erro ?? body.detail ?? body.message ?? message
     } catch {
@@ -152,51 +136,4 @@ export const api = {
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
   del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
-}
-
-/**
- * Baixa um arquivo binário (o template de cadastro) e devolve o nome sugerido
- * pelo servidor.
- *
- * Fora de `request()` de propósito: aquele client assume corpo JSON — tanto no
- * `Content-Type` do pedido quanto no `res.json()` da resposta — e um .xlsx é
- * as duas coisas que ele recusa. Duplicar só o transporte (credenciais,
- * cabeçalho de dev, formato de erro) evita reescrever tudo isso na tela de
- * cadastro.
- */
-export async function apiBlob(
-  path: string,
-): Promise<{ blob: Blob; nomeArquivo: string }> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    credentials: 'include',
-    headers: loginDeDev ? { 'X-Usuario-Dev': loginDeDev } : {},
-  })
-  if (!res.ok) throw new ApiError(res.status, await erroDoBody(res))
-
-  // `attachment; filename="Template_Cadastro_57.xlsx"` — o nome vem do
-  // servidor porque só ele sabe o nome e a versão da unidade; inventar um nome
-  // aqui duplicaria essa decisão em dois lugares.
-  const cabecalho = res.headers.get('content-disposition') ?? ''
-  const nomeArquivo = /filename="([^"]+)"/.exec(cabecalho)?.[1] ?? 'template.xlsx'
-  return { blob: await res.blob(), nomeArquivo }
-}
-
-/**
- * Sobe um arquivo (multipart/form-data) e devolve o JSON de resposta.
- *
- * Sem `Content-Type` manual: o navegador o define sozinho, com o boundary do
- * multipart embutido — escrevê-lo à mão é o erro classico que faz o servidor
- * não conseguir separar as partes do formulário.
- */
-export async function apiUpload<T>(path: string, arquivo: File): Promise<T> {
-  const form = new FormData()
-  form.append('arquivo', arquivo)
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: loginDeDev ? { 'X-Usuario-Dev': loginDeDev } : {},
-    body: form,
-  })
-  if (!res.ok) throw new ApiError(res.status, await erroDoBody(res))
-  return res.json() as Promise<T>
 }

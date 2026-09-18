@@ -180,15 +180,12 @@ export function sistemaDoNo(dados: Dados, id: string, visitados = new Set<string
    * A TOPOLOGIA MANDA, e vem antes de tudo.
    *
    * `sistema_topologia.sistema_id` diz em que sistema o componente esta — para
-   * sub-bacia, CTS e ETE igualmente. Antes esta funcao perguntava a cada ficha
-   * (a sub-bacia carregava o nome do sistema, a ETE o id) e, para a CTS,
-   * DERIVAVA o sistema seguindo o destino dela no fluxo, recursivamente.
-   *
-   * A derivacao era consequencia do modelo antigo, em que o vinculo CTS↔sistema
-   * nao existia em fonte nenhuma. Hoje existe: e a coluna que a tela do Fluxo
-   * preenche ao adicionar a CTS. Derivar por cima disso daria respostas
-   * diferentes para a mesma pergunta — uma CTS recem-adicionada, ainda sem
-   * jusante, ficaria "sem sistema" mesmo estando num.
+   * sub-bacia, CTS e ETE igualmente. E a coluna que a tela do Fluxo (e a
+   * planilha) preenche ao colocar a CTS. As fichas (o nome do sistema na
+   * sub-bacia, o id na ETE) e a derivacao pelo destino da CTS, abaixo, sao
+   * fallback para linha sem `sistema_id`: derivar por cima da topologia daria
+   * respostas diferentes para a mesma pergunta — uma CTS recem-colocada, ainda
+   * sem jusante, ficaria "sem sistema" mesmo estando num.
    */
   const naTopologia = txt(ix.origem.get(k)?.sistema_id)
   if (naTopologia) {
@@ -221,6 +218,30 @@ function nomeSistemaPorId(dados: Dados, id: string): string {
   if (!id) return ''
   for (const [nome, sid] of indice(dados).idSistemaPorNome) if (sid === id) return nome
   return ''
+}
+
+/**
+ * OS SISTEMAS QUE TÊM MAIS DE UMA CTS — os que impedem marcar a macrorregião.
+ *
+ * O servidor recusa a marcação enquanto algum existir (422), e quem pede a
+ * marcação precisa dizer QUAIS antes de tentar: a caixa da aba Unidade, e a
+ * planilha, que recusa colocar a segunda CTS num sistema com a macrorregião
+ * marcada. Nomes, e não ids — é o que aparece no seletor do Fluxo, que é onde
+ * a excedente sai.
+ */
+export function sistemasComMaisDeUmaCts(dados: Dados): string[] {
+  const porSistema = new Map<string, number>()
+  for (const t of dados['sistema-topologia'] ?? []) {
+    const sistema = txt(t.sistema_id)
+    if (sistema && ehCts(dados, t)) porSistema.set(sistema, (porSistema.get(sistema) ?? 0) + 1)
+  }
+  const nome = new Map(
+    (dados['cidade-sistema'] ?? []).map((r) => [txt(r.sistema_id), txt(r.sistema_name)]),
+  )
+  return [...porSistema]
+    .filter(([, n]) => n > 1)
+    .map(([sis]) => nome.get(sis) || sis)
+    .sort()
 }
 
 /** Sistema de uma CTS, derivado do destino dela no fluxo (item 21). */
@@ -299,18 +320,16 @@ function catalogo(dados: Dados): Catalogo {
    * AS CTS QUE A TELA CONHECE — as com ficha na unidade E as que só existem na
    * topologia. A união é o ponto, e não uma soma por precaução.
    *
-   * `cts-operacional` só traz a CTS que JÁ PERTENCE à unidade, e uma CTS só
-   * pertence a uma unidade através do sistema em que alguém a colocou. Enquanto
-   * ela está livre, `GET /unidades/{u}/cts` não a devolve — hoje, nas três
-   * unidades da base, ele devolve ZERO — e a ficha dela só aparece depois de
-   * salvar. A topologia, essa, chega inteira: as 149 CTS livres estão lá, é
-   * delas que sai a lista do "Adicionar CTS", e é nela que a tela escreve o
-   * `sistema_id` ao colocar uma.
+   * `cts-operacional` traz as fichas que o servidor serve: as colocadas num
+   * sistema e, com `incluirLivres`, as livres com cidade na unidade (ou, na
+   * macrorregião, as macrorregiões livres). A topologia é a lista completa da
+   * unidade — inclusive livre sem ficha aqui —, é dela que sai a lista do
+   * "Adicionar CTS", e é nela que a tela escreve o `sistema_id` ao colocar uma.
    *
-   * Ler só as fichas fazia a CTS recém-colocada não aparecer como destino: a
-   * linha existia, o sistema estava escrito nela, e mesmo assim o `<select>` de
-   * jusante não a oferecia — até salvar e recarregar. O contrário também: tirar
-   * a CTS do sistema deixava a opção lá.
+   * Ler só as fichas faria a CTS recém-colocada não aparecer como destino: a
+   * linha existe, o sistema está escrito nela, e o `<select>` de jusante não a
+   * ofereceria até salvar e recarregar. O contrário também: tirar a CTS do
+   * sistema deixaria a opção lá.
    */
   const ctss: string[] = []
   const vistas = new Set<string>()
@@ -418,11 +437,10 @@ export function opcoesDestino(dados: Dados, row: Row): [string, string][] {
    * para dentro do mesmo sistema (a ETE que fecha o caminho e a DELE), e nao pode
    * ser o proprio componente. O resto ele aceita.
    *
-   * Duas listas erradas viviam aqui. Para origem sub-bacia, o destino oferecia
-   * so sub-bacias e ETEs — a CTS ficava de fora, e nao havia como declarar que
-   * uma sub-bacia escoa para o coletor. Para origem CTS, nao havia filtro NENHUM:
-   * a lista oferecia componentes de outros sistemas, que o servidor recusa (422).
-   * As duas vinham do modelo antigo, em que a CTS nao tinha sistema.
+   * Para origem sub-bacia, a lista inclui a CTS: uma sub-bacia pode escoar para
+   * o coletor. Para origem CTS, a lista e recortada pelo sistema dela: o servidor
+   * recusa (422) destino de outro sistema, e oferece-lo aqui seria recusar
+   * depois, longe da escolha.
    *
    * ORIGEM SEM SISTEMA herda a lista completa, e nao um select vazio que
    * pareceria quebrado: e o estado de uma CTS recem-adicionada em unidade cujo
@@ -478,18 +496,15 @@ export function opcoesOrigem(dados: Dados): [string, string][] {
  * não um `Set` de nomes de coluna.
  *
  * Um conjunto de colunas com um `abaKey === 'sistema-topologia'` cravado ao lado
- * só serve enquanto a única aba com escolha de entidade é a do Fluxo. Não é o
- * caso — estas duas também precisam da lista:
+ * só serviria enquanto a única aba com escolha de entidade fosse a do Fluxo. Não
+ * é o caso — estas duas também precisam da lista:
  *
- *   `subbacia-cts` — a aba do pareamento não tinha UMA célula editável. Os quatro
- *     campos eram 'db', e a aba não tinha "Adicionar linha": ela era uma tela de
- *     cadastro onde nada podia ser cadastrado. Declarar qual CTS atende qual
- *     sub-bacia é o propósito inteiro dela.
- *   `ete-capex.sistema_id` — o vínculo ETE → sistema estava travado, e nenhuma
- *     fonte o traz ("a aba inteira é exemplo"). Ou seja: era impossível dizer qual
- *     sistema uma ETE atende — e é exatamente esse vínculo que `opcoesDestino`
- *     precisa para oferecer a ETE como destino, e que `unifilarDoSistema` precisa
- *     para fechar o desenho.
+ *   `subbacia-cts` — o pareamento declara qual CTS atende qual sub-bacia, e
+ *     nenhuma fonte o traz: sem a lista, a aba seria uma tela de cadastro onde
+ *     nada pode ser cadastrado.
+ *   `ete-capex.sistema_id` — o vínculo ETE → sistema não vem de fonte nenhuma,
+ *     e é exatamente o que `opcoesDestino` precisa para oferecer a ETE como
+ *     destino, e `unifilarDoSistema` para fechar o desenho.
  *
  * Devolve `null` quando a célula não é lista, que é o caso da esmagadora maioria.
  */
@@ -526,10 +541,9 @@ export function opcoesDaCelula(
  * linha fica com o código novo e o nome do anterior — que é exatamente o tipo de
  * divergência que ninguém percebe olhando a tela.
  *
- * É a generalização da regra que `cidade_id → cidade_name` já tinha no reducer:
- * ali era um `if` com o nome da coluna cravado, aqui é uma função por aba. Sem
- * isso, colar em lote (que escreve por `SET_CELLS`) deixaria nome e id
- * divergentes em 200 linhas de uma vez.
+ * É a mesma regra de `cidade_id → cidade_name` no reducer, como uma função por
+ * aba em vez de um `if` por coluna. Sem isso, colar em lote (que escreve por
+ * `SET_CELLS`) deixaria nome e id divergentes em 200 linhas de uma vez.
  *
  * O SISTEMA só acompanha quando a origem é SUB-BACIA. Para CTS ele fica em branco
  * de propósito: uma CTS não tem sistema próprio, o dela é derivado do destino
@@ -738,12 +752,12 @@ export function sistemasDoFluxo(dados: Dados): SistemasDoFluxo {
 /**
  * O desenho de um sistema: nós, arestas e níveis.
  *
- * NÍVEL POR KAHN, e não pela recursão que o unifilar antigo usava. A recursão
- * (`1 + max(nivel dos predecessores)`) estourava a pilha em ciclo, e ciclo aqui
- * não é hipótese: é a terceira regra da validação de topologia, e a aba permite
- * criá-lo com duas escolhas na lista suspensa. Kahn termina sempre, e o que
- * sobra sem entrar na ordenação é exatamente o que está preso em ciclo — que
- * então vai para um nível próprio, no fim, marcado.
+ * NÍVEL POR KAHN, e não por recursão. A recursão (`1 + max(nivel dos
+ * predecessores)`) estoura a pilha em ciclo, e ciclo aqui não é hipótese: é a
+ * terceira regra da validação de topologia, e a aba permite criá-lo com duas
+ * escolhas na lista suspensa. Kahn termina sempre, e o que sobra sem entrar na
+ * ordenação é exatamente o que está preso em ciclo — que então vai para um
+ * nível próprio, no fim, marcado.
  */
 /**
  * A vazão de contribuição de um componente, em L/s. `null` se não preenchida.

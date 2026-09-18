@@ -61,9 +61,9 @@ type Action =
 /**
  * PREENCHIMENTO ACOMPANHADO — as colunas que uma escolha preenche junto.
  *
- * Existia como um `if` cravado no reducer: `cidade_id` escolhido nas abas de metas
- * e paridade preenchia `cidade_name` ao lado, para não exigir duas seleções da
- * mesma coisa. O segundo caso é o Fluxo de escoamento — escolher o código da
+ * O primeiro caso: `cidade_id` escolhido nas abas de metas e paridade preenche
+ * `cidade_name` ao lado, para não exigir duas seleções da mesma coisa. O
+ * segundo é o Fluxo de escoamento — escolher o código da
  * origem ou do destino preenche o nome (e, na origem, o sistema) — e dois `if`
  * com nomes de coluna cravados em dois `case` do mesmo reducer é o caminho
  * garantido para eles divergirem.
@@ -107,28 +107,21 @@ function reducer(state: CadastroState, action: Action): CadastroState {
 
     case 'SELECT_UNIDADE':
       /**
-       * ESCOLHER A UNIDADE QUE JÁ ESTÁ ESCOLHIDA NÃO FAZ NADA — e sem esta
-       * linha ela APAGAVA o cadastro carregado.
+       * ESCOLHER A UNIDADE QUE JÁ ESTÁ ESCOLHIDA NÃO FAZ NADA.
        *
        * A tela de seleção auto-escolhe a primeira unidade da regional assim que
        * a lista chega, e isso dispara a leitura. Quando a pessoa então clica na
-       * unidade que queria — a mesma, porque é a que está em destaque —, o
-       * `SELECT_UNIDADE` recriava `unidade` com `data` VAZIO. E o efeito de
-       * carga depende de `unidadeId`, que não mudou: ele não roda de novo, e o
-       * cadastro lido some para sempre.
-       *
-       * Quem ganhava a corrida decidia o resultado, e QUANTO MAIS RÁPIDO O
-       * SERVIDOR, PIOR: a uB2 responde em ~218ms e era apagada em 6 de 6
-       * tentativas; a uB1 é mais lenta e chegava depois do segundo clique, então
-       * sobrevivia. Por isso os testes verdes conviviam com a unidade grande
-       * sem abrir — e por isso a suíte agora roda contra as duas (ver
-       * `UNIDADES_DE_TESTE` em `vitest.integracao.config.ts`).
+       * unidade que queria — a mesma, porque é a que está em destaque —,
+       * recriar `unidade` com `data` VAZIO apagaria o cadastro carregado: o
+       * efeito de carga depende de `unidadeId`, que não mudou, e não rodaria de
+       * novo. É uma corrida com a resposta do servidor, e quanto mais rápido
+       * ele, pior — por isso a suíte de integração roda contra uma unidade
+       * rápida e uma lenta (`UNIDADES_DE_TESTE` em `vitest.integracao.config.ts`).
        *
        * Devolver `state` inteiro é o certo, e não remontar preservando `data`:
        * mesmo id significa mesmo nome e mesma regional, então não há o que
        * atualizar. E não existe "recarregar clicando de novo" — o efeito não
-       * refaz a leitura para o mesmo id de qualquer forma; antes desta linha o
-       * clique repetido só sabia esvaziar.
+       * refaz a leitura para o mesmo id de qualquer forma.
        */
       if (state.unidade && state.unidade.id === action.unidadeId) return state
       return {
@@ -288,18 +281,17 @@ function reducer(state: CadastroState, action: Action): CadastroState {
     }
 
     /**
-     * O UPLOAD do template preenchido — a volta do botão "Baixar template".
+     * A VOLTA DA PLANILHA — o que `mesclarPlanilha` (domain/planilha.ts) montou
+     * a partir do arquivo preenchido, já cruzado com o estado da tela.
      *
-     * MESCLA, e não substitui como `HIDRATAR`: o template só cobre as 12 abas
-     * visíveis do wizard (`template_excel.PLANILHAS`), e as três abas ocultas
-     * da hierarquia (Ano-base, Empresas, Cidades atendidas — ver
-     * `ocultaNoWizard` em types.ts) não entram nele. Uma substituição total
-     * zeraria essas três em silêncio; a mescla troca só as abas que a
-     * planilha de fato trouxe, campo por campo.
+     * MESCLA, e não substitui como `HIDRATAR`: `action.dados` traz SÓ as abas
+     * que mudaram — a planilha cobre as abas visíveis, e as ocultas da
+     * hierarquia (Ano-base, Cidades atendidas — ver `ocultaNoWizard` em
+     * types.ts) nunca entram nela. Uma substituição total as zeraria em
+     * silêncio; a mescla troca aba por aba, só as que vieram.
      *
      * `cidades` é recalculado sobre o resultado da mescla, não sobre
-     * `action.dados` isolado — a aba `cidade-operacional` pode ter chegado
-     * junto (é uma das 12), e sem reler o estado completo o select de cidade
+     * `action.dados` isolado — sem reler o estado completo o select de cidade
      * ficaria com a lista de ANTES do import.
      */
     case 'IMPORTAR_PLANILHA': {
@@ -307,16 +299,11 @@ function reducer(state: CadastroState, action: Action): CadastroState {
       /*
        * A MESCLA TROCA A ABA INTEIRA, e para `sistema-topologia` isso teria um
        * custo escondido: as linhas SEM SISTEMA carregam `emp_codigo` (e
-       * `cidade_id`, e `macro`), que não são colunas da planilha e é por
-       * `emp_codigo` que o seletor de CTS recorta. Uma aba importada sem ele
-       * jogaria todas as CTS livres em "sem empresa cadastrada" — o seletor
-       * voltaria a ofertar as de qualquer operadora, só que com um rótulo
-       * dizendo que não sabe de quem elas são.
-       *
-       * NÃO ACONTECE HOJE: a v8 não tem aba de fluxo (ver o cabeçalho de
-       * `schema.ts`), e as rotas de template/importar ainda respondem 404. Fica
-       * escrito aqui para quem for implementá-las: ou a planilha passa a trazer
-       * essas colunas, ou esta mescla preserva as das linhas sem sistema.
+       * `cidade_id`, e `macro`), que não são colunas da grade e é por
+       * `emp_codigo` que o seletor de CTS recorta. É por isso que
+       * `mesclarPlanilha` parte das linhas DA TELA e aplica por cima só as
+       * colunas que a unidade preenche: a aba que chega aqui ainda carrega tudo
+       * o que a tela tinha, e o seletor continua sabendo de quem é cada CTS.
        */
       const data = { ...state.unidade.data, ...action.dados }
       return {
@@ -346,7 +333,7 @@ interface CadastroContextValue {
   setCells: (abaKey: string, edicoes: { ri: number; col: string; value: string }[]) => void
   addRow: (abaKey: string) => void
   delRow: (abaKey: string, ri: number) => void
-  /** Mescla no estado o `dados` que voltou de `importarTemplateCadastro`. */
+  /** Mescla no estado as abas que `mesclarPlanilha` devolveu. */
   importarPlanilha: (dados: UnidadeState['data']) => void
   irPasso: (passo: number) => void
   irFase: (fase: Fase) => void
@@ -369,10 +356,10 @@ interface CadastroContextValue {
    * A CAIXA DA MACRORREGIÃO GRAVA NA HORA, e não no Salvar.
    *
    * Ela não é um campo de ficha: é o REGIME da unidade, e o que ela muda é o que
-   * o Fluxo oferece — coletores soltos ou macrorregiões. Esperar o Salvar deixava
-   * a caixa marcada e a lista antiga na tela, e quem via as duas juntas concluía
-   * que a caixa não fazia nada. Grava, relê o cadastro e hidrata; a lista muda
-   * com o clique.
+   * o Fluxo oferece — coletores soltos ou macrorregiões. Esperar o Salvar
+   * deixaria a caixa marcada e a lista de antes na tela, e quem visse as duas
+   * juntas concluiria que a caixa não faz nada. Grava, relê o cadastro e
+   * hidrata; a lista muda com o clique.
    *
    * Devolve a mensagem do servidor quando ele RECUSA (422): marcar com sistema de
    * duas CTS, ou desmarcar com macrorregião colocada. A caixa então não se mexe —
@@ -451,8 +438,6 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
      * corresponde mais ao que a tela tem, o que em topologia significa mandar
      * remoção de componente que ninguém tirou.
      *
-     * O `Map` que existia antes em `cadastroApi` tinha o mesmo furo e nunca foi
-     * limpo; a diferença é que agora a posse é explícita e dá para fechá-lo.
      * Sem base, `salvar()` levanta `CadastroSemLeitura`, que é a resposta certa:
      * recusar em vez de adivinhar.
      */
@@ -480,10 +465,10 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
   /**
    * A LINHA-BASE do diff — o que o servidor devolveu na ultima leitura.
    *
-   * Era um `Map` dentro de `cadastroApi`, lido por `salvarCadastro` pelas
-   * costas; agora e um valor de quem le, entregue por quem salva. A ref se
-   * limpa sozinha ao trocar de unidade, porque o efeito de leitura roda de novo
-   * — e `salvarCadastro` ainda confere o `unidadeId` da base antes de gravar.
+   * E um valor de quem le, entregue por quem salva (ver `BaseDoCadastro`). A
+   * ref se limpa sozinha ao trocar de unidade, porque o efeito de leitura roda
+   * de novo — e `salvarCadastro` ainda confere o `unidadeId` da base antes de
+   * gravar.
    */
   const base = useRef<BaseDoCadastro | null>(null)
   const [salvando, setSalvando] = useState(false)
@@ -493,17 +478,18 @@ export function CadastroProvider({ children }: { children: ReactNode }) {
   /**
    * SALVA E RELÊ — as duas coisas, e a segunda não é zelo.
    *
-   * Há dado que só o servidor sabe montar, e a CTS recém-colocada é o caso: o
-   * botão "Adicionar CTS" escreve o `sistema_id` na linha do Fluxo, e mais nada,
-   * porque a FICHA dela (`cts-operacional`) vem de `GET /unidades/{u}/cts`, que
-   * serve as CTS DA UNIDADE — e uma CTS livre não era de unidade nenhuma quando
-   * a tela carregou.
+   * Há dado que só o servidor sabe montar, e a macrorregião recém-colocada é o
+   * caso: o botão "Adicionar CTS" escreve o `sistema_id` na linha do Fluxo, e
+   * mais nada — a FICHA dela nasce no servidor na colocação, somada dos
+   * coletores, e só a releitura a traz para `cts-operacional`. A CTS livre
+   * comum já vem com ficha na carga (`incluirLivres`), mas o carimbo de
+   * autoria e a trilha também são do servidor.
    *
-   * Sem reler, a CTS ficava meio existente na tela depois de salva: sem tipo na
-   * coluna `componente_tipo` (que `tipoDoNo` deriva da aba onde há ficha), fora
-   * da lista de destinos dos outros componentes (`opcoesDestino` monta a lista
-   * a partir de `cts-operacional`) e ausente da aba "Dados da CTS", que é
-   * justamente onde se ia preencher o resto dela. Três sintomas, uma causa.
+   * Sem reler, a macrorregião ficaria meio existente na tela depois de salva:
+   * sem tipo na coluna `componente_tipo` (que `tipoDoNo` deriva da aba onde há
+   * ficha), fora da lista de destinos dos outros componentes (`opcoesDestino`
+   * monta a lista a partir de `cts-operacional`) e ausente da aba "Dados da
+   * CTS", que é justamente onde se preenche o resto dela.
    *
    * A releitura é a MESMA de `lerCadastro` na carga, e por isso não inventa
    * nada: o que volta é o que o servidor tem, agora com a CTS dentro da unidade.

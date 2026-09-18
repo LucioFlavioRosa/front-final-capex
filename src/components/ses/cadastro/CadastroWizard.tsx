@@ -1,28 +1,23 @@
 /**
  * Wizard do cadastro da unidade.
  *
- * Até a Fase 6 esta tela era uma FACHADA: renderizava `PreviewTable` sobre
- * células literais de `mockupTabelas.ts`, transcritas de um protótipo HTML.
- * Nada era editável e nenhum número vinha de fonte de dados — enquanto
- * `AbaGrid` e o `CadastroContext` já existiam, prontos e desconectados. Agora
- * a tela é dirigida pelo SCHEMA e escreve no contexto.
+ * A tela é dirigida pelo SCHEMA e escreve no `CadastroContext`: cada aba é uma
+ * `AbaGrid` sobre as linhas da unidade, e nada aqui é literal.
  *
  * Os blocos do stepper saem do próprio SCHEMA (campo `bloco`), e não de uma
- * lista paralela: acrescentar uma aba passa a ser editar um arquivo, não dois
- * que precisam concordar entre si.
+ * lista paralela: acrescentar uma aba é editar um arquivo, não dois que
+ * precisam concordar entre si.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft, ArrowRight, Info, FloppyDisk, CircleNotch, PencilSimple,
-  DownloadSimple, UploadSimple,
 } from '@phosphor-icons/react'
 import { BLOCOS, POSICAO_POR_SCHEMA, rotuloBloco } from '../../../data/cadastroUnidade/blocos'
 import { useIndicador } from '../../ui/useIndicador'
 import { larguraDaGrade } from '../../../data/cadastroUnidade/schema'
 import type { Row } from '../../../data/cadastroUnidade/types'
 import { ApiError } from '../../../lib/api'
-import { baixarTemplateCadastro, importarTemplateCadastro } from '../../../lib/cadastroApi'
 import {
   type Escopo,
   SEM_ESCOPO,
@@ -43,10 +38,11 @@ import { ChipProgresso } from './PainelProgresso'
 import { FiltroEscopo } from './FiltroEscopo'
 import { PainelTopologia } from './PainelTopologia'
 import { UsaMacrorregiaoCts } from './UsaMacrorregiaoCts'
+import { PlanilhaDaUnidade } from './PlanilhaDaUnidade'
 import { AdicionarCts } from './AdicionarCts'
 import { larguraMinimaDoDesenho, Unifilar, type DestaqueUnifilar } from './Unifilar'
 import { validarTopologia } from '../../../domain/validacao'
-import { ehCts, unifilarDoSistema} from '../../../domain/fluxo'
+import { ehCts, sistemasComMaisDeUmaCts, unifilarDoSistema } from '../../../domain/fluxo'
 
 /**
  * NENHUMA ABA TEM BANNER DE "DADOS REAIS" no topo — e a ausência é a decisão.
@@ -156,16 +152,16 @@ const TABELA_MINIMA = 560
 /**
  * QUEM CEDE LARGURA É A TABELA, e não o desenho.
  *
- * Havia um `min-[1360px]` aqui, com o número vindo de uma conta feita à mão
- * sobre a largura da tabela do Fluxo NAQUELE dia. Alargar uma coluna da grade —
- * como as de código, que passaram a caber os dez caracteres do id — moveu a soma
- * e não moveu a constante: em 1440px a tela continuava escolhendo lado a lado e o
- * desenho, sem espaço, caía na rolagem lateral. Unifilar que precisa ser
- * arrastado perde o que ele existe para dar, que é ver o sistema de uma vez.
+ * A decisão de pôr os dois lado a lado é MEDIDA, e não uma constante de
+ * largura: a largura da tabela do Fluxo é a soma das colunas da grade
+ * (`larguraDaGrade`), e uma constante fixada à mão ficaria para trás na
+ * primeira coluna que alargasse — a tela escolheria lado a lado e o desenho,
+ * sem espaço, cairia na rolagem lateral. Unifilar que precisa ser arrastado
+ * perde o que ele existe para dar, que é ver o sistema de uma vez.
  *
- * A INVERSÃO. O comentário do layout dizia "a tabela tem largura própria e não
- * negocia; o desenho reescala", e isso vale enquanto sobra espaço. Quando não
- * sobra, a régua se inverte, porque as duas superfícies não são simétricas: a
+ * "A tabela tem largura própria e não negocia; o desenho reescala" vale
+ * enquanto sobra espaço. Quando não sobra, a régua se inverte, porque as duas
+ * superfícies não são simétricas: a
  * GRADE SABE ROLAR — tem barra espelhada no topo, coluna congelada e navegação
  * por teclado, tudo construído para largura maior que a tela — e o DESENHO NÃO,
  * ele só sabe encolher até parar de ser legível. Tirar largura de quem tem
@@ -183,11 +179,11 @@ function useDuasColunas(larguraNaturalDaTabela: number, minimoDoDesenho: number)
    * REF DE CALLBACK, e não `useRef` com efeito de deps vazias.
    *
    * O container só existe na aba do Fluxo. Com `useRef` + `useEffect([])` o
-   * efeito roda na montagem do wizard, quando a aba aberta ainda é outra e o nó
-   * não existe: ele saía no `if (!el) return`, e nunca mais rodava. O observer
-   * jamais era instalado, `disponivel` ficava em 0, e a tela empilhava para
-   * sempre — inclusive numa janela de sobra, que é o oposto do que este hook
-   * existe para decidir.
+   * efeito rodaria na montagem do wizard, quando a aba aberta ainda é outra e o
+   * nó não existe: sairia no `if (!el) return` e nunca mais rodaria — sem
+   * observer, `disponivel` ficaria em 0 e a tela empilharia para sempre,
+   * inclusive numa janela de sobra, que é o oposto do que este hook existe
+   * para decidir.
    *
    * A ref de callback é chamada quando o nó ENTRA e quando SAI, então ela
    * acompanha a aba aparecendo e sumindo sem precisar adivinhar dependência.
@@ -242,9 +238,9 @@ export function CadastroWizard() {
   /**
    * OS CINCO CALLBACKS DA GRADE, estáveis por `useCallback`.
    *
-   * Eram closures inline no JSX. Cada render do wizard criava funções novas, a
-   * grade as repassava para as 751 linhas, e o `memo` de `AbaGridRow` nunca
-   * acertava — cada tecla repintava a planilha inteira.
+   * Closures inline no JSX seriam funções novas a cada render do wizard; a
+   * grade as repassaria para as 751 linhas, e o `memo` de `AbaGridRow` nunca
+   * acertaria — cada tecla repintaria a planilha inteira.
    *
    * Dependem só de `aba.key` (e dos despachos, que o reducer mantém estáveis),
    * então trocam de identidade ao trocar de aba, e não a cada tecla. É a
@@ -304,11 +300,11 @@ export function CadastroWizard() {
   /**
    * O RECORTE É DERIVADO NO RENDER, e não definido num efeito.
    *
-   * Ele morava num `useEffect`, e efeito roda DEPOIS da pintura: ao entrar numa
-   * aba, a grade montava com TODAS as linhas — 3.755 na de obras, 1.057 na do
-   * Fluxo — e só então o recorte chegava e ela remontava com poucas. O usuário
-   * pagava o render inteiro para ver um recorte. Medido: 3.940ms para abrir a
-   * aba de obras, contra 43ms recortada.
+   * Efeito roda DEPOIS da pintura: num `useEffect`, ao entrar numa aba a grade
+   * montaria com TODAS as linhas — 3.755 na de obras, 1.057 na do Fluxo — e só
+   * então o recorte chegaria e ela remontaria com poucas. O usuário pagaria o
+   * render inteiro para ver um recorte (medido: 3.940ms para abrir a aba de
+   * obras, contra 43ms recortada).
    *
    * Aqui o estado guarda só a ESCOLHA MANUAL, por aba. Sem escolha, vale o
    * recorte inicial — calculado no mesmo render em que a grade é montada, então
@@ -336,8 +332,7 @@ export function CadastroWizard() {
     const temBarra = barraDeEscopoVisivel(aba, linhas.length)
     return escopoInicial(opcoesEscopo(unidade.data, aba, linhas), temBarra)
     // `unidade?.id` e não `unidade`: esta última muda a cada tecla digitada, e o
-    // recorte se refaria no meio do preenchimento. É a mesma dependência que o
-    // efeito antigo usava, pelo mesmo motivo.
+    // recorte se refaria no meio do preenchimento.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aba, unidade?.id, escolhaDeEscopo])
 
@@ -401,28 +396,14 @@ export function CadastroWizard() {
   const unidadeUsaCts = linhaDaUnidade?.usa_macrorregiao_cts === 'Sim'
 
   /**
-   * OS SISTEMAS QUE HOJE TÊM MAIS DE UMA CTS — os que impedem marcar a unidade.
-   *
-   * O servidor recusa a marcação enquanto algum existir (422), e a caixa precisa
-   * dizer QUAIS antes de a pessoa tentar. Nomes, e não ids: é o que aparece no
-   * seletor do Fluxo, que é onde a excedente sai.
+   * OS SISTEMAS QUE TÊM MAIS DE UMA CTS — os que impedem marcar a unidade. A
+   * regra mora em `fluxo.ts`, porque a importação da planilha faz a mesma
+   * pergunta ao colocar uma CTS com a macrorregião marcada.
    */
-  const sistemasCheios = useMemo(() => {
-    if (!dadosDoCadastro) return []
-    const porSistema = new Map<string, number>()
-    for (const t of topoDoCadastro ?? []) {
-      if (t.sistema_id && ehCts(dadosDoCadastro, t)) {
-        porSistema.set(t.sistema_id, (porSistema.get(t.sistema_id) ?? 0) + 1)
-      }
-    }
-    const nome = new Map(
-      (dadosDoCadastro['cidade-sistema'] ?? []).map((r) => [r.sistema_id, r.sistema_name]),
-    )
-    return [...porSistema]
-      .filter(([, n]) => n > 1)
-      .map(([sis]) => nome.get(sis) || sis)
-      .sort()
-  }, [topoDoCadastro, dadosDoCadastro])
+  const sistemasCheios = useMemo(
+    () => (dadosDoCadastro ? sistemasComMaisDeUmaCts(dadosDoCadastro) : []),
+    [dadosDoCadastro],
+  )
 
   /**
    * COLOCA a CTS no sistema escolhido — escrevendo `sistema_id` na LINHA DELA na
@@ -534,9 +515,9 @@ export function CadastroWizard() {
   }, [unidade, aba, escopo])
 
   // `[setEscopo]`, e não `[]`: `setEscopo` fecha sobre `aba.key`, e com a lista
-  // vazia este callback ficava preso na aba em que nasceu — "Nova linha" com
-  // recorte ativo limpava o escopo da aba ERRADA, e a linha nova (que nasce com
-  // `cidade_id` vazio) continuava escondida pelo filtro da aba certa.
+  // vazia este callback ficaria preso na aba em que nasceu — "Nova linha" com
+  // recorte ativo limparia o escopo da aba ERRADA, e a linha nova (que nasce com
+  // `cidade_id` vazio) continuaria escondida pelo filtro da aba certa.
   const limparEscopo = useCallback(() => setEscopo(SEM_ESCOPO), [setEscopo])
 
   // ------------------------------------------------ o elo tabela <-> desenho
@@ -687,9 +668,8 @@ export function CadastroWizard() {
         rows={rows}
         cidades={unidade.cidades}
         dados={unidade.data}
-        // ESTÁVEIS (`useCallback` acima). Eram closures inline, e cada render
-        // do wizard dava props novas à grade — que as repassava para as 751
-        // linhas, anulando o `memo` de cada uma.
+        // ESTÁVEIS (`useCallback` acima): props novas a cada render do wizard
+        // seriam repassadas às 751 linhas, anulando o `memo` de cada uma.
         onCell={aoEditarCelula}
         onAddRow={aoAdicionarLinha}
         onDelRow={aoRemoverLinha}
@@ -737,66 +717,6 @@ export function CadastroWizard() {
     }
   }
 
-  /**
-   * BAIXAR TEMPLATE — o Excel que a Regional preenche fora do site.
-   *
-   * Já vem com as linhas desta unidade (uma por sub-bacia, CTS, ETE, cidade e
-   * nó do fluxo que existem de verdade no cadastro) — ver
-   * `app/cadastro/template_excel.py`. Pode ser chamado ANTES de qualquer
-   * dado existir na tela (unidade recém-selecionada, cadastro nunca salvo):
-   * o template é gerado do banco, não do estado local.
-   */
-  const [baixando, setBaixando] = useState(false)
-  async function baixarTemplate() {
-    if (!unidade) return
-    setBaixando(true)
-    try {
-      await baixarTemplateCadastro(unidade.id)
-    } catch (erro) {
-      toast(
-        erro instanceof ApiError
-          ? `Não foi possível gerar o template: ${erro.message}`
-          : 'Não foi possível falar com o servidor.',
-        'warning',
-      )
-    } finally {
-      setBaixando(false)
-    }
-  }
-
-  /**
-   * IMPORTAR PLANILHA — a volta do template preenchido.
-   *
-   * O upload só MESCLA no estado em tela (ver `IMPORTAR_PLANILHA` no
-   * reducer) — não grava no banco. A pessoa revê o que entrou (o âmbar de
-   * obrigatório em branco já aparece na grade, célula por célula) e decide
-   * clicar em Salvar, como faria depois de digitar à mão.
-   *
-   * `<input type=file>` disparado por um `<button>` porque o input nativo do
-   * navegador não é estilizável — o mesmo padrão que qualquer "escolher
-   * arquivo" custom usa.
-   */
-  const inputArquivoRef = useRef<HTMLInputElement>(null)
-  const [importando, setImportando] = useState(false)
-  async function importarArquivo(arquivo: File) {
-    if (!unidade) return
-    setImportando(true)
-    try {
-      const { dados } = await importarTemplateCadastro(unidade.id, arquivo)
-      importarPlanilha(dados)
-      toast('Planilha importada. Revise os campos e clique em Salvar.', 'success')
-    } catch (erro) {
-      toast(
-        erro instanceof ApiError
-          ? `Não foi possível importar: ${erro.message}`
-          : 'Não foi possível falar com o servidor.',
-        'warning',
-      )
-    } finally {
-      setImportando(false)
-    }
-  }
-
   function avancar() {
     if (!ultimaDoBloco) return setAbaIdx(abaAtualIdx + 1)
     if (!ultimoBloco) {
@@ -809,13 +729,13 @@ export function CadastroWizard() {
 
   return (
     /*
-      A ABA DO FLUXO USA MAIS LARGURA QUE O RESTO DO CADASTRO, e o número saiu de
-      medição, não de gosto.
+      A ABA DO FLUXO USA MAIS LARGURA QUE O RESTO DO CADASTRO, e o número é
+      medido, não escolhido.
 
       `max-w-content` são 1400px. Descontados 48 de padding da página e 40 do
       cartão, sobram 1312 para o conteúdo — e a tabela do Fluxo, que tem largura
-      fixa, come 820 deles. Ficam 468 para o desenho, que num sistema de cinco nós
-      num nível pede 988. Era isso que aparecia cortado.
+      fixa, come 820 deles. Ficariam 468 para o desenho, que num sistema de cinco
+      nós num nível pede 988: apareceria cortado.
 
       1800px dão 1712 de conteúdo e 868 para o desenho, e a partir de ~1900px de
       janela ele cabe inteiro. Nas outras abas o teto continua sendo 1400: elas não
@@ -864,49 +784,6 @@ export function CadastroWizard() {
             onClick={() => setEditando((e) => !e)}
           >
             <PencilSimple weight="fill" /> {editando ? 'Concluir edição' : 'Editar'}
-          </Button>
-          {/* BAIXAR/IMPORTAR TEMPLATE — o ciclo de preencher fora do site. Ficam
-              juntos e ANTES de Salvar/Editar na leitura, porque baixar o
-              template costuma ser o primeiro passo de quem chega numa unidade
-              grande (milhares de sub-bacias) e não vai digitar linha por linha
-              na grade. */}
-          <input
-            ref={inputArquivoRef}
-            type="file"
-            accept=".xlsx"
-            className="hidden"
-            onChange={(e) => {
-              const arquivo = e.target.files?.[0]
-              e.target.value = ''
-              if (arquivo) void importarArquivo(arquivo)
-            }}
-          />
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => inputArquivoRef.current?.click()}
-            disabled={importando}
-          >
-            {importando ? (
-              <>
-                <CircleNotch weight="bold" className="animate-spin" /> Importando…
-              </>
-            ) : (
-              <>
-                <UploadSimple weight="bold" /> Importar planilha
-              </>
-            )}
-          </Button>
-          <Button variant="secondary" size="sm" onClick={baixarTemplate} disabled={baixando}>
-            {baixando ? (
-              <>
-                <CircleNotch weight="bold" className="animate-spin" /> Gerando…
-              </>
-            ) : (
-              <>
-                <DownloadSimple weight="bold" /> Baixar template
-              </>
-            )}
           </Button>
           {/* Salvar vem ANTES de "Revisão antes de rodar" e em variante
               secundária: é a ação frequente, mas não é a que fecha o fluxo. */}
@@ -1000,6 +877,14 @@ export function CadastroWizard() {
                 sistemasCheios={sistemasCheios}
                 onMudar={aoMudarUsaCts}
               />
+              {/* LOGO ABAIXO DA CAIXA: a planilha reflete o regime de CTS que a
+                  caixa decide, e a posição diz isso antes de qualquer texto. */}
+              {unidade && (
+                <PlanilhaDaUnidade
+                  unidade={unidade}
+                  onImportado={(r) => importarPlanilha(r.dados)}
+                />
+              )}
             </>
           )}
 
@@ -1081,9 +966,8 @@ export function CadastroWizard() {
                   /* `flex-col` E `flex-row` na mesma string não funciona: o
                      Tailwind emite `.flex-col` DEPOIS de `.flex-row`, então a
                      coluna vence independentemente da ordem no atributo, e o
-                     layout empilhava mesmo com a medida dizendo que cabia. A
-                     variante de media query que havia aqui antes escapava disso
-                     por vir de outro bloco do CSS. Uma direção por vez. */
+                     layout empilharia mesmo com a medida dizendo que cabe. Uma
+                     direção por vez. */
                   className={`flex gap-6 ${ladoALado ? 'flex-row items-start' : 'flex-col'}`}
                 >
                   <div
@@ -1131,11 +1015,9 @@ export function CadastroWizard() {
  * Escreve na MESMA célula que a grade escreveria (`unidade-regional[0].wacc_medio`);
  * ver o comentário de `abaGrade` acima para por que isso não é detalhe.
  *
- * O texto ao lado explica a herança: *"aqui é para
- * preencher o ponderado de capital, e aí bota esse disclaimer — quando uma obra não
- * tem seu WACC próprio, ela herda dessa média. Ficou muito direto, esse textinho pode
- * dar uma melhorada"* (Wagner, 7:35). O que estava só no tooltip da coluna passou a
- * ser a explicação do cartão.
+ * O texto ao lado explica a herança — quando uma obra não tem WACC próprio, ela
+ * herda esta média —, que é o que quem preenche precisa saber e o tooltip da
+ * coluna sozinho não daria a ler.
  */
 function CartaoWacc() {
   const { state, setCell } = useCadastro()

@@ -151,14 +151,14 @@ export const DICIONARIO_RODADA: Record<string, Verbete> = {
 
   // ------------------------------------------------- 05 o que entra no plano
   USAR_CTS: {
-    rotulo: 'Coletores de tempo seco (CTS)',
+    rotulo: 'Usar Coletores de tempo seco (CTS)',
     tec: 'USAR_CTS',
     origem: VOCE,
-    tipo: 'orçar à parte · somar à sub-bacia',
-    oque: 'Se o coletor de tempo seco entra como estrutura própria na otimização.',
+    tipo: 'sim · não',
+    oque: 'Se os coletores de tempo seco entram na otimização como estrutura própria.',
     porque:
-      'Orçar à parte: a CTS tem obras, receita e cobertura próprias. Somar à sub-bacia: ligações, economias, população, receita e vazão dela entram na sub-bacia irmã — a demanda CONTINUA no plano, sem obra de CTS para orçar. Só faz efeito se a base tiver CTS cadastrada.',
-    exemplo: 'orçar à parte',
+      'Sim: cada CTS tem obras, receita e cobertura próprias. Não: ligações, economias, população, receita e vazão dela entram na sub-bacia irmã — a demanda CONTINUA no plano, sem obra de CTS para orçar. Só faz efeito se a base tiver CTS cadastrada.',
+    exemplo: 'Sim',
   },
   COBERTURA_SO_RESIDENCIAL: {
     rotulo: 'Recorte da cobertura',
