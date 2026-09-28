@@ -393,7 +393,7 @@ export function validar(e: EstadoSimulacao, prontidao: Prontidao | undefined): I
   } else {
     itens.push({
       severidade: 'ok',
-      texto: `Orçamento de R$ ${total.toLocaleString('pt-BR')} Mi distribuído em ${quantosAnos} anos.`,
+      texto: `Orçamento de R$ ${total.toLocaleString('pt-BR')} distribuído em ${quantosAnos} anos.`,
     })
   }
 
