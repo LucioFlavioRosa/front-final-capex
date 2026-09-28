@@ -77,6 +77,17 @@ const LARGURA_BARRA = 16
  */
 const tickBrl = (v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
 
+/**
+ * LARGURA DA FAIXA DO EIXO DE DINHEIRO — 92px, e não os 52 de antes.
+ *
+ * Com o valor abreviado ("146 Mi") cabiam cinco caracteres; por extenso, o eixo
+ * precisa de "2.274.759.738" — treze caracteres na monoespaçada de 10px. Sem essa
+ * folga o recharts NÃO quebra nem encolhe: ele corta o começo do número, e o eixo
+ * passa a mostrar ".000.000" — que é pior do que abreviar, porque parece um
+ * número. Foi assim que apareceu na primeira conferência no navegador.
+ */
+const LARGURA_EIXO_REAIS = 92
+
 const eixoBase = {
   stroke: COR.eixo,
   tick: { fill: COR.mudo, fontSize: 10, fontFamily: 'IBM Plex Mono, monospace' },
@@ -225,7 +236,7 @@ export function GraficoFluxoEscoamento({
             interval={0}
             tick={{ ...eixoBase.tick, fontSize: 9.5, fontFamily: 'Manrope, sans-serif' }}
           />
-          <YAxis {...eixoBase} tickFormatter={tickBrl} width={52} />
+          <YAxis {...eixoBase} tickFormatter={tickBrl} width={LARGURA_EIXO_REAIS} />
           <ReferenceLine y={0} stroke={COR.eixo} />
           <Tooltip
             cursor={{ fill: COR.cursor }}
@@ -388,7 +399,7 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
         <ComposedChart data={dados} margin={{ ...MARGEM, right: 8 }} barGap={VAO_BARRA}>
           <CartesianGrid stroke={COR.grid} vertical={false} />
           <XAxis dataKey="ano" {...eixoBase} />
-          <YAxis yAxisId="reais" {...eixoBase} tickFormatter={tickBrl} width={52} />
+          <YAxis yAxisId="reais" {...eixoBase} tickFormatter={tickBrl} width={LARGURA_EIXO_REAIS} />
           <Tooltip
             cursor={{ fill: COR.cursor }}
             content={({ active, payload, label }) => {
@@ -527,7 +538,7 @@ export function GraficoEbitda({
             yAxisId="reais"
             {...eixoBase}
             tickFormatter={tickBrl}
-            width={52}
+            width={LARGURA_EIXO_REAIS}
             tick={{ ...eixoBase.tick, fill: 'var(--viz-fluxo-primaria)' }}
           />
           <YAxis
@@ -801,7 +812,7 @@ export function GraficoReceitaSubBacia({ anos }: { anos: ReceitaAno[] }) {
         <BarChart data={dados} margin={MARGEM}>
           <CartesianGrid stroke={COR.grid} vertical={false} />
           <XAxis dataKey="ano" {...eixoBase} />
-          <YAxis {...eixoBase} tickFormatter={tickBrl} width={44} />
+          <YAxis {...eixoBase} tickFormatter={tickBrl} width={LARGURA_EIXO_REAIS} />
           <Tooltip
             cursor={{ fill: COR.cursor }}
             content={({ active, payload, label }) => {
