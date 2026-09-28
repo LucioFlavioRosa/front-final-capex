@@ -135,7 +135,7 @@ export const DICIONARIO_RODADA: Record<string, Verbete> = {
     tipo: 'arrecadada · faturada',
     oque: 'Qual receita alimenta o ticket da simulação.',
     porque:
-      'Arrecadada é o que de fato entrou — já reflete inadimplência. Faturada é o bruto. O ticket é a receita escolhida ÷ ligações atuais, então a escolha muda o VPL de toda a rodada.',
+      'Arrecadada é o que de fato entrou — já reflete inadimplência. Faturada é o bruto. O ticket é a receita escolhida ÷ ligações totais, então a escolha muda o VPL de toda a rodada.',
     exemplo: 'Arrecadada',
   },
   CURVA_ADOCAO: {

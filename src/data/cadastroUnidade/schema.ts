@@ -256,7 +256,8 @@ export const COLUNA_LABELS: Record<string, string> = {
   ligacoes_atuais_residencial: 'Ligações atuais (residencial)',
   universo_economias_residencial: 'Universo de economias (residencial)',
   economias_atuais_residencial: 'Economias atuais (residencial)',
-  ticket_medio: 'Ticket médio',
+  ticket_medio: 'Ticket médio (arrecadada)',
+  ticket_medio_faturada: 'Ticket médio (faturada)',
   universo_populacao: 'Universo de população',
   populacao_atual: 'População atual',
   populacao_novas_obras: 'População nova (obras)',
@@ -505,8 +506,8 @@ const colsOperacionalComercial = (csv: 'subbacias' | 'cts'): ColDef[] => [
   { coluna: 'tempo_ramp_up', origem: 'un', procedencia: 'vazio', oque: 'Tempo até a adesão plena dos clientes após o início do faturamento.', porque: 'A receita cresce em curva S (lenta–pico–lenta) até o pleno neste prazo; o OPEX sobe no mesmo período.', exemplo: '12' },
   { coluna: 'vazao_contribuicao', origem: 'un', procedencia: 'vazio', oque: 'A vazão NOVA que a sub-bacia passa a mandar quando conectada — não a vazão já existente. É o TOTAL, e assim continua no recorte residencial: a vazão dimensiona a ETE, e descontar indústria a subdimensionaria.', porque: 'Dimensiona os módulos da ETE e é o peso do rateio das obras compartilhadas. Errar aqui distorce quem paga o quê.', exemplo: '165,9' },
   // QTD_LIGACOES_TOTAL / QTD_LIGACOES_AGUA
-  { coluna: 'universo_ligacoes', origem: 'db', procedencia: csv, oque: 'Total de ligações de água potenciais da base (residenciais + industriais), somando ativas e inativas.' },
-  { coluna: 'ligacoes_atuais', origem: 'db', procedencia: csv, oque: 'Ligações de água atualmente ativas.' },
+  { coluna: 'universo_ligacoes', origem: 'db', procedencia: csv, oque: 'Total de ligações da base que já faturam água (residenciais + industriais) — o QTD_LIGACOES_TOTAL da origem.', porque: 'É o denominador da meta de cobertura e o denominador do ticket: a receita de água vem desta base inteira.' },
+  { coluna: 'ligacoes_atuais', origem: 'db', procedencia: csv, oque: 'As ligações desta base que JÁ são atendidas com esgoto.', porque: 'É o numerador de partida da cobertura, e a base existente que passa a pagar a nova paridade quando a cobertura sobe de faixa.' },
   { coluna: 'ligacoes_novas_obras', origem: 'calc', procedencia: 'vazio', oque: 'Calculado: universo − ligações atuais.', porque: 'São as ligações que as obras deste plano ainda precisam atender. O valor gravado nesta coluna é ignorado — o motor sempre recalcula.' },
   /*
    * RECORTE RESIDENCIAL — quanto das medidas acima é residencial.
@@ -528,15 +529,20 @@ const colsOperacionalComercial = (csv: 'subbacias' | 'cts'): ColDef[] => [
   { coluna: 'economias_atuais', origem: 'db', procedencia: csv, oque: 'Economias de água atualmente ativas.' },
   { coluna: 'economias_novas_obras', origem: 'calc', procedencia: 'vazio', oque: 'Calculado: universo − economias atuais.', porque: 'São as economias que as obras deste plano ainda precisam atender. O valor gravado nesta coluna é ignorado — o motor sempre recalcula.' },
   /*
-   * TICKET MÉDIO — conta do servidor, exibida aqui.
+   * TICKET MÉDIO — conta do servidor, exibida aqui, e são DOIS.
    *
-   * `origem: 'db'` e não `'calc'`: o valor VEM pronto do backend (receita ÷
-   * ligações), e `computeCalc` não o conhece — marcá-lo como calculado faria a
-   * célula exibir um travessão sobre um número que já existe. Ele não volta na
-   * gravação: o servidor o exclui do contrato do `PUT` (ver `DB_DERIVADO` em
+   * `origem: 'db'` e não `'calc'`: o valor VEM pronto do backend (a receita ÷ o
+   * universo de ligações), e `computeCalc` não o conhece — marcá-lo como calculado
+   * faria a célula exibir um travessão sobre um número que já existe. Não voltam na
+   * gravação: o servidor os exclui do contrato do `PUT` (ver `DB_DERIVADO` em
    * `lib/cadastroApi.ts`).
+   *
+   * DOIS porque a rodada escolhe a base de receita (arrecadada ou faturada) e o
+   * motor deriva o ticket DELA. Esta tela não conhece a escolha da rodada — mostrar
+   * um só, mudo, contradiria metade das rodadas.
    */
-  { coluna: 'ticket_medio', origem: 'db', procedencia: 'vazio', oque: 'Receita média por ligação — receita faturada dividida pelas ligações ativas.', porque: 'É o que multiplica as ligações novas para estimar a receita das obras. Conta do servidor: não é digitado nem gravado.' },
+  { coluna: 'ticket_medio', origem: 'db', procedencia: 'vazio', oque: 'Receita média por ligação — a receita ARRECADADA dividida pelas ligações totais (o universo).', porque: 'É o que multiplica as ligações novas para estimar a receita das obras, nas rodadas que escolhem a base arrecadada. Conta do servidor: não é digitado nem gravado.' },
+  { coluna: 'ticket_medio_faturada', origem: 'db', procedencia: 'vazio', oque: 'O mesmo ticket na outra base: a receita FATURADA dividida pelas ligações totais.', porque: 'É o ticket que vale nas rodadas que escolhem a base faturada. A diferença para o arrecadado é a inadimplência.' },
   { coluna: 'universo_economias_residencial', origem: 'db', procedencia: csv, oque: 'Quantas do universo de economias são residenciais.', porque: 'Denominador da meta quando a rodada mede cobertura em economias e pede só residencial.' },
   { coluna: 'economias_atuais_residencial', origem: 'db', procedencia: csv, oque: 'Quantas das economias já atendidas são residenciais.', porque: 'Numerador de partida da meta no recorte residencial por economias.' },
   // população não existe em nenhum CSV

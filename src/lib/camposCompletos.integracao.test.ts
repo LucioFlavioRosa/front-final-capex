@@ -57,6 +57,7 @@ describe('paridade entre o que o servidor manda e o que a tela mostra', () => {
       'universo_economias_residencial',
       'economias_atuais_residencial',
       'ticket_medio',
+      'ticket_medio_faturada',
       'universo_ligacoes_com_cts',
       'receita_faturada_media_mensal_com_cts',
     ]) {
