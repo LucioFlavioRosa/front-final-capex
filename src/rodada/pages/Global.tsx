@@ -28,7 +28,7 @@ import {
 } from '@/rodada/api/queries'
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
-import { brlMi, dataHora, deTotal, inteiro, pct } from '@/rodada/lib/formato'
+import { brl, dataHora, deTotal, inteiro, pct } from '@/rodada/lib/formato'
 import { idCurtoDaRodada } from '@/rodada/domain/rodadaId'
 
 /**
@@ -122,7 +122,7 @@ export function Global() {
                    hoje" —, e trocá-lo pelo destaque do Por quê poria a pergunta
                    errada em cima da tela. */
                 aba !== 'porque'
-                  ? { rotulo: 'VPL do plano', valor: brlMi(m.kpis.vpl), ajuda: 'VPL_PLANO' }
+                  ? { rotulo: 'VPL do plano', valor: brl(m.kpis.vpl), ajuda: 'VPL_PLANO' }
                   : {
                       // OBRAS, e nao sub-bacias: a aba inteira conta obra, e um
                       // destaque em outra unidade nao fecharia com nada do
@@ -180,8 +180,8 @@ export function Global() {
                   ),
                 },
               ] : [
-                { rotulo: 'CAPEX total', valor: brlMi(m.kpis.capexTotal), ajuda: 'CAPEX_TOTAL' },
-                { rotulo: 'OPEX total', valor: brlMi(m.kpis.opexTotal), ajuda: 'OPEX_TOTAL' },
+                { rotulo: 'CAPEX total', valor: brl(m.kpis.capexTotal), ajuda: 'CAPEX_TOTAL' },
+                { rotulo: 'OPEX total', valor: brl(m.kpis.opexTotal), ajuda: 'OPEX_TOTAL' },
                 {
                   /**
                    * A BASE VAI NO RÓTULO, e não só no rodapé.
@@ -194,10 +194,27 @@ export function Global() {
                    * Rodada sem `params_extra` não traz a base: aí o rótulo é
                    * "Receita" seco, em vez de afirmar uma das duas.
                    */
-                  rotulo: m.parametros.baseReceita
-                    ? `Receita (${m.parametros.baseReceita})`
-                    : 'Receita',
-                  valor: brlMi(m.kpis.receitaTotal),
+                  /*
+                   * E O RÓTULO DIZ QUE É O HORIZONTE INTEIRO.
+                   *
+                   * O número soma todos os anos do plano — 24, na maioria das
+                   * rodadas. Quem lê "Receita" e faz a conta de um ano à mão erra
+                   * por uma ordem de grandeza, e foi o que aconteceu (28/09/2026).
+                   * O ano a ano está no fluxo de caixa, logo abaixo.
+                   */
+                  rotulo: [
+                    'Receita no horizonte',
+                    m.parametros.anosHorizonte
+                      ? `(${inteiro(m.parametros.anosHorizonte)} anos${
+                          m.parametros.baseReceita ? `, ${m.parametros.baseReceita}` : ''
+                        })`
+                      : m.parametros.baseReceita
+                        ? `(${m.parametros.baseReceita})`
+                        : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' '),
+                  valor: brl(m.kpis.receitaTotal),
                   ajuda: 'RECEITA_TOTAL',
                 },
                 {
@@ -275,7 +292,7 @@ export function Global() {
               ]}
               rodape={
                 <>
-                  <ItemRodape rotulo="Orçamento" valor={brlMi(m.parametros.orcamento)} />
+                  <ItemRodape rotulo="Orçamento" valor={brl(m.parametros.orcamento)} />
                   {/* A janela é DERIVADA — ela aparece aqui como leitura, e não
                       existe campo para ela em lugar nenhum do app. */}
                   <ItemRodape

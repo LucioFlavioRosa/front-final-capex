@@ -22,7 +22,7 @@ import { useRunMeta, useSubBacia } from '@/rodada/api/queries'
 import { useAbaResultado } from '@/rodada/layout/abaResultado'
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
-import { VAZIO, brlMi, inteiro, vazao } from '@/rodada/lib/formato'
+import { brl, inteiro, vazao, VAZIO } from '@/rodada/lib/formato'
 import type { Explicacao } from '@/rodada/domain/resultado'
 
 /**
@@ -84,7 +84,7 @@ export function SubBacia() {
                   <BotaoExportar />
                 </>
               }
-              destaque={{ rotulo: 'VPL', valor: brlMi(s.vpl) }}
+              destaque={{ rotulo: 'VPL', valor: brl(s.vpl) }}
               itens={[
                 { rotulo: 'Vazão', valor: vazao(s.vazao) },
                 { rotulo: 'Componentes', valor: inteiro(s.elementos.length) },
@@ -202,7 +202,7 @@ export function SubBacia() {
                               ? VAZIO
                               : `${inteiro(e.quantidade)} ${e.unidade}`}
                           </td>
-                          <td data-m>{brlMi(e.capex)}</td>
+                          <td data-m>{brl(e.capex)}</td>
                           <td data-m>{e.anoInicio === null ? VAZIO : e.anoInicio}</td>
                         </tr>
                       ))}
@@ -271,9 +271,9 @@ function PainelExplicacao({
             O contrafactual: a mesma sub-bacia, sem dividir o custo da estrutura compartilhada.
           </p>
           <dl className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-2">
-            <Linha rotulo="Receita" valor={brlMi(seFosseLigada.receita)} />
-            <Linha rotulo="CAPEX sozinha" valor={brlMi(seFosseLigada.capexSozinha)} />
-            <Linha rotulo="OPEX" valor={brlMi(seFosseLigada.opex)} />
+            <Linha rotulo="Receita" valor={brl(seFosseLigada.receita)} />
+            <Linha rotulo="CAPEX sozinha" valor={brl(seFosseLigada.capexSozinha)} />
+            <Linha rotulo="OPEX" valor={brl(seFosseLigada.opex)} />
           </dl>
 
           {/* A COMPARAÇÃO que responde a pergunta. Os dois saldos lado a lado,
@@ -285,11 +285,11 @@ function PainelExplicacao({
               tamanho exato do efeito do rateio, que é a resposta da pergunta
               desta tela. */}
           <div className="tiles mt-3.5 grid-cols-3">
-            <Tile rotulo="Sozinha" valor={brlMi(seFosseLigada.saldoSozinha)} />
-            <Tile rotulo="Dividindo a estrutura" valor={brlMi(seFosseLigada.saldoComRateio)} />
+            <Tile rotulo="Sozinha" valor={brl(seFosseLigada.saldoSozinha)} />
+            <Tile rotulo="Dividindo a estrutura" valor={brl(seFosseLigada.saldoComRateio)} />
             <Tile
               rotulo="Diferença"
-              valor={brlMi(seFosseLigada.saldoComRateio - seFosseLigada.saldoSozinha)}
+              valor={brl(seFosseLigada.saldoComRateio - seFosseLigada.saldoSozinha)}
             />
           </div>
           <div className="mt-3 rounded-xl border border-aegea-200 border-l-[3px] border-l-aegea-600 bg-aegea-50 p-3">

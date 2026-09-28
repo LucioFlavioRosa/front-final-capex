@@ -19,7 +19,7 @@ import { COR, corDoComponente } from '@/rodada/components/cores'
 import { CelulaLink, ChipSituacao, rotuloSituacao } from '@/rodada/components/pecas'
 import { useCronogramaDeObras, useObras } from '@/rodada/api/queries'
 import { baixarXlsx } from '@/rodada/lib/xlsx'
-import { brMi, brlMi, inteiro, VAZIO } from '@/rodada/lib/formato'
+import { brl, inteiro, VAZIO } from '@/rodada/lib/formato'
 import type { AnoDeObras, ObraLinha } from '@/rodada/domain/resultado'
 
 /**
@@ -188,7 +188,7 @@ export function GraficoCronogramaObras({ runId }: { runId: string | undefined })
               // pago pela Aegea.
               `${inteiro(totalObras)} ${
                 recorte === 'todas' ? 'obras no plano' : `obras ${rotulo}`
-              }${totalCapex > 0 ? ` · ${brlMi(totalCapex)}` : ''} · clique num ano para ver a lista`
+              }${totalCapex > 0 ? ` · ${brl(totalCapex)}` : ''} · clique num ano para ver a lista`
             : `nenhuma obra ${recorte === 'todas' ? 'com ano de execução' : rotulo} nesta rodada`
         }
         escopo="plano inteiro"
@@ -237,7 +237,7 @@ export function GraficoCronogramaObras({ runId }: { runId: string | undefined })
             // CAPEX zero com obra > 0 só acontece em obra de terceiro, e ali o
             // zero é a DEFINIÇÃO (`capex=0 e prazo>0`), não uma medida. "R$ 0,0
             // mi" leria como obra baratíssima; o traço lê como "não se aplica".
-            a.capex > 0 ? brMi(a.capex) : VAZIO,
+            a.capex > 0 ? brl(a.capex) : VAZIO,
           ]),
         }}
       >
@@ -285,7 +285,7 @@ export function GraficoCronogramaObras({ runId }: { runId: string | undefined })
                           rótulo dizendo qual data é. */}
                       {label}
                       {ano && ano.obras > 0
-                        ? ` · ${inteiro(ano.obras)} obras · ${brMi(ano.capex)}`
+                        ? ` · ${inteiro(ano.obras)} obras · ${brl(ano.capex)}`
                         : ' · nenhuma obra da Aegea começa'}
                     </div>
                     <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
@@ -496,7 +496,7 @@ function ObrasDoAno({
         resumo
           ? `${inteiro(resumo.obras)} obras${
               recorte === 'todas' ? '' : ` · ${ROTULO_DO_RECORTE[recorte]}`
-            }${resumo.capex > 0 ? ` · ${brlMi(resumo.capex)}` : ''}`
+            }${resumo.capex > 0 ? ` · ${brl(resumo.capex)}` : ''}`
           : undefined
       }
       footer={
@@ -589,12 +589,12 @@ function ObrasDoAno({
                 {/* A coluna que explica por que uma obra de terceiro está numa
                     lista de 2026: ela não começa em 2026, ela FICA PRONTA. */}
                 <td className="font-mono text-[11.5px]">{o.dataPronta ?? VAZIO}</td>
-                {/* `brMi` e nao `brlMi`: a regra esta no proprio `formato.ts`
+                {/* `brl` e nao `brl`: a regra esta no proprio `formato.ts`
                     — numa COLUNA de 72 linhas a regua tem de ser a mesma, e o
-                    `brlMi` cai para o formato cheio abaixo de um milhao, o que
+                    `brl` cai para o formato cheio abaixo de um milhao, o que
                     alterna "R$ 4,1 Mi" e "R$ 493.774" em linhas vizinhas e
                     obriga a converter de cabeca justamente para comparar. */}
-                <td data-m>{brMi(o.capex)}</td>
+                <td data-m>{brl(o.capex)}</td>
               </tr>
             ))}
           </tbody>

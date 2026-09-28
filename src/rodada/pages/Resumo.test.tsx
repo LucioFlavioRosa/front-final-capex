@@ -55,7 +55,7 @@ describe('Simular — o resumo mostra o que vai ser disparado', () => {
     // 560 = a soma do cronograma padrão (60+60+50×4+40×2+30×3+20×3+10), que é
     // o que a equipe roda hoje. O resumo SOMA o cronograma, e não repete um
     // campo digitado — se alguém trocar o padrão, este número acompanha.
-    expect(resumo()).toHaveTextContent('R$ 560 Mi')
+    expect(resumo()).toHaveTextContent('R$ 560.000.000')
 
     // Sem abrir nada: "Parâmetros do motor" nasce aberto.
     await userEvent.click(screen.getByRole('radio', { name: 'Linear' }))

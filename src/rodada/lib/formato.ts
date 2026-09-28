@@ -1,12 +1,18 @@
 /**
  * Formatacao pt-BR das telas de resultado.
  *
- * Duas regras do handoff que estao codificadas aqui, e nao espalhadas pelas
- * telas:
+ * Tres regras que estao codificadas aqui, e nao espalhadas pelas telas:
  *
- * 1. R$ SEM CENTAVOS nos agregados. Centavo em cima de R$ 168 milhoes e ruido —
+ * 1. DINHEIRO SEMPRE EM REAIS, SEM ABREVIACAO. Nao existe "R$ 168,1 Mi", "R$ 2,3
+ *    bi" nem "5,5k" em lugar nenhum: todo valor sai por extenso, com separador de
+ *    milhar — `R$ 168.123.456`. Decisao do dono do produto em 28/09/2026, depois
+ *    de uma usuaria comparar a conta dela com a da simulacao e as duas parecerem
+ *    ordens de grandeza diferentes. Abreviar economiza espaco cobrando atencao de
+ *    quem le, e numa tela de decisao de investimento essa troca nao se paga.
+ *    Antes daqui saiam `brlMi`, `brMi`, `sinalMi` e um `compacto` com "k"/"M".
+ * 2. R$ SEM CENTAVOS nos agregados. Centavo em cima de R$ 168 milhoes e ruido —
  *    e pior, sugere uma precisao que a rodada nao tem.
- * 2. NULO VIRA "—", NUNCA 0. O caso que motivou: ocupacao de ETE com capacidade
+ * 3. NULO VIRA "—", NUNCA 0. O caso que motivou: ocupacao de ETE com capacidade
  *    zero. "0%" afirma que a ETE esta vazia; a verdade e que a conta nao existe.
  *    Sao coisas diferentes e a tela nao pode confundi-las.
  */
@@ -37,49 +43,16 @@ export function brl(v: number | null | undefined): string {
 }
 
 /**
- * R$ 168,1 Mi — para eixos e cards onde o numero cheio nao cabe.
- * Abaixo de 1 milhao cai para o formato cheio: "R$ 0,3 Mi" esconde a ordem de
- * grandeza de quem le rapido.
- */
-export function brlMi(v: number | null | undefined): string {
-  if (ausente(v)) return VAZIO
-  if (Math.abs(v) < 1_000_000) return BRL.format(v)
-  return `R$ ${NUM1.format(v / 1_000_000)} Mi`
-}
-
-/**
- * R$ 146,1 mi — SEMPRE em milhões, sem cair para o formato cheio.
+ * R$ 1.234.567 com sinal — "+R$ 7.200.000" / "−R$ 404.900.000".
  *
- * Existe ao lado de `brlMi`, e a diferença é o CONTEXTO de uso, não gosto:
- *
- *   `brlMi` é para valor SOLTO (KPI, célula de tabela, tooltip). Ali "R$ 0,3
- *   Mi" esconde a ordem de grandeza de quem lê rápido, então abaixo de um
- *   milhão ele mostra o número cheio.
- *
- *   `brMi` é para valor numa SÉRIE comparável — rótulo sobre a barra da
- *   fluxo de escoamento, coluna de CAPEX da lista por componente. Ali a régua tem de ser a
- *   mesma para todas as linhas: uma lista que alterna "R$ 2,0 mi" e
- *   "R$ 900.000" obriga o leitor a converter de cabeça para comparar duas
- *   linhas vizinhas, e é exatamente a comparação que a lista existe para
- *   permitir.
+ * E o rotulo sobre a barra do fluxo de escoamento, onde o que se le e a
+ * CONTRIBUICAO de cada parcela: sem o sinal explicito, uma barra que tira
+ * dinheiro fica indistinguivel de uma que poe.
  */
-export function brMi(v: number | null | undefined): string {
+export function brlSinal(v: number | null | undefined): string {
   if (ausente(v)) return VAZIO
-  const mi = v / 1_000_000
-  return `${mi < 0 ? '−R$ ' : 'R$ '}${NUM1.format(Math.abs(mi))} mi`
-}
-
-/**
- * O mesmo em milhões, mas só o número com sinal — "+7,2" / "−404,9".
- * É o rótulo sobre a barra do fluxo de escoamento: a unidade já está no subtítulo do
- * quadro, e repetir "R$ … mi" seis vezes sobre seis barras vizinhas empasta a
- * leitura que o rótulo deveria facilitar.
- */
-export function sinalMi(v: number | null | undefined): string {
-  if (ausente(v)) return VAZIO
-  const mi = v / 1_000_000
-  const sinal = mi > 0 ? '+' : mi < 0 ? '−' : ''
-  return `${sinal}${NUM1.format(Math.abs(mi))}`
+  const sinal = v > 0 ? '+' : v < 0 ? '−' : ''
+  return `${sinal}${BRL.format(Math.abs(v))}`
 }
 
 /** 94,1% — percentuais com 1 casa, como o handoff pede. */
@@ -114,33 +87,20 @@ export function vazao(v: number | null | undefined): string {
 }
 
 /**
- * "5,5k" · "1,2M" · "119" — o numero mais curto que ainda diz a ordem de grandeza.
+ * O NUMERO POR EXTENSO, com separador de milhar — era "5,5k"/"1,2M" ate 28/09/2026.
  *
- * Existe para o ROTULO SOBRE A BARRA de um grafico pequeno, e o requisito e
- * largura: no card do panorama de componentes cada barra tem ~25px de faixa, e
- * so um rotulo de ate quatro caracteres cabe ali sem encostar no vizinho. Por
- * isso "k"/"M" colados e sem espaco, ao contrario de `brMi` — que e para uma
- * COLUNA de valores lidos linha a linha, onde a regua tem de ser a mesma e a
- * unidade por extenso vale o espaco que ocupa.
+ * Existe para o ROTULO SOBRE A BARRA de um grafico pequeno, e o requisito ERA
+ * largura: no card do panorama de componentes cada barra tem ~25px de faixa. Sem
+ * abreviacao o rotulo nao cabe na maioria das barras, e quem renderiza JA trata
+ * isso — mede o texto contra a largura da barra e omite o que nao cabe, sempre
+ * mantendo o da barra maior (ver `SecaoElementos`). Omitir e honesto; abreviar
+ * nao era.
  *
- * O sufixo vai em cada valor, e nao uma vez no eixo, justamente porque aqui
- * nao ha eixo: o card nao desenha marcas em Y. Cada rotulo tem de se explicar
- * sozinho.
- *
- * Nao carrega "R$": a unidade esta no rodape do card ("max R$ 1.234.567/m"), e
- * repeti-la sobre doze barras vizinhas empasta a leitura que o rotulo deveria
- * facilitar — a mesma razao de `sinalMi` no fluxo de escoamento.
+ * Nao carrega "R$": a unidade esta no rodape do card, e repeti-la sobre doze
+ * barras vizinhas empasta a leitura que o rotulo deveria facilitar.
  */
 export function compacto(v: number | null | undefined): string {
-  if (ausente(v)) return VAZIO
-  const abs = Math.abs(v)
-  if (abs >= 1_000_000) {
-    return `${abs >= 10_000_000 ? INT.format(v / 1_000_000) : NUM1.format(v / 1_000_000)}M`
-  }
-  if (abs >= 1_000) {
-    return `${abs >= 10_000 ? INT.format(v / 1_000) : NUM1.format(v / 1_000)}k`
-  }
-  return INT.format(v)
+  return ausente(v) ? VAZIO : INT.format(v)
 }
 
 /** 1.234 — contagens. */

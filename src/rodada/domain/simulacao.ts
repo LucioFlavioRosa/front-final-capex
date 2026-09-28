@@ -9,8 +9,16 @@
  * equipe roda hoje. Mudar um deles muda o resultado de quem so clicar "Iniciar".
  */
 
-/** O orcamento e digitado e exibido em MILHOES; o payload vai em reais. */
-export const MILHAO = 1_000_000
+/**
+ * O ORCAMENTO E DIGITADO, EXIBIDO E ENVIADO EM REAIS.
+ *
+ * Era digitado em MILHOES ate 28/09/2026, e o payload multiplicava por um milhao
+ * na saida. A troca e decisao do dono do produto: um campo em milhoes ao lado de
+ * um resultado em reais e um fator 1.000.000 que so existe na cabeca de quem
+ * digita — e foi uma divergencia de ordem de grandeza entre a conta de uma
+ * usuaria e a da simulacao que motivou a revisao. Agora a regua e uma so em toda
+ * a tela: reais, por extenso, do campo ao KPI.
+ */
 
 export type ModoOrcamento = 'ano' | 'unico'
 /**
@@ -70,25 +78,26 @@ export interface EstadoSimulacao {
 }
 
 /**
- * Cronograma padrao do notebook (em milhoes). Nao e exemplo: e o cronograma com
- * que a equipe roda hoje.
+ * Cronograma padrao do notebook, EM REAIS. Nao e exemplo: e o cronograma com que
+ * a equipe roda hoje — os mesmos valores de sempre, escritos por extenso depois
+ * que o campo deixou de ser em milhoes.
  */
 const ORCAMENTO_PADRAO: [number, number][] = [
-  [2026, 60],
-  [2027, 60],
-  [2028, 50],
-  [2029, 50],
-  [2030, 50],
-  [2031, 50],
-  [2032, 40],
-  [2033, 40],
-  [2034, 30],
-  [2035, 30],
-  [2036, 30],
-  [2037, 20],
-  [2038, 20],
-  [2039, 20],
-  [2040, 10],
+  [2026, 60_000_000],
+  [2027, 60_000_000],
+  [2028, 50_000_000],
+  [2029, 50_000_000],
+  [2030, 50_000_000],
+  [2031, 50_000_000],
+  [2032, 40_000_000],
+  [2033, 40_000_000],
+  [2034, 30_000_000],
+  [2035, 30_000_000],
+  [2036, 30_000_000],
+  [2037, 20_000_000],
+  [2038, 20_000_000],
+  [2039, 20_000_000],
+  [2040, 10_000_000],
 ]
 
 export function estadoInicial(): EstadoSimulacao {
@@ -98,7 +107,7 @@ export function estadoInicial(): EstadoSimulacao {
     nome: '',
     modoOrcamento: 'ano',
     orcamento: ORCAMENTO_PADRAO.map(([ano, v]) => ({ ano: String(ano), valor: String(v) })),
-    capexAnual: '50',
+    capexAnual: '50000000',   // R$ 50 milhões, em reais — ver a nota do ORCAMENTO_PADRAO
     horizonte: '8',
     foco: '1',
     penalidade: 'meta+cobertura',
@@ -436,13 +445,14 @@ export function corpoDaRodada(e: EstadoSimulacao): CorpoNovaRodada {
     base.orcamento = Object.fromEntries(
       e.orcamento
         .filter((l) => num(l.valor) > 0)
-        .map((l) => [String(Math.round(num(l.ano))), num(l.valor) * MILHAO] as const),
+        // JA EM REAIS: o campo deixou de ser em milhoes, e com ele o fator daqui.
+        .map((l) => [String(Math.round(num(l.ano))), num(l.valor)] as const),
     )
   } else {
     const anos = Math.max(0, Math.round(num(e.horizonte)))
     // O motor so entende verba ANUAL constante, e agora e exatamente isso que a
     // tela pede — o valor sai daqui como foi digitado, sem divisao no meio.
-    base.orcamento_anual = num(e.capexAnual) * MILHAO
+    base.orcamento_anual = num(e.capexAnual)
     base.horizonte_capex = anos
   }
   return base

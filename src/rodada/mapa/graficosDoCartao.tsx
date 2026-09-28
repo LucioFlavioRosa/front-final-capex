@@ -13,7 +13,7 @@ import {
   YAxis,
 } from 'recharts'
 import { COR, COR_META } from '@/rodada/components/cores'
-import { VAZIO, brMi, brlMi, inteiro, pct } from '@/rodada/lib/formato'
+import { brl, inteiro, pct, VAZIO } from '@/rodada/lib/formato'
 import type { CidadeLinha } from '@/rodada/domain/resultado'
 import type { ParcelaFluxoEscoamento } from '@/rodada/domain/resultado'
 import type { Camada } from '@/rodada/mapa/camadas'
@@ -86,7 +86,7 @@ const eixo = {
  * R$ 62,4 Mi"), na dica de cada barra e na tabela oculta. É o eixo, o único
  * lugar onde ela se repete cinco vezes, que abre mão dela.
  */
-const mi = (v: number) => brMi(v).replace('R$', '').trim()
+const mi = (v: number) => brl(v).replace('R$', '').trim()
 
 /** O par de cidades que todo gráfico daqui recebe. `b` é opcional — sem comparação. */
 export interface Par {
@@ -356,7 +356,7 @@ export function GraficoCapexDoCartao({
     return (
       <SemSerie>
         Este servidor não publica o CAPEX ano a ano por cidade. O total de {a.nome} é{' '}
-        {brlMi(a.capex)}.
+        {brl(a.capex)}.
       </SemSerie>
     )
   }
@@ -395,7 +395,7 @@ export function GraficoCapexDoCartao({
                     .filter((p) => p.value != null)
                     .map((p) => ({
                       nome: p.dataKey === 'a' ? a.nome : (b?.nome ?? ''),
-                      texto: brlMi(p.value as number),
+                      texto: brl(p.value as number),
                       cor: p.dataKey === 'a' ? COR_A : COR_B,
                     }))}
                 />
@@ -430,8 +430,8 @@ export function GraficoCapexDoCartao({
         colunas={['Ano', a.nome, ...(b ? [b.nome] : [])]}
         linhas={dados.map((d) => [
           d.ano,
-          d.a == null ? VAZIO : brlMi(d.a),
-          ...(b ? [d.b == null ? VAZIO : brlMi(d.b)] : []),
+          d.a == null ? VAZIO : brl(d.a),
+          ...(b ? [d.b == null ? VAZIO : brl(d.b)] : []),
         ])}
       />
     </>
@@ -503,7 +503,7 @@ export function GraficoComposicaoDoCartao({
             barCategoryGap="22%"
           >
             <CartesianGrid stroke={COR.grid} horizontal={false} />
-            <XAxis type="number" {...eixo} tickFormatter={(v: number) => brMi(v)} />
+            <XAxis type="number" {...eixo} tickFormatter={(v: number) => brl(v)} />
             <YAxis
               type="category"
               dataKey="rotulo"
@@ -520,7 +520,7 @@ export function GraficoComposicaoDoCartao({
                   <Dica
                     ativo={active}
                     rotulo={p?.rotulo}
-                    itens={p ? [{ nome, texto: brlMi(p.valor), cor: p.cor }] : []}
+                    itens={p ? [{ nome, texto: brl(p.valor), cor: p.cor }] : []}
                   />
                 )
               }}
@@ -537,7 +537,7 @@ export function GraficoComposicaoDoCartao({
       <TabelaOculta
         titulo={`Decomposição do VPL — ${nome}`}
         colunas={['Parcela', 'Valor']}
-        linhas={dados.map((d) => [d.rotulo, brlMi(d.valor)])}
+        linhas={dados.map((d) => [d.rotulo, brl(d.valor)])}
       />
     </>
   )

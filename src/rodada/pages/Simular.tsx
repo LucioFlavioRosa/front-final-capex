@@ -531,7 +531,7 @@ export function Simular() {
             {estado.modoOrcamento === 'unico' ? (
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <CampoNumero
-                  rotulo="CAPEX anual (R$ Mi)"
+                  rotulo="CAPEX anual (R$)"
                   valor={estado.capexAnual}
                   aoMudar={(v) => despachar({ tipo: 'set', patch: { capexAnual: v } })}
                 />
@@ -546,7 +546,7 @@ export function Simular() {
                 <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
                   <span className="text-[12px] font-bold text-ink-800">Cronograma anual</span>
                   <span className="text-[10.5px] text-ink-water">
-                    Teto de CAPEX por ano, em R$ Mi
+                    Teto de CAPEX por ano, em reais
                   </span>
                 </div>
                 <ul role="list" className="grid list-none grid-cols-[repeat(auto-fill,minmax(108px,1fr))] gap-2">
@@ -693,7 +693,9 @@ function ResumoDaRodada({
         )}
         <Item
           rotulo="Orçamento total"
-          valor={derivado.total > 0 ? `R$ ${derivado.total.toLocaleString('pt-BR')} Mi` : '—'}
+          // EM REAIS, como o campo que o alimenta: era `… Mi` enquanto o cronograma
+          // era digitado em milhões.
+          valor={derivado.total > 0 ? `R$ ${derivado.total.toLocaleString('pt-BR')}` : '—'}
           calculado
         />
         <Item rotulo="Janela de CAPEX" valor={derivado.janelaTexto} calculado />

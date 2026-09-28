@@ -9,7 +9,6 @@ import {
   derivarOrcamento,
   estadoInicial,
   etapaDe,
-  MILHAO,
   num,
   numOuNulo,
   validar,
@@ -99,9 +98,9 @@ describe('derivarOrcamento', () => {
     expect(d.janelaTexto).toBe('2026–2028 (2 anos)')
   })
 
-  it('o pico é o default do teto de execução', () => {
+  it('o pico é o default do teto de execução, em reais', () => {
     const e = estadoInicial()
-    expect(derivarOrcamento(e).pico).toBe(60)
+    expect(derivarOrcamento(e).pico).toBe(60_000_000)
   })
 
   it('no modo valor único, o campo É a verba ANUAL — o total é derivado', () => {
@@ -265,10 +264,13 @@ describe('corpoDaRodada', () => {
     )
   })
 
-  it('converte milhões para reais', () => {
+  it('o orçamento viaja em REAIS, sem fator no meio', () => {
+    // Era digitado em milhões e multiplicado por 1e6 na saída. Agora a régua é uma
+    // só — reais do campo ao payload —, e este teste é o que impede o fator de
+    // voltar por engano: 60 aqui seria R$ 60, e não R$ 60 milhões.
     const e = { ...estadoInicial(), unidadeId: 'u1' }
     const corpo = corpoDaRodada(e)
-    expect(corpo.orcamento?.['2026']).toBe(60 * MILHAO)
+    expect(corpo.orcamento?.['2026']).toBe(60_000_000)
   })
 
   it('só manda anos COM verba no cronograma', () => {
@@ -320,7 +322,7 @@ describe('corpoDaRodada', () => {
     expect(corpo.orcamento).toBeUndefined()
     // `capexAnual` (default '50') JA e a verba anual: o payload leva o valor
     // digitado, sem divisao no meio. O horizonte so diz por quantos anos.
-    expect(corpo.orcamento_anual).toBe(50 * MILHAO)
+    expect(corpo.orcamento_anual).toBe(50_000_000)
     expect(corpo.horizonte_capex).toBe(8)
   })
 

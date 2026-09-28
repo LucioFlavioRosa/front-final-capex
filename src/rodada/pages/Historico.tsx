@@ -17,7 +17,7 @@ import {
   useExcluirRun,
   useRuns,
 } from '@/rodada/api/queries'
-import { brlMi, dataCurta, dataHora, deTotal, duracao } from '@/rodada/lib/formato'
+import { brl, dataCurta, dataHora, deTotal, duracao } from '@/rodada/lib/formato'
 import type { RunResumo, StatusRodada } from '@/rodada/domain/resultado'
 import { idCurtoDaRodada } from '@/rodada/domain/rodadaId'
 
@@ -373,13 +373,13 @@ function Lista({ runs }: { runs: RunResumo[] }) {
                     <td>
                       <TagStatusComFila runId={r.runId} status={r.status} progresso={r.progresso} />
                     </td>
-                    {/* `brlMi` devolve '—' para ausente: rodada em voo não
+                    {/* `brl` devolve '—' para ausente: rodada em voo não
                         mostra "R$ 0", que seria um resultado. */}
                     <td data-m className={r.metricas ? 'text-aegea-700' : 'text-ink-300'}>
-                      {brlMi(r.metricas?.vpl)}
+                      {brl(r.metricas?.vpl)}
                     </td>
                     <td data-m className={r.metricas ? '' : 'text-ink-300'}>
-                      {brlMi(r.metricas?.capex)}
+                      {brl(r.metricas?.capex)}
                     </td>
                   </tr>
                 ))}
@@ -455,13 +455,13 @@ function PainelDaRodada({
             run.metricas ? 'text-aegea-700' : 'text-ink-300'
           }`}
         >
-          {brlMi(run.metricas?.vpl)}
+          {brl(run.metricas?.vpl)}
         </div>
 
         {run.metricas ? (
           <>
             <div className="tiles mt-5 grid-cols-2">
-              <Tile rotulo="CAPEX total" valor={brlMi(run.metricas.capex)} />
+              <Tile rotulo="CAPEX total" valor={brl(run.metricas.capex)} />
               <Tile
                 rotulo="Obras construídas"
                 valor={deTotal(run.metricas.obrasConstruidas, run.metricas.obrasTotal)}

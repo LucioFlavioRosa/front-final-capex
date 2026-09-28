@@ -76,7 +76,7 @@ describe('CompararSimulacoes — os parâmetros constantes na prática', () => {
     const linha = within(dlg).getByText('Orçamento por ano').closest('tr')!
 
     // Cada ano é um elemento próprio com `whitespace-nowrap`: o grupo quebra
-    // entre eles, e nenhum "2026: R$ 60 mi" se parte no meio.
+    // entre eles, e nenhum "2026: R$ 60.000.000" se parte no meio.
     const pedacos = within(linha).getAllByText(/^\d{4}: R\$/)
     expect(pedacos.length).toBeGreaterThanOrEqual(4) // 2 anos x 2 rodadas
     for (const p of pedacos) expect(p).toHaveClass('whitespace-nowrap')

@@ -82,7 +82,7 @@ export const DICIONARIO_RODADA: Record<string, Verbete> = {
     oque: 'Quanto pode ser investido em cada ano-calendário.',
     porque:
       'É o teto anual que o otimizador respeita. A JANELA DE CAPEX é derivada dele — os anos com verba —, e não digitada: duas fontes para a mesma verdade divergiriam no primeiro ano zerado.',
-    exemplo: '2027: 60 Mi · 2028: 50 Mi',
+    exemplo: '2027: R$ 60.000.000 · 2028: R$ 50.000.000',
   },
   HORIZONTE_CAPEX: {
     rotulo: 'Horizonte',

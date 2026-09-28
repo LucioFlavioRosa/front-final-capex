@@ -30,9 +30,14 @@ function linhaDe2028(quadro: HTMLElement) {
   const tr = within(quadro)
     .getAllByRole('row')
     .find((r) => within(r).queryByText('2028'))!
-  return within(tr)
-    .getAllByRole('cell')
-    .map((c) => c.textContent?.trim())
+  return (
+    within(tr)
+      .getAllByRole('cell')
+      // O `Intl` de moeda separa "R$" do número com espaço NÃO SEPARÁVEL, e aqui se
+      // compara texto cru do DOM — sem normalizar, 'R$ 500.366' nunca é igual a
+      // 'R$ 500.366'.
+      .map((c) => c.textContent?.replace(/ /g, ' ').trim())
+  )
 }
 
 async function escolher(quadro: HTMLElement, rotulo: string) {
@@ -44,7 +49,9 @@ describe('Cronograma de obras — o filtro de recorte', () => {
     const quadro = await abrirTabela()
     // 2 escolhidas + 0 obrigatórias + 3 de terceiro = 5. É a propriedade que
     // torna o filtro legível: o usuário vê o total, filtra, e as partes fecham.
-    expect(linhaDe2028(quadro)).toEqual(['2028', '5', 'R$ 0,5 mi'])
+    // EM REAIS, sem arredondar: era "R$ 0,5 mi" — o valor exato é R$ 500.366, e a
+    // abreviação escondia os 366 reais.
+    expect(linhaDe2028(quadro)).toEqual(['2028', '5', 'R$ 500.366'])
   })
 
   it('cada recorte mostra só a sua parcela', async () => {
@@ -52,11 +59,11 @@ describe('Cronograma de obras — o filtro de recorte', () => {
 
     await escolher(quadro, 'De terceiro')
     // CAPEX zero é o que DEFINE obra de terceiro — a coluna sai vazia, e não
-    // "R$ 0,0 mi", que sugeriria uma obra barata em vez de uma sem CAPEX nosso.
+    // "R$ 0", que sugeriria uma obra barata em vez de uma sem CAPEX nosso.
     expect(linhaDe2028(quadro)).toEqual(['2028', '3', '—'])
 
     await escolher(quadro, 'Escolhidas')
-    expect(linhaDe2028(quadro)).toEqual(['2028', '2', 'R$ 0,5 mi'])
+    expect(linhaDe2028(quadro)).toEqual(['2028', '2', 'R$ 500.366'])
 
     await escolher(quadro, 'Obrigatórias')
     // O ano continua no eixo mesmo vazio: sem isso, trocar de filtro apagaria

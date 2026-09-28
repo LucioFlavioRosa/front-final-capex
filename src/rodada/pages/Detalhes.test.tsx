@@ -48,7 +48,7 @@ describe('Histórico — ver detalhes da simulação', () => {
     // `true` vira "sim" — "true" é vocabulário de máquina.
     expect(dialogo).toHaveTextContent('sim')
     // O JSON cru do orçamento é ilegível, e é o parâmetro mais consultado.
-    expect(dialogo).toHaveTextContent('2026: R$ 60 mi · 2027: R$ 60 mi')
+    expect(dialogo).toHaveTextContent('2026: R$ 60.000.000 · 2027: R$ 60.000.000')
     // O rótulo humano ACOMPANHA o técnico, e não o substitui: quem compara com
     // o notebook precisa de um, quem lê o histórico precisa do outro.
     expect(dialogo).toHaveTextContent('Base de receita')

@@ -20,7 +20,7 @@ import { useAbaResultado } from '@/rodada/layout/abaResultado'
 import { useExplicabilidadeDoSistema, useFluxo, useRunMeta } from '@/rodada/api/queries'
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
-import { VAZIO, brlMi, deTotal, inteiro, ocupacaoEte, vazao } from '@/rodada/lib/formato'
+import { brl, deTotal, inteiro, ocupacaoEte, vazao, VAZIO } from '@/rodada/lib/formato'
 import type { EteFluxo, Fluxo, NoFluxo } from '@/rodada/domain/resultado'
 
 /**
@@ -256,7 +256,7 @@ function TabelaSubBacias({
                     </td>
                     <td data-m>{vazao(n.vazao)}</td>
                     <td data-m>{deTotal(noPlano, n.componentes.length)}</td>
-                    <td data-m>{brlMi(n.componentes.reduce((s, c) => s + c.capex, 0))}</td>
+                    <td data-m>{brl(n.componentes.reduce((s, c) => s + c.capex, 0))}</td>
                   </tr>
 
                   {aberta && (
@@ -351,7 +351,7 @@ function ComponentesDaSubBacia({ no, runId }: { no: NoFluxo; runId: string | und
                   ? VAZIO
                   : `${inteiro(c.quantidade)}${c.unidade ? ` ${c.unidade}` : ''}`}
               </td>
-              <td data-m>{brlMi(c.capex)}</td>
+              <td data-m>{brl(c.capex)}</td>
               {/* Sem ano de início a obra não entrou no plano — e o traço aqui
                   é a mesma informação que o chip de situação ao lado, dita pela
                   ausência em vez de por um rótulo. */}
