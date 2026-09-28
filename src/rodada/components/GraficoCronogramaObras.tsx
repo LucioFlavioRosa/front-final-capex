@@ -385,12 +385,28 @@ export const COLUNAS_DA_PLANILHA = [
   { titulo: 'CAPEX (R$)', largura: 18, formato: 'dinheiro' as const },
   { titulo: 'Quantidade', largura: 14 },
   { titulo: 'Unidade', largura: 12 },
+  { titulo: 'Preço unitário (R$)', largura: 20, formato: 'dinheiro' as const },
   { titulo: 'Ano de início', largura: 14, formato: 'inteiro' as const },
-  // Texto e não número: 'AAAA-MM' é mês, e virar 2026 perderia o mês; virar
-  // data do Excel inventaria um dia que o motor não calculou.
-  { titulo: 'Conclusão', largura: 12 },
+  // A LINHA DO TEMPO, na ordem em que acontece. Texto e não número nas datas:
+  // 'AAAA-MM' é mês, e virar 2026 perderia o mês; virar data do Excel inventaria
+  // um dia que o motor não calculou.
+  { titulo: 'Predecessoras (meses)', largura: 20, formato: 'inteiro' as const },
+  { titulo: 'Início das predecessoras', largura: 22 },
+  { titulo: 'Início da execução', largura: 18 },
   { titulo: 'Prazo (meses)', largura: 14, formato: 'inteiro' as const },
+  { titulo: 'Conclusão', largura: 12 },
+  // As três últimas saem VAZIAS na obra que não fatura, e é de propósito: só a
+  // obra de coleta tem cobrança. Zero ali seria um número que alguém soma.
+  { titulo: 'Até a cobrança (meses)', largura: 20, formato: 'inteiro' as const },
+  { titulo: 'Início do faturamento', largura: 20 },
+  { titulo: 'Ramp-up (meses)', largura: 16, formato: 'inteiro' as const },
 ]
+
+/** `17` -> "17 m"; ausente -> traço. Ausente NÃO é zero: numa fase de obra, zero
+ *  quer dizer "imediato" e vazio quer dizer "não se aplica a esta obra". */
+function meses(v: number | null | undefined) {
+  return v === null || v === undefined ? VAZIO : `${inteiro(v)} m`
+}
 
 export function linhaDaPlanilha(o: ObraLinha) {
   return [
@@ -404,9 +420,16 @@ export function linhaDaPlanilha(o: ObraLinha) {
     o.capex,
     o.quantidade,
     o.unidade,
+    o.precoUnitario,
     o.anoInicio,
-    o.dataPronta,
+    o.mesesPredecessoras,
+    o.inicioPredecessoras,
+    o.dataInicio,
     o.prazoMeses,
+    o.dataPronta,
+    o.mesesAteCobranca,
+    o.dataInicioFaturamento,
+    o.mesesRampUp,
   ]
 }
 
@@ -543,7 +566,32 @@ function ObrasDoAno({
                   largura sem informar. Na planilha ela vai sempre — lá o
                   arquivo sai da ferramenta e precisa dizer de onde veio. */}
               {recorte === 'todas' && <th scope="col">Classificação</th>}
+              {/* A LINHA DO TEMPO, na ordem em que acontece. Cada fase traz a
+                  DURAÇÃO e o mês em que ela começa — quem planeja lê as duas
+                  coisas, e só a duração não diz quando mobilizar. */}
+              <th scope="col" data-r>
+                Predecessoras
+              </th>
+              <th scope="col">Início</th>
+              <th scope="col" data-r>
+                Execução
+              </th>
               <th scope="col">Conclusão</th>
+              <th scope="col" data-r>
+                Até cobrar
+              </th>
+              <th scope="col">Fatura de</th>
+              <th scope="col" data-r>
+                Ramp-up
+              </th>
+              {/* O CAPEX decomposto: quantidade × preço unitário. Quando a origem
+                  manda os dois, eles MANDAM — o motor recalcula o CAPEX deles. */}
+              <th scope="col" data-r>
+                Qtd.
+              </th>
+              <th scope="col" data-r>
+                Preço unit.
+              </th>
               <th scope="col" data-r>
                 CAPEX
               </th>
@@ -552,21 +600,21 @@ function ObrasDoAno({
           <tbody>
             {obras.isPending && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 9 : 8} className="py-6 text-center text-[12.5px] text-ink-water">
+                <td colSpan={recorte === 'todas' ? 18 : 17} className="py-6 text-center text-[12.5px] text-ink-water">
                   Carregando as obras de {ano}…
                 </td>
               </tr>
             )}
             {obras.isError && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 9 : 8} className="py-6 text-center text-[12.5px] text-danger">
+                <td colSpan={recorte === 'todas' ? 18 : 17} className="py-6 text-center text-[12.5px] text-danger">
                   Não foi possível carregar as obras deste ano.
                 </td>
               </tr>
             )}
             {!obras.isPending && !obras.isError && vazio && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 9 : 8} className="py-6 text-center text-[12.5px] text-ink-water">
+                <td colSpan={recorte === 'todas' ? 18 : 17} className="py-6 text-center text-[12.5px] text-ink-water">
                   Nenhuma obra com ano de execução em {ano}.
                 </td>
               </tr>
@@ -586,9 +634,19 @@ function ObrasDoAno({
                   <ChipSituacao situacao={o.situacao} />
                 </td>
                 {recorte === 'todas' && <td>{CLASSIFICACAO[o.recorte]}</td>}
+                <td data-r>{meses(o.mesesPredecessoras)}</td>
+                <td className="font-mono text-[11.5px]">{o.inicioPredecessoras ?? VAZIO}</td>
+                <td data-r>{meses(o.prazoMeses)}</td>
                 {/* A coluna que explica por que uma obra de terceiro está numa
                     lista de 2026: ela não começa em 2026, ela FICA PRONTA. */}
                 <td className="font-mono text-[11.5px]">{o.dataPronta ?? VAZIO}</td>
+                {/* As três da cobrança saem VAZIAS fora da obra de coleta — só ela
+                    fatura. O traço diz "não se aplica"; zero diria "imediato". */}
+                <td data-r>{meses(o.mesesAteCobranca)}</td>
+                <td className="font-mono text-[11.5px]">{o.dataInicioFaturamento ?? VAZIO}</td>
+                <td data-r>{meses(o.mesesRampUp)}</td>
+                <td data-r>{o.quantidade === null ? VAZIO : inteiro(o.quantidade)}</td>
+                <td data-m>{brl(o.precoUnitario)}</td>
                 {/* `brl` e nao `brl`: a regra esta no proprio `formato.ts`
                     — numa COLUNA de 72 linhas a regua tem de ser a mesma, e o
                     `brl` cai para o formato cheio abaixo de um milhao, o que

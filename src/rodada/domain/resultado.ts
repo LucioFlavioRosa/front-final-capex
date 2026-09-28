@@ -836,7 +836,38 @@ export interface ObraLinha {
   anoInicio: number | null
   /** Conclusão, 'AAAA-MM'. Para obra de terceiro é a única data que existe. */
   dataPronta: string | null
+
+  /**
+   * Preço de UMA unidade do elemento (a de `unidade`). Com `quantidade`, é a
+   * decomposição do CAPEX: quando a origem manda os dois, eles mandam — o motor
+   * recalcula `capex = quantidade × precoUnitario` e avisa se o informado diverge.
+   */
+  precoUnitario: number | null
+
+  /**
+   * A LINHA DO TEMPO DA OBRA, em quatro fases:
+   *
+   *   predecessoras → execução → espera até a cobrança → ramp-up da adesão
+   *
+   * Três datas o motor calcula: o início da execução, a conclusão e o início do
+   * faturamento. A quarta — o início das predecessoras — é DERIVADA no servidor,
+   * ancorando o fim do intervalo no início da execução: licença e mobilização
+   * terminam quando a obra começa. No motor `tempo_predecessoras` é um piso, e não
+   * uma janela agendada.
+   */
+  /** Início da EXECUÇÃO, 'AAAA-MM'. Obra de terceiro não tem. */
+  dataInicio: string | null
   prazoMeses: number | null
+  mesesPredecessoras: number | null
+  inicioPredecessoras: string | null
+  /**
+   * SÓ NA OBRA DE COLETA — a âncora de receita. Nas demais vem `null`, e não o
+   * default do motor: uma EEE não tem "tempo até a cobrança", e mostrar 1 mês ali
+   * seria um número que alguém soma.
+   */
+  mesesAteCobranca: number | null
+  dataInicioFaturamento: string | null
+  mesesRampUp: number | null
 }
 
 /** A página da lista de obras — paginada de propósito (ver `ObraLinha`). */

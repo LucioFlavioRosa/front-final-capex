@@ -88,9 +88,17 @@ describe('ModalDoAno', () => {
       'CAPEX (R$)',
       'Quantidade',
       'Unidade',
+      'Preço unitário (R$)',
       'Ano de início',
-      'Conclusão',
+      // A LINHA DO TEMPO, na ordem em que acontece.
+      'Predecessoras (meses)',
+      'Início das predecessoras',
+      'Início da execução',
       'Prazo (meses)',
+      'Conclusão',
+      'Até a cobrança (meses)',
+      'Início do faturamento',
+      'Ramp-up (meses)',
     ])
     expect(planilha.linhas).toEqual([
       [
@@ -104,9 +112,18 @@ describe('ModalDoAno', () => {
         190_342, // reais CHEIOS, como número — a coluna precisa somar
         383,
         'm',
+        497.02,
         2028,
-        '2028-09',
+        4,
+        '2027-09',
+        '2028-01',
         9,
+        '2028-09',
+        // Rede coletora não fatura: as três saem NULAS, e não zeradas. Zero diria
+        // "cobra na hora"; vazio diz "não se aplica a esta obra".
+        null,
+        null,
+        null,
       ],
     ])
   })
