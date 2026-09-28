@@ -553,9 +553,33 @@ function ObrasDoAno({
           <caption className="sr-only">Obras executadas em {ano}</caption>
           {/* O cabeçalho gruda porque a rolagem é da tabela: numa lista de 116
               linhas, saber qual coluna é qual no meio da rolagem vale a regra. */}
-          <thead className="sticky top-0 z-10 bg-white">
+          {/* CABEÇALHO EM DOIS NÍVEIS. A tabela tem 18 colunas porque esta lista é
+              usada para CONFERIR obra a obra, e juntar campos economizaria largura
+              cobrando a conta na hora de bater um número. O que a largura pede em
+              troca é orientação: os grupos dizem de que assunto é cada faixa, e a
+              linha vertical marca onde um assunto acaba.
+
+              `data-g` (grupo) é a primeira coluna de cada faixa — é ela que
+              desenha a divisória, no cabeçalho e no corpo. */}
+          <thead className="sticky top-0 z-20 bg-white">
             <tr>
-              <th scope="col">Obra</th>
+              <th scope="col" colSpan={recorte === 'todas' ? 7 : 6} className="!pb-1" data-fixa>
+                Identificação
+              </th>
+              <th scope="col" colSpan={4} data-g className="!pb-1">
+                Cronograma
+              </th>
+              <th scope="col" colSpan={3} data-g className="!pb-1">
+                Cobrança
+              </th>
+              <th scope="col" colSpan={3} data-g className="!pb-1 text-right">
+                Custo
+              </th>
+            </tr>
+            <tr>
+              <th scope="col" data-fixa>
+                Obra
+              </th>
               <th scope="col">Componente</th>
               <th scope="col">Cidade</th>
               <th scope="col">Sistema</th>
@@ -569,7 +593,7 @@ function ObrasDoAno({
               {/* A LINHA DO TEMPO, na ordem em que acontece. Cada fase traz a
                   DURAÇÃO e o mês em que ela começa — quem planeja lê as duas
                   coisas, e só a duração não diz quando mobilizar. */}
-              <th scope="col" data-r>
+              <th scope="col" data-r data-g>
                 Predecessoras
               </th>
               <th scope="col">Início</th>
@@ -577,7 +601,7 @@ function ObrasDoAno({
                 Execução
               </th>
               <th scope="col">Conclusão</th>
-              <th scope="col" data-r>
+              <th scope="col" data-r data-g>
                 Até cobrar
               </th>
               <th scope="col">Fatura de</th>
@@ -586,7 +610,7 @@ function ObrasDoAno({
               </th>
               {/* O CAPEX decomposto: quantidade × preço unitário. Quando a origem
                   manda os dois, eles MANDAM — o motor recalcula o CAPEX deles. */}
-              <th scope="col" data-r>
+              <th scope="col" data-r data-g>
                 Qtd.
               </th>
               <th scope="col" data-r>
@@ -621,7 +645,7 @@ function ObrasDoAno({
             )}
             {itens.map((o) => (
               <tr key={o.obraId}>
-                <td>
+                <td data-fixa>
                   <CelulaLink to={`/resultados/${runId}/obras/${o.obraId}`}>
                     <span className="font-mono">{o.obraId}</span>
                   </CelulaLink>
@@ -634,7 +658,7 @@ function ObrasDoAno({
                   <ChipSituacao situacao={o.situacao} />
                 </td>
                 {recorte === 'todas' && <td>{CLASSIFICACAO[o.recorte]}</td>}
-                <td data-r>{meses(o.mesesPredecessoras)}</td>
+                <td data-r data-g>{meses(o.mesesPredecessoras)}</td>
                 <td className="font-mono text-[11.5px]">{o.inicioPredecessoras ?? VAZIO}</td>
                 <td data-r>{meses(o.prazoMeses)}</td>
                 {/* A coluna que explica por que uma obra de terceiro está numa
@@ -642,10 +666,10 @@ function ObrasDoAno({
                 <td className="font-mono text-[11.5px]">{o.dataPronta ?? VAZIO}</td>
                 {/* As três da cobrança saem VAZIAS fora da obra de coleta — só ela
                     fatura. O traço diz "não se aplica"; zero diria "imediato". */}
-                <td data-r>{meses(o.mesesAteCobranca)}</td>
+                <td data-r data-g>{meses(o.mesesAteCobranca)}</td>
                 <td className="font-mono text-[11.5px]">{o.dataInicioFaturamento ?? VAZIO}</td>
                 <td data-r>{meses(o.mesesRampUp)}</td>
-                <td data-r>{o.quantidade === null ? VAZIO : inteiro(o.quantidade)}</td>
+                <td data-r data-g>{o.quantidade === null ? VAZIO : inteiro(o.quantidade)}</td>
                 <td data-m>{brl(o.precoUnitario)}</td>
                 {/* `brl` e nao `brl`: a regra esta no proprio `formato.ts`
                     — numa COLUNA de 72 linhas a regua tem de ser a mesma, e o

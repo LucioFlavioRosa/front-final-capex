@@ -67,6 +67,46 @@
   td[data-m] {
     @apply font-mono tabular-nums text-right whitespace-nowrap text-[12.5px] font-medium;
   }
+  /*
+   * DIVISÓRIA DE GRUPO, numa tabela larga demais para se ler sem orientação.
+   *
+   * `data-g` marca a PRIMEIRA coluna de cada faixa de assunto, no cabeçalho e no
+   * corpo; a linha vertical nasce aí. Nasceu no modal do cronograma de obras, que
+   * tem 18 colunas porque a lista é usada para conferir obra a obra — juntar
+   * campos economizaria largura cobrando a conta na hora de bater um número.
+   *
+   * Cor mais forte que a `border-ink-200` das linhas horizontais: a divisória
+   * precisa se distinguir da grade comum, senão vira mais uma linha.
+   */
+  thead th[data-g],
+  tbody td[data-g] {
+    @apply border-l border-ink-300;
+  }
+  /*
+   * COLUNA FIXA — a identidade da linha não some ao rolar para a direita.
+   *
+   * Numa tabela de 18 colunas que se rola na horizontal, chegar na coluna de
+   * cobrança sem saber mais de que obra é a linha derrota o motivo de a tabela
+   * existir. `data-fixa` gruda a primeira coluna na borda esquerda.
+   *
+   * O FUNDO É OBRIGATÓRIO: célula grudada sem fundo deixa o conteúdo que passa
+   * por baixo aparecer através dela. E por isso o hover precisa ser repetido
+   * aqui — sem a regra, a linha inteira acende menos a primeira célula, que fica
+   * branca no meio do destaque.
+   */
+  thead th[data-fixa],
+  tbody td[data-fixa] {
+    @apply sticky left-0 bg-white;
+  }
+  thead th[data-fixa] {
+    z-index: 30;
+  }
+  tbody td[data-fixa] {
+    z-index: 5;
+  }
+  tbody tr:hover td[data-fixa] {
+    @apply bg-water-50;
+  }
 }
 
 @layer components {
