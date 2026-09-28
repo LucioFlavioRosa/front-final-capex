@@ -10,6 +10,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { COLUNAS_DA_PLANILHA, linhaDaPlanilha } from '@/rodada/components/GraficoCronogramaObras'
+import { brlExato, decimal, VAZIO } from '@/rodada/lib/formato'
 import type { ObraLinha } from '@/rodada/domain/resultado'
 
 const COLETA: ObraLinha = {
@@ -87,5 +88,42 @@ describe('a planilha das obras do ano', () => {
   it('as colunas de dinheiro estão marcadas para o Excel somar', () => {
     const dinheiro = COLUNAS_DA_PLANILHA.filter((c) => 'formato' in c && c.formato === 'dinheiro')
     expect(dinheiro.map((c) => c.titulo)).toEqual(['CAPEX (R$)', 'Preço unitário (R$)'])
+  })
+})
+
+/**
+ * A CONTA TEM DE FECHAR NA TELA: quantidade × preço unitário = CAPEX.
+ *
+ * Defeito relatado em 28/09/2026, e o dado estava certo — nas 425 obras com
+ * unitário da rodada conferida, `capex = quantidade × preco_unitario` com diferença
+ * ZERO. Quem quebrava era a EXIBIÇÃO: `inteiro` arredondava a quantidade (1,17 → 1)
+ * e `brl` tirava os centavos do preço (392,11 → 392). Na tela, 2.173 × 392 dava
+ * 851.816 contra os 852.086 gravados, e a conferência à mão não batia.
+ */
+describe('os três números que o usuário multiplica', () => {
+  it('a quantidade mantém as casas decimais', () => {
+    expect(decimal(2173.08)).toBe('2.173,08')
+    expect(decimal(1.17)).toBe('1,17')        // `inteiro` daria "1" — erro de 17%
+    expect(decimal(242)).toBe('242')          // sem casa inventada quando não há
+  })
+
+  it('o preço unitário e o CAPEX saem com centavos', () => {
+    expect(brlExato(392.11)).toMatch(/^R\$\s392,11$/)
+    expect(brlExato(852086.3988)).toMatch(/^R\$\s852\.086,40$/)
+  })
+
+  it('a identidade fecha com os valores como são exibidos', () => {
+    // O caso real da rodada conferida: rede coletora.
+    const qtd = 2173.08
+    const unit = 392.11
+    const capex = qtd * unit
+    const lido = (t: string) => Number(t.replace(/[^\d,-]/g, '').replace(',', '.'))
+    expect(lido(decimal(qtd)) * lido(brlExato(unit))).toBeCloseTo(lido(brlExato(capex)), 2)
+  })
+
+  it('ausente continua virando traço, e não zero', () => {
+    expect(decimal(null)).toBe(VAZIO)
+    expect(brlExato(null)).toBe(VAZIO)
+    expect(decimal(0)).toBe('0')             // zero é medida, e não ausência
   })
 })

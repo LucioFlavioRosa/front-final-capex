@@ -42,6 +42,44 @@ export function brl(v: number | null | undefined): string {
   return ausente(v) ? VAZIO : BRL.format(v)
 }
 
+const BRL_CENTAVOS = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+const DECIMAL = new Intl.NumberFormat('pt-BR', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 4,
+})
+
+/**
+ * R$ 392,11 — COM CENTAVOS, ao contrário de `brl`.
+ *
+ * A regra 2 lá de cima (sem centavos) vale para AGREGADO: centavo em cima de um
+ * VPL é ruído. Aqui é o oposto — este formato é para número que o leitor
+ * MULTIPLICA. Na lista de obras, `quantidade × preço unitário = CAPEX`, e a
+ * conferência é feita à mão, na tela: arredondar as pontas quebra a identidade e
+ * o número passa a não bater, que foi exatamente o defeito relatado em
+ * 28/09/2026 (2.173 × 392 = 851.816, contra os 852.086 gravados).
+ *
+ * Use onde a conta tem de fechar; `brl` no resto.
+ */
+export function brlExato(v: number | null | undefined): string {
+  return ausente(v) ? VAZIO : BRL_CENTAVOS.format(v)
+}
+
+/**
+ * 2.173,08 — quantidade com as casas que ela tem, até quatro.
+ *
+ * `inteiro` NÃO serve aqui: ele arredonda, e uma EEE de 1,17 unidades vira "1".
+ * Multiplicado pelo preço unitário, isso erra o CAPEX em 17%.
+ */
+export function decimal(v: number | null | undefined): string {
+  return ausente(v) ? VAZIO : DECIMAL.format(v)
+}
+
 /**
  * R$ 1.234.567 com sinal — "+R$ 7.200.000" / "−R$ 404.900.000".
  *

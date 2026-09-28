@@ -19,7 +19,7 @@ import { COR, corDoComponente } from '@/rodada/components/cores'
 import { CelulaLink, ChipSituacao, rotuloSituacao } from '@/rodada/components/pecas'
 import { useCronogramaDeObras, useObras } from '@/rodada/api/queries'
 import { baixarXlsx } from '@/rodada/lib/xlsx'
-import { brl, inteiro, VAZIO } from '@/rodada/lib/formato'
+import { brl, brlExato, decimal, inteiro, VAZIO } from '@/rodada/lib/formato'
 import type { AnoDeObras, ObraLinha } from '@/rodada/domain/resultado'
 
 /**
@@ -669,14 +669,19 @@ function ObrasDoAno({
                 <td data-r data-g>{meses(o.mesesAteCobranca)}</td>
                 <td className="font-mono text-[11.5px]">{o.dataInicioFaturamento ?? VAZIO}</td>
                 <td data-r>{meses(o.mesesRampUp)}</td>
-                <td data-r data-g>{o.quantidade === null ? VAZIO : inteiro(o.quantidade)}</td>
-                <td data-m>{brl(o.precoUnitario)}</td>
+                {/* AS TRÊS TÊM DE FECHAR A CONTA: quantidade × preço = CAPEX. É
+                    conferência feita à mão, na tela, e arredondar qualquer uma
+                    quebra a identidade — 2.173 × 392 dá 851.816 contra os
+                    852.086 gravados. Por isso `decimal`/`brlExato` aqui, e não
+                    `inteiro`/`brl`, que arredondam. */}
+                <td data-m>{decimal(o.quantidade)}</td>
+                <td data-m>{brlExato(o.precoUnitario)}</td>
                 {/* `brl` e nao `brl`: a regra esta no proprio `formato.ts`
                     — numa COLUNA de 72 linhas a regua tem de ser a mesma, e o
                     `brl` cai para o formato cheio abaixo de um milhao, o que
                     alterna "R$ 4,1 Mi" e "R$ 493.774" em linhas vizinhas e
                     obriga a converter de cabeca justamente para comparar. */}
-                <td data-m>{brl(o.capex)}</td>
+                <td data-m>{brlExato(o.capex)}</td>
               </tr>
             ))}
           </tbody>

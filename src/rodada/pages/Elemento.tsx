@@ -15,7 +15,7 @@ import {
 import { useObra, useRunMeta } from '@/rodada/api/queries'
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
-import { brl, dataCurta, inteiro, pct, vazao, VAZIO } from '@/rodada/lib/formato'
+import { brl, brlExato, dataCurta, decimal, inteiro, pct, vazao, VAZIO } from '@/rodada/lib/formato'
 import type { ReactNode } from 'react'
 import { useAbaResultado } from '@/rodada/layout/abaResultado'
 
@@ -79,7 +79,12 @@ export function Elemento() {
                     <BotaoExportar />
                   </>
                 }
-                destaque={{ rotulo: 'CAPEX', valor: brl(o.capex) }}
+                /* CAPEX, QUANTIDADE E PREÇO UNITÁRIO SAEM EXATOS, e não arredondados
+                   como o resto: os três estão lado a lado e o leitor MULTIPLICA os
+                   dois últimos para conferir o primeiro. Com `brl`/`inteiro`,
+                   2.173 × R$ 392 dava R$ 851.816 contra os R$ 852.086 do CAPEX — o
+                   mesmo defeito que a lista de obras do cronograma tinha. */
+                destaque={{ rotulo: 'CAPEX', valor: brlExato(o.capex) }}
                 itens={[
                   { rotulo: 'OPEX anual', valor: brl(o.opexAno) },
                   {
@@ -87,9 +92,9 @@ export function Elemento() {
                     valor:
                       o.quantidade === null || o.unidade === null
                         ? VAZIO
-                        : `${inteiro(o.quantidade)} ${o.unidade}`,
+                        : `${decimal(o.quantidade)} ${o.unidade}`,
                   },
-                  { rotulo: 'Preço unitário', valor: brl(o.precoUnitario) },
+                  { rotulo: 'Preço unitário', valor: brlExato(o.precoUnitario) },
                   { rotulo: 'Prazo', valor: o.prazoMeses === null ? VAZIO : `${o.prazoMeses} m` },
                 ]}
                 rodape={
