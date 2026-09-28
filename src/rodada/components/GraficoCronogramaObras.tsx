@@ -563,16 +563,20 @@ function ObrasDoAno({
               desenha a divisória, no cabeçalho e no corpo. */}
           <thead className="sticky top-0 z-20 bg-white">
             <tr>
-              <th scope="col" colSpan={recorte === 'todas' ? 7 : 6} className="!pb-1" data-fixa>
+              {/* `colgroup` e não `col`: estes cabeçalhos mandam num GRUPO de
+                  colunas, e é assim que um leitor de tela anuncia a relação com as
+                  colunas filhas. Com `scope="col"` eles viram cabeçalho de uma
+                  coluna só, e o agrupamento se perde. */}
+              <th scope="colgroup" colSpan={recorte === 'todas' ? 7 : 6} className="!pb-1" data-fixa>
                 Identificação
               </th>
-              <th scope="col" colSpan={4} data-g className="!pb-1">
+              <th scope="colgroup" colSpan={4} data-g className="!pb-1">
                 Cronograma
               </th>
-              <th scope="col" colSpan={3} data-g className="!pb-1">
+              <th scope="colgroup" colSpan={3} data-g className="!pb-1">
                 Cobrança
               </th>
-              <th scope="col" colSpan={3} data-g className="!pb-1 text-right">
+              <th scope="colgroup" colSpan={3} data-g className="!pb-1 text-right">
                 Custo
               </th>
             </tr>
@@ -624,21 +628,21 @@ function ObrasDoAno({
           <tbody>
             {obras.isPending && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 18 : 17} className="py-6 text-center text-[12.5px] text-ink-water">
+                <td colSpan={recorte === 'todas' ? 17 : 16} className="py-6 text-center text-[12.5px] text-ink-water">
                   Carregando as obras de {ano}…
                 </td>
               </tr>
             )}
             {obras.isError && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 18 : 17} className="py-6 text-center text-[12.5px] text-danger">
+                <td colSpan={recorte === 'todas' ? 17 : 16} className="py-6 text-center text-[12.5px] text-danger">
                   Não foi possível carregar as obras deste ano.
                 </td>
               </tr>
             )}
             {!obras.isPending && !obras.isError && vazio && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 18 : 17} className="py-6 text-center text-[12.5px] text-ink-water">
+                <td colSpan={recorte === 'todas' ? 17 : 16} className="py-6 text-center text-[12.5px] text-ink-water">
                   Nenhuma obra com ano de execução em {ano}.
                 </td>
               </tr>

@@ -6,7 +6,7 @@
  * arquivo sai com prazo na coluna de CAPEX sem erro nenhum. Este teste é a amarra.
  *
  * Nasceu com as colunas de fases da obra (28/09/2026), que dobraram o tamanho da
- * planilha — de 13 para 21 colunas.
+ * planilha — de 13 para 20 colunas.
  */
 import { describe, expect, it } from 'vitest'
 import { COLUNAS_DA_PLANILHA, linhaDaPlanilha } from '@/rodada/components/GraficoCronogramaObras'
@@ -125,5 +125,36 @@ describe('os três números que o usuário multiplica', () => {
     expect(decimal(null)).toBe(VAZIO)
     expect(brlExato(null)).toBe(VAZIO)
     expect(decimal(0)).toBe('0')             // zero é medida, e não ausência
+  })
+})
+
+/**
+ * O `colSpan` das mensagens de estado tem de bater com o número de colunas.
+ *
+ * Ele é escrito à mão e some da revisão: acrescentei oito colunas e ajustei o
+ * número no chute, errando por um (18 onde são 17). Célula que declara mais colunas
+ * do que a tabela tem empurra a borda da tabela para fora do contêiner.
+ *
+ * O teste lê o próprio componente, porque a contagem só existe no JSX — não há
+ * estrutura de dados que a descreva.
+ */
+describe('a tabela do modal', () => {
+  it('declara o mesmo número de colunas no cabeçalho e nas mensagens de estado', async () => {
+    const fonte = await import('node:fs/promises').then((fs) =>
+      fs.readFile('src/rodada/components/GraficoCronogramaObras.tsx', 'utf-8'),
+    )
+    const thead = fonte.slice(fonte.indexOf('<thead'), fonte.indexOf('</thead>'))
+    const segundaLinha = thead.split('<tr>')[2]
+    const colunas = (segundaLinha.match(/<th\b/g) ?? []).length
+    const condicionais = (segundaLinha.match(/recorte === 'todas' && <th/g) ?? []).length
+
+    const usado = fonte.match(/colSpan=\{recorte === 'todas' \? (\d+) : (\d+)\}/g) ?? []
+    const mensagens = usado.filter((m) => !m.includes('? 7 :'))   // o do grupo é outro
+    expect(mensagens.length).toBeGreaterThan(0)
+    for (const m of mensagens) {
+      const [comTodas, sem] = (m.match(/(\d+) : (\d+)/) ?? []).slice(1).map(Number)
+      expect(comTodas).toBe(colunas)
+      expect(sem).toBe(colunas - condicionais)
+    }
   })
 })
