@@ -2,7 +2,7 @@
  * `dec` — número com N casas decimais em pt-BR (3.45 → "3,45").
  *
  * É O ÚNICO FORMATADOR DESTE MÓDULO, e de propósito: o vocabulário de formato
- * das telas de resultado vive em `rodada/lib/formato.ts` (`brl`, `brlMi`, `pct`,
+ * das telas de resultado vive em `rodada/lib/formato.ts` (`brl`, `brlSinal`, `pct`,
  * `inteiro`, `vazao`, `VAZIO`…), que trata ausência de valor e escala. Duas
  * coleções de formatadores fazem a mesma grandeza aparecer de dois jeitos em
  * duas telas — acrescente lá, não aqui.

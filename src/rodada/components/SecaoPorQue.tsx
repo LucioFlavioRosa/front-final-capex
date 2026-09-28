@@ -1,6 +1,6 @@
 import { Cartao, CelulaLink, TituloSecao } from '@/rodada/components/pecas'
 import type { ExplicabilidadeGlobal, TopicoDaExplicabilidade } from '@/rodada/domain/resultado'
-import { brlMi, inteiro } from '@/rodada/lib/formato'
+import { brl, inteiro } from '@/rodada/lib/formato'
 
 /**
  * O QUE FICOU FORA DO PLANO — em obras, e em três tópicos.
@@ -79,7 +79,7 @@ export function SecaoPorQue({
           {inteiro(dados.obrasFora)} de {inteiro(dados.obrasCandidatas)} obras
         </strong>{' '}
         ficaram fora, somando <strong className="font-semibold text-ink-700">
-          {brlMi(dados.capexFora)}
+          {brl(dados.capexFora)}
         </strong>{' '}
         de CAPEX e {inteiro(dados.ligacoesFora)} ligações não conectadas.{' '}
         {inteiro(dados.obrasNoPlano)} entraram.
@@ -125,7 +125,7 @@ function BlocoDoTopico({
           <strong className="font-semibold">{inteiro(topico.obras)}</strong> obras
         </span>
         <span>
-          <strong className="font-semibold">{brlMi(topico.capex)}</strong> de CAPEX
+          <strong className="font-semibold">{brl(topico.capex)}</strong> de CAPEX
         </span>
         {/* LIGAÇÕES SÓ QUANDO EXISTEM. Zero aqui não é "não medimos": é a regra
             do domínio — obra de transporte não fatura. Mostrar "0 ligações"
@@ -149,7 +149,7 @@ function BlocoDoTopico({
           >
             <span className="min-w-0 truncate text-[12px] text-ink-700">{c.componente}</span>
             <span className="shrink-0 font-mono text-[11.5px] tabular-nums text-ink-water">
-              {inteiro(c.obras)} · {brlMi(c.capex)}
+              {inteiro(c.obras)} · {brl(c.capex)}
             </span>
           </li>
         ))}
@@ -185,7 +185,7 @@ function BlocoDoTopico({
                   )}
                 </span>
                 <span className="shrink-0 font-mono text-[11.5px] tabular-nums text-ink-water">
-                  {brlMi(o.capex)}
+                  {brl(o.capex)}
                 </span>
               </li>
             ))}

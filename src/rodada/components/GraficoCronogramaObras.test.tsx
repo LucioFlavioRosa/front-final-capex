@@ -200,7 +200,7 @@ describe('ModalDoAno', () => {
     expect(await screen.findByText('eee_e1b25_3_1')).toBeInTheDocument()
     expect(screen.getByText('2026-05')).toBeInTheDocument()
     // A asserção é sobre o SUBTÍTULO, e não sobre o diálogo inteiro: a coluna
-    // CAPEX das linhas mostra "R$ 0,0 mi" legitimamente, e cobrar o diálogo todo
+    // CAPEX das linhas mostra "R$ 0" legitimamente, e cobrar o diálogo todo
     // faria o teste falhar por causa da tabela.
     const subtitulo = screen.getByRole('dialog').querySelector('h2 + p')!
     expect(subtitulo).toHaveTextContent('136 obras · de terceiro')

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   VAZIO,
   brl,
-  brlMi,
+  brlSinal,
+  compacto,
   dataCurta,
   dataHora,
   deTotal,
@@ -24,7 +25,7 @@ import {
  * bateria, em vez de testar uma a uma: a regra é da família, não de cada uma.
  */
 describe('nulo nunca vira número', () => {
-  const numericas = { brl, brlMi, pct, vazao, inteiro }
+  const numericas = { brl, brlSinal, compacto, pct, vazao, inteiro }
 
   for (const [nome, fn] of Object.entries(numericas)) {
     it(`${nome} devolve o traço para null, undefined e NaN`, () => {
@@ -53,18 +54,44 @@ describe('brl', () => {
   })
 })
 
-describe('brlMi', () => {
-  it('encolhe para milhões acima de 1 mi', () => {
-    expect(brlMi(184_216_430)).toBe('R$ 184,2 Mi')
+describe('não há abreviação em nenhum valor de dinheiro', () => {
+  /*
+   * A REGRA DO DONO DO PRODUTO (28/09/2026): sempre em reais, por extenso.
+   *
+   * Nasceu de uma usuária conferir a receita à mão e não reconhecer o número da
+   * simulação. "R$ 2,3 bi" ao lado de uma conta feita em milhões exige que quem
+   * lê carregue a escala de cabeça, e numa tela de decisão de investimento essa
+   * troca não se paga. O teste varre as ordens de grandeza que apareciam
+   * abreviadas até aqui — mil, milhão, bilhão.
+   */
+  const SUFIXOS = [/Mi/, /mi/, /bi/, /Bi/, /k/, /M/, /mil/]
+
+  for (const valor of [1_234, 300_000, 184_216_430, 2_274_759_738, -404_900_000]) {
+    it(`${valor} sai por extenso, sem sufixo de escala`, () => {
+      for (const fn of [brl, brlSinal, compacto]) {
+        const texto = fn(valor)
+        for (const sufixo of SUFIXOS) expect(texto).not.toMatch(sufixo)
+      }
+    })
+  }
+
+  it('o bilhão aparece inteiro, com separador de milhar', () => {
+    expect(brl(2_274_759_738)).toMatch(/^R\$\s?2\.274\.759\.738$/)
   })
 
-  it('abaixo de 1 milhão cai para o valor cheio', () => {
-    // "R$ 0,3 Mi" esconde a ordem de grandeza de quem lê rápido.
-    expect(brlMi(300_000)).not.toContain('Mi')
+  it('o valor abaixo de mil não ganha enfeite', () => {
+    expect(brl(742)).toMatch(/^R\$\s?742$/)
   })
 
-  it('preserva o sinal, que importa em fluxo de escoamento', () => {
-    expect(brlMi(-12_400_000)).toContain('-')
+  it('brlSinal marca quem tira dinheiro, e o sinal não substitui o R$', () => {
+    expect(brlSinal(7_200_000)).toMatch(/^\+R\$\s?7\.200\.000$/)
+    expect(brlSinal(-404_900_000)).toMatch(/^−R\$\s?404\.900\.000$/)
+    expect(brlSinal(0)).toMatch(/^R\$\s?0$/)
+  })
+
+  it('compacto é contagem por extenso — não leva R$ nem sufixo', () => {
+    expect(compacto(5_500)).toMatch(/^5\.500$/)
+    expect(compacto(1_200_000)).toMatch(/^1\.200\.000$/)
   })
 })
 

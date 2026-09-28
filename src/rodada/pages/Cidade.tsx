@@ -30,7 +30,7 @@ import {
 } from '@/rodada/api/queries'
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
-import { brlMi, inteiro, pct, deTotal} from '@/rodada/lib/formato'
+import { brl, deTotal, inteiro, pct } from '@/rodada/lib/formato'
 
 /**
  * Nível 2 — uma cidade da rodada.
@@ -128,7 +128,7 @@ export function Cidade() {
                         explicabilidade.data.obrasCandidatas,
                       ),
                     }
-                  : { rotulo: 'VPL da cidade', valor: brlMi(c.vpl), ajuda: 'VPL_PLANO' }
+                  : { rotulo: 'VPL da cidade', valor: brl(c.vpl), ajuda: 'VPL_PLANO' }
               }
               /**
                * SAIU O TILE DE CAPEX, e no lugar entrou a PARTICIPAÇÃO.
@@ -149,7 +149,7 @@ export function Cidade() {
                   // quanto dinheiro ficou parado — e é o número que conversa com
                   // o orçamento logo ao lado.
                   rotulo: 'CAPEX fora do plano',
-                  valor: brlMi(explicabilidade.data.capexFora),
+                  valor: brl(explicabilidade.data.capexFora),
                 },
                 {
                   rotulo: 'Ligações não conectadas',
@@ -190,7 +190,7 @@ export function Cidade() {
                   {c.paridade.houveDegrau && (
                     <ItemRodape
                       rotulo="Efeito da base"
-                      valor={`${brlMi(c.paridade.vpEfeitoBase)} · ${pct(
+                      valor={`${brl(c.paridade.vpEfeitoBase)} · ${pct(
                         c.paridade.pctDoVplDaCidade,
                       )} do VPL`}
                     />
@@ -292,7 +292,7 @@ export function Cidade() {
                           </td>
                           <td data-m>{inteiro(s.subbacias)}</td>
                           <td data-m>{inteiro(s.faturando)}</td>
-                          <td data-m>{brlMi(s.capex)}</td>
+                          <td data-m>{brl(s.capex)}</td>
                           {/* Ocupação nula é o caso que motivou a regra do '—':
                               ETE com capacidade zero não tem ocupação de 0%,
                               tem ocupação INEXISTENTE. */}

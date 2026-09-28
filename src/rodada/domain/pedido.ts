@@ -45,7 +45,10 @@ export function rotuloDoParametro(chave: string): string {
   return ROTULOS[chave] ?? chave
 }
 
-const MILHOES = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
+//: Dinheiro do pedido: REAIS por extenso. Era em milhões (`mi`) até 28/09/2026 —
+//: a regra do dono do produto é não abreviar escala em lugar nenhum, e o resumo do
+//: pedido é justamente onde se confere o que foi pedido contra o que voltou.
+const REAIS = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 })
 const NUM = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 4 })
 
 /**
@@ -128,7 +131,7 @@ export function segmentosDoParametro(chave: string, v: unknown): string[] {
     if (!anos.length) return ['—']
     return anos
       .sort(([a], [b]) => Number(a) - Number(b))
-      .map(([ano, valor]) => `${ano}: R$ ${MILHOES.format(Number(valor) / 1e6)} mi`)
+      .map(([ano, valor]) => `${ano}: R$ ${REAIS.format(Number(valor))}`)
   }
 
   if (typeof v === 'object') {
@@ -138,9 +141,8 @@ export function segmentosDoParametro(chave: string, v: unknown): string[] {
   }
 
   if (typeof v === 'number') {
-    // Valor em reais vira milhões; o resto vai como número mesmo. `1e6` como
-    // corte porque orçamento é o único parâmetro dessa ordem de grandeza.
-    if (chave.startsWith('ORCAMENTO') && v >= 1e6) return [`R$ ${MILHOES.format(v / 1e6)} mi`]
+    // Orçamento leva o `R$` e sai por extenso; o resto vai como número mesmo.
+    if (chave.startsWith('ORCAMENTO')) return [`R$ ${REAIS.format(v)}`]
     // O objetivo é o único número do pedido que NÃO se lê como número.
     if (chave === 'FOCO_COBERTURA') return [rotuloObjetivo(v)]
     return [NUM.format(v)]

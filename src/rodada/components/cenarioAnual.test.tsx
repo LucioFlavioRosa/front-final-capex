@@ -137,16 +137,16 @@ describe('o cenário anual de CAPEX', () => {
   })
 
   it('a referência é o TETO de cada ano, e não a média nem o gasto', async () => {
-    // A média (R$ 50 Mi) achatava o que varia. E o GASTO não serve de régua: é
+    // A média (R$ 50.000.000) achatava o que varia. E o GASTO não serve de régua: é
     // atribuído ao ano em que a obra COMEÇA, e a obra consome orçamento ao longo
-    // da execução — por isso 2027 aparece com R$ 72,7 Mi gastos contra um teto
-    // de R$ 60,0 Mi. O teto é o que barrou as obras da barra.
+    // da execução — por isso 2027 aparece com R$ 72.700.000 gastos contra um teto
+    // de R$ 60.000.000. O teto é o que barrou as obras da barra.
     abrir()
     await userEvent.click(screen.getByRole('tab', { name: 'Tabela' }))
 
     expect(await screen.findByText('Teto do ano')).toBeInTheDocument()
-    expect(screen.getByText('R$ 60,0 Mi')).toBeInTheDocument()
-    expect(screen.getByText('R$ 40,0 Mi')).toBeInTheDocument()
+    expect(screen.getByText('R$ 60.000.000')).toBeInTheDocument()
+    expect(screen.getByText('R$ 40.000.000')).toBeInTheDocument()
   })
 })
 
@@ -154,8 +154,8 @@ describe('o cenário anual de CAPEX', () => {
  * CLICAR NUMA FATIA ABRE AS OBRAS DELA — e "dela" tem três partes.
  *
  * O escopo do controle no topo, o ano da barra e o tipo da fatia. Foi um
- * defeito real enquanto não era assim: o chip dizia R$ 514,5 Mi ("só o que se
- * paga") e a planilha vinha com as 876 obras e R$ 1.210,8 Mi de "todas".
+ * defeito real enquanto não era assim: o chip dizia R$ 514.500.000 ("só o que se
+ * paga") e a planilha vinha com as 876 obras e R$ 1.210.800.000 de "todas".
  *
  * O ano existe porque cada obra fora do plano é ATRIBUÍDA a um ano — antes era
  * rateio, e um rateio não seleciona obra nenhuma para baixar.

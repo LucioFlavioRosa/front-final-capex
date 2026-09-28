@@ -14,7 +14,7 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { QuadroGrafico } from '@/rodada/components/QuadroGrafico'
 import { TituloSecao } from '@/rodada/components/pecas'
 import { COR, COR_COMPONENTE, corDoComponente } from '@/rodada/components/cores'
-import { VAZIO, brl, brlMi, compacto, inteiro } from '@/rodada/lib/formato'
+import { brl, compacto, inteiro, VAZIO } from '@/rodada/lib/formato'
 import type { ElementoDoAno } from '@/rodada/domain/resultado'
 
 /**
@@ -171,7 +171,7 @@ function formatar(v: number | null, m: Metrica, unidade: string | null): string 
   if (v === null) return VAZIO
   if (m === 'quantidade') return `${inteiro(v)} ${unidade ?? ''}`.trim()
   if (m === 'preco') return `${brl(v)}/${unidade ?? VAZIO}`
-  return brlMi(v)
+  return brl(v)
 }
 
 // ===========================================================================
@@ -446,7 +446,7 @@ function PainelMetrica({
               metrica === 'quantidade'
                 ? inteiro(v)
                 : Math.abs(v) >= 1e6
-                  ? `${Math.round(v / 1e6)} Mi`
+                  ? v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
                   : inteiro(v)
             }
           />
@@ -502,7 +502,7 @@ function tabelaDe(serie: SerieComponente) {
       p.ano,
       p.quantidade === null ? VAZIO : inteiro(p.quantidade),
       p.preco === null ? VAZIO : brl(p.preco),
-      p.capex === null ? VAZIO : brlMi(p.capex),
+      p.capex === null ? VAZIO : brl(p.capex),
     ]),
   }
 }
@@ -518,7 +518,7 @@ function PainelDetalhe({ serie }: { serie: SerieComponente }) {
   return (
     <QuadroGrafico
       titulo={serie.componente}
-      subtitulo={`ano a ano, em ${serie.unidade ?? VAZIO} · CAPEX total ${brlMi(serie.capexTotal)}`}
+      subtitulo={`ano a ano, em ${serie.unidade ?? VAZIO} · CAPEX total ${brl(serie.capexTotal)}`}
       nota={
         <>
           {NOTA_PRECO} Os dois painéis compartilham o eixo de anos, mas não a escala — não compare

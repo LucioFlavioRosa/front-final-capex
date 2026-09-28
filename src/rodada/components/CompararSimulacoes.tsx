@@ -5,7 +5,7 @@ import {
   rotuloDoParametro,
   segmentosDoParametro,
 } from '@/rodada/domain/pedido'
-import { brlMi, dataCurta, deTotal, inteiro, pct, VAZIO } from '@/rodada/lib/formato'
+import { brl, dataCurta, deTotal, inteiro, pct, VAZIO } from '@/rodada/lib/formato'
 import type { RunResumo } from '@/rodada/domain/resultado'
 import { idCurtoDaRodada } from '@/rodada/domain/rodadaId'
 
@@ -161,10 +161,10 @@ function Secao({
  */
 function linhasDeResultado(runs: RunResumo[]): Linha[] {
   const campos: { rotulo: string; ler: (r: RunResumo) => string }[] = [
-    { rotulo: 'VPL do plano', ler: (r) => brlMi(r.metricas?.vpl) },
-    { rotulo: 'CAPEX', ler: (r) => brlMi(r.metricas?.capex) },
+    { rotulo: 'VPL do plano', ler: (r) => brl(r.metricas?.vpl) },
+    { rotulo: 'CAPEX', ler: (r) => brl(r.metricas?.capex) },
     { rotulo: 'Uso do orçamento', ler: (r) => pct(r.metricas?.usoOrcamentoPct) },
-    { rotulo: 'EBITDA total', ler: (r) => brlMi(r.metricas?.ebitdaTotal) },
+    { rotulo: 'EBITDA total', ler: (r) => brl(r.metricas?.ebitdaTotal) },
     {
       rotulo: 'Obras priorizadas',
       ler: (r) =>

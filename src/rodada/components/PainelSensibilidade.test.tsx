@@ -125,10 +125,12 @@ describe('o teto vem antes de qualquer execução', () => {
     // botão diz de quanto a quanto dinheiro isso vai.
     expect(
       await screen.findByRole('button', {
-        name: /Rodar 3 pontos · \+R\$ 11,0 Mi a \+R\$ 33,0 Mi no plano/,
+        // `\s` e nao espaco literal: o `Intl` de moeda separa "R$" do numero com
+        // espaco NAO SEPARAVEL, e o nome acessivel o preserva.
+        name: /Rodar 3 pontos · \+R\$\s11\.000\.000 a \+R\$\s33\.000\.000 no plano/,
       }),
     ).toBeInTheDocument()
-    expect(screen.getByText(/R\$ 33,0 Mi somados os/)).toBeInTheDocument()
+    expect(screen.getByText(/R\$ 33\.000\.000 somados os/)).toBeInTheDocument()
   })
 
   it('sem orçamento publicado não há teto, e nenhum valor é inventado', async () => {
@@ -137,8 +139,8 @@ describe('o teto vem antes de qualquer execução', () => {
 
     expect(await screen.findByRole('button', { name: /^Rodar 3 pontos$/ })).toBeInTheDocument()
     expect(screen.queryByText('Antes de simular: o teto')).not.toBeInTheDocument()
-    // O botão fica sem a parte do dinheiro, em vez de mostrar "R$ 0,0 Mi".
-    expect(screen.queryByText(/R\$ 0,0 Mi/)).not.toBeInTheDocument()
+    // O botão fica sem a parte do dinheiro, em vez de mostrar "R$ 0".
+    expect(screen.queryByText(/\+R\$ 0/)).not.toBeInTheDocument()
   })
 })
 
@@ -597,7 +599,7 @@ describe('a varredura', () => {
     await userEvent.selectOptions(entre, '0')
 
     expect(await screen.findByText('2 pontos: -20%, -10%')).toBeInTheDocument()
-    const botao = await screen.findByRole('button', { name: /Rodar 2 pontos · -R\$ 22,0 Mi a -R\$ 11,0 Mi no plano/ })
+    const botao = await screen.findByRole('button', { name: /Rodar 2 pontos · -R\$\s22\.000\.000 a -R\$\s11\.000\.000 no plano/ })
     await userEvent.click(botao)
 
     await waitFor(() => expect(corpos).toHaveLength(2))

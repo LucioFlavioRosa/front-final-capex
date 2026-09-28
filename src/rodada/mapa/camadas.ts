@@ -1,4 +1,4 @@
-import { brMi, brl, brlMi, inteiro, pct } from '@/rodada/lib/formato'
+import { brl, inteiro, pct } from '@/rodada/lib/formato'
 import type { CidadeLinha } from '@/rodada/domain/resultado'
 
 /**
@@ -207,8 +207,8 @@ export const CAMADAS: Camada[] = [
     ajuda: 'VPL_PLANO',
     divergente: true,
     valor: (c) => c.vpl,
-    texto: (c) => brlMi(c.vpl),
-    escala: brMi,
+    texto: (c) => brl(c.vpl),
+    escala: brl,
   },
   {
     /**
@@ -230,8 +230,8 @@ export const CAMADAS: Camada[] = [
     // A ÚNICA que recorta por ano hoje — `capexNoRecorte` lê `ctx.ano`.
     porAno: true,
     valor: capexNoRecorte,
-    texto: (c, ctx) => brlMi(capexNoRecorte(c, ctx)),
-    escala: brMi,
+    texto: (c, ctx) => brl(capexNoRecorte(c, ctx)),
+    escala: brl,
   },
   {
     chave: 'cobertura',

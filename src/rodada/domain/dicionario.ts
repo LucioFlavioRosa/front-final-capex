@@ -82,7 +82,7 @@ export const DICIONARIO_RODADA: Record<string, Verbete> = {
     oque: 'Quanto pode ser investido em cada ano-calendário.',
     porque:
       'É o teto anual que o otimizador respeita. A JANELA DE CAPEX é derivada dele — os anos com verba —, e não digitada: duas fontes para a mesma verdade divergiriam no primeiro ano zerado.',
-    exemplo: '2027: 60 Mi · 2028: 50 Mi',
+    exemplo: '2027: R$ 60.000.000 · 2028: R$ 50.000.000',
   },
   HORIZONTE_CAPEX: {
     rotulo: 'Horizonte',
@@ -135,7 +135,7 @@ export const DICIONARIO_RODADA: Record<string, Verbete> = {
     tipo: 'arrecadada · faturada',
     oque: 'Qual receita alimenta o ticket da simulação.',
     porque:
-      'Arrecadada é o que de fato entrou — já reflete inadimplência. Faturada é o bruto. O ticket é a receita escolhida ÷ ligações atuais, então a escolha muda o VPL de toda a rodada.',
+      'Arrecadada é o que de fato entrou — já reflete inadimplência. Faturada é o bruto. O ticket é a receita escolhida ÷ ligações totais, então a escolha muda o VPL de toda a rodada.',
     exemplo: 'Arrecadada',
   },
   CURVA_ADOCAO: {

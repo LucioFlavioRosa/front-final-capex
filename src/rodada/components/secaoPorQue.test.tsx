@@ -4,7 +4,7 @@
  * A seção agrupava SUB-BACIAS que não faturam. A troca de unidade não é de
  * rótulo: obra de transporte não tem sub-bacia própria, então **85% do CAPEX
  * que ficou de fora não cabia na lista antiga** — 4.531 obras e R$ 4,4 bi
- * invisíveis, contra R$ 773 Mi que a tela mostrava.
+ * invisíveis, contra R$ 773.000.000 que a tela mostrava.
  *
  * O QUE ESTES TESTES PROTEGEM não é o desenho: é o que o desenho promete.
  * Sobretudo o terceiro tópico, que é a regra do domínio virando tela — só
@@ -36,7 +36,7 @@ describe('a seção do que ficou fora', () => {
     expect(screen.getByText('Dependem de outra obra')).toBeInTheDocument()
 
     // R$ 4,4 bi — o número que a tela antiga não tinha onde mostrar.
-    expect(screen.getByText(/4\.442,4/)).toBeInTheDocument()
+    expect(screen.getByText(/4\.442\.400\.000/)).toBeInTheDocument()
   })
 
   it('o tópico sem receita NÃO exibe "0 ligações"', async () => {

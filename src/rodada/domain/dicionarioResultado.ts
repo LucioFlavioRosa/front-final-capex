@@ -36,7 +36,7 @@ export const DICIONARIO_RESULTADO: Record<string, Verbete> = {
       'A soma do valor presente de todas as sub-bacias do plano: receita menos CAPEX e OPEX, descontados pelo WACC até a data-base. O efeito-base de paridade fica DE FORA — ele é receita que existiria sem o plano.',
     porque:
       'É o placar do plano, e o que comparar entre duas rodadas da mesma unidade. Uma ressalva: o otimizador ainda ESCOLHE o plano maximizando o VPL com o efeito-base incluído, então este número não é exatamente a função que ele maximizou — a diferença é o efeito-base, que aparece à parte no detalhe da sub-bacia.',
-    exemplo: 'R$ 451,3 Mi',
+    exemplo: 'R$ 451.300.000',
   },
   CAPEX_TOTAL: {
     rotulo: 'CAPEX total',
@@ -46,7 +46,7 @@ export const DICIONARIO_RESULTADO: Record<string, Verbete> = {
     oque: 'O investimento das obras que entraram no plano — quantidade × preço unitário, somado.',
     porque:
       'É o que consome o orçamento. Comparado com o teto informado, diz se a verba foi o gargalo da rodada (ver "Uso do orçamento").',
-    exemplo: 'R$ 312,6 Mi',
+    exemplo: 'R$ 312.600.000',
   },
   OPEX_TOTAL: {
     rotulo: 'OPEX total',
@@ -56,18 +56,18 @@ export const DICIONARIO_RESULTADO: Record<string, Verbete> = {
     oque:
       'O custo de operar as obras depois de prontas, somado ao longo do horizonte. Obra ociosa não gera OPEX: ele sobe conforme as ligações entram.',
     porque: 'Entra no VPL com sinal negativo e é o que separa receita bruta de resultado.',
-    exemplo: 'R$ 121,6 Mi',
+    exemplo: 'R$ 121.600.000',
   },
   RECEITA_TOTAL: {
-    rotulo: 'Receita',
+    rotulo: 'Receita no horizonte',
     tec: 'otim_meta.receita_total',
     origem: MOTOR,
     tipo: 'R$, nominal',
     oque:
-      'A receita de esgoto que o plano gera no horizonte, na base escolhida na rodada — arrecadada (o que efetivamente entra em caixa) ou faturada (o que é emitido). O rótulo do KPI mostra qual das duas.',
+      'A receita de esgoto que o plano gera SOMANDO TODOS OS ANOS DO HORIZONTE — não é receita de um ano. Sai na base escolhida na rodada: arrecadada (o que efetivamente entra em caixa) ou faturada (o que é emitido); o rótulo do KPI mostra qual das duas. Inclui as duas parcelas: as ligações novas que as obras habilitam e o efeito-base (a base já atendida passando a pagar a nova paridade).',
     porque:
-      'A escolha entre arrecadada e faturada muda o VPL: a arrecadada já desconta inadimplência, e é por isso que a base viaja com a rodada e aparece junto do número.',
-    exemplo: 'R$ 1.602,9 Mi (arrecadada)',
+      'Somar um horizonte de 24 anos dá um número uma ordem de grandeza acima da receita anual, e foi por isso que o rótulo passou a dizer "no horizonte": uma conta anual feita à mão não bate com ele, e não deveria. Para ver ano a ano, o quadro de fluxo de caixa logo abaixo. A escolha entre arrecadada e faturada muda o VPL: a arrecadada já desconta inadimplência, e é por isso que a base viaja com a rodada e aparece junto do número.',
+    exemplo: 'R$ 1.602.900.000 (arrecadada) — cerca de R$ 66.800.000 por ano num horizonte de 24 anos',
   },
   OBRAS_PRIORIZADAS: {
     rotulo: 'Obras priorizadas',
@@ -167,7 +167,7 @@ export const DICIONARIO_RESULTADO: Record<string, Verbete> = {
       'De uma obra COMPARTILHADA — um tronco, uma EEE, um módulo de ETE —, quanto do custo cabe a cada sub-bacia que escoa por ela. A fração é a vazão que a sub-bacia manda dividida pela vazão total que passa ali, e as frações somam 100%.',
     porque:
       'É o que faz a soma dos VPLs por sub-bacia reproduzir exatamente o VPL do plano: o custo de uma obra que serve a várias não pode ser cobrado inteiro de nenhuma delas. RATEIO É DE CUSTO, E NÃO DE DESCONTO: a taxa que desconta a receita de uma sub-bacia sai só das obras DELA, e não das compartilhadas a jusante. As duas contas coincidiam até 10/09/2026 e hoje respondem a perguntas diferentes — quanto ela paga, e a que custo de capital ela financia o que é seu.',
-    exemplo: '47,2% · R$ 1,4 Mi',
+    exemplo: '47,2% · R$ 1.400.000',
   },
 
   // -------------------------------------------------- explicabilidade

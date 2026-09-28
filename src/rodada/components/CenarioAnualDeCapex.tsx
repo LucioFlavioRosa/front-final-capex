@@ -17,7 +17,7 @@ import { baixarXlsx } from '@/rodada/lib/xlsx'
 import { COLUNAS_DA_PLANILHA, linhaDaPlanilha } from '@/rodada/components/GraficoCronogramaObras'
 import { QuadroGrafico } from '@/rodada/components/QuadroGrafico'
 import { COR, COR_FLUXO, corDoComponente } from '@/rodada/components/cores'
-import { brlMi, inteiro } from '@/rodada/lib/formato'
+import { brl, inteiro } from '@/rodada/lib/formato'
 import type { CenarioAnual } from '@/rodada/domain/resultado'
 
 /**
@@ -108,10 +108,12 @@ export function CenarioAnualDeCapex({
   const series = dados.anos.map((a) => {
     const linha: Record<string, string | number> = {
       ano: String(a.ano),
-      'Teto do ano': a.orcado / 1e6,
+      // EM REAIS, e não em milhões: a regra de 28/09/2026 é não abreviar escala em
+      // lugar nenhum, e o eixo mostra o número por extenso.
+      'Teto do ano': a.orcado,
     }
     for (const c of a.porComponente) {
-      linha[c.componente] = (escopo === 'paga' ? c.queSePaga : c.todas) / 1e6
+      linha[c.componente] = escopo === 'paga' ? c.queSePaga : c.todas
     }
     return linha
   })
@@ -165,7 +167,7 @@ export function CenarioAnualDeCapex({
                   style={{ background: corDoComponente(t.nome) }}
                 />
                 {t.nome}
-                <span className="font-mono tabular-nums text-ink-water">{brlMi(t.capex)}</span>
+                <span className="font-mono tabular-nums text-ink-water">{brl(t.capex)}</span>
               </button>
             </li>
           ))}
@@ -193,12 +195,12 @@ export function CenarioAnualDeCapex({
         ],
         linhas: dados.anos.map((a) => [
           String(a.ano),
-          brlMi(a.orcado),
-          brlMi(escopo === 'paga' ? a.faltaQueSePaga : a.faltaTodas),
-          ...a.porComponente.map((c) => brlMi(escopo === 'paga' ? c.queSePaga : c.todas)),
+          brl(a.orcado),
+          brl(escopo === 'paga' ? a.faltaQueSePaga : a.faltaTodas),
+          ...a.porComponente.map((c) => brl(escopo === 'paga' ? c.queSePaga : c.todas)),
           // O GASTO FICA NA TABELA, e não no gráfico: ele é atribuído ao ano de
           // INÍCIO da obra, então não compara direto com o teto do ano.
-          brlMi(a.noPlano),
+          brl(a.noPlano),
         ]),
       }}
     >
@@ -208,7 +210,7 @@ export function CenarioAnualDeCapex({
           é o que faz a ideia atravessar. */}
       <p className="mb-3 text-[12px] leading-relaxed text-ink-water">
         Faltam <strong className="font-semibold text-ink-700">{inteiro(alvo.obras)} obras</strong>,{' '}
-        <strong className="font-semibold text-ink-700">{brlMi(alvo.capex)}</strong>. Cabendo na
+        <strong className="font-semibold text-ink-700">{brl(alvo.capex)}</strong>. Cabendo na
         mesma janela, o orçamento anual precisaria ser{' '}
         {/* "1,1× O DE HOJE", e não "1,1× maior". "N vezes maior" tem duas
             leituras — N vezes o valor, ou o valor mais N vezes ele — e elas
@@ -243,18 +245,17 @@ export function CenarioAnualDeCapex({
           <XAxis dataKey="ano" tick={{ fontSize: 11 }} />
           <YAxis
             tick={{ fontSize: 11 }}
-            width={54}
+            width={92}
+            tickFormatter={(v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
             label={{
-              value: 'R$ Mi',
+              value: 'R$',
               angle: -90,
               position: 'insideLeft',
               fontSize: 11,
             }}
           />
           <Tooltip
-            formatter={(v) =>
-              `R$ ${Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} Mi`
-            }
+            formatter={(v) => brl(Number(v))}
           />
           {/* EMPILHADA POR TIPO DE ELEMENTO, como o cronograma de obras do
               plano — e pela mesma razão: dois anos que precisam do mesmo
@@ -444,7 +445,7 @@ function ObrasDaFatia({
                 {o.obraId} · {o.cidadeId}
               </span>
               <span className="shrink-0 font-mono text-[11.5px] tabular-nums text-ink-water">
-                {brlMi(o.capex)}
+                {brl(o.capex)}
               </span>
             </li>
           ))}

@@ -68,7 +68,7 @@ import {
   type PontoDaCurva,
   type TetoDeSensibilidade,
 } from '@/rodada/domain/sensibilidade'
-import { brlMi, inteiro, pct, vazao } from '@/rodada/lib/formato'
+import { brl, inteiro, pct, vazao } from '@/rodada/lib/formato'
 import { corDoComponente } from '@/rodada/components/cores'
 import type { RunMeta } from '@/rodada/domain/resultado'
 
@@ -125,8 +125,9 @@ const MEDIDAS: Medida[] = [
     chave: 'vpl',
     titulo: 'VPL do plano',
     nota: 'mais CAPEX não garante mais VPL — é isto que a curva mostra',
-    valor: (p) => (p.vpl === null ? null : p.vpl / 1_000_000),
-    formatar: (v) => brlMi(v * 1_000_000),
+    // EM REAIS: era milhões até 28/09/2026, e a régua do eixo é a mesma do valor.
+    valor: (p) => p.vpl,
+    formatar: (v) => brl(v),
     cor: '#0D6B6F',
     larguraEixo: 84,
   },
@@ -665,7 +666,7 @@ function Teto({ teto }: { teto: TetoDeSensibilidade }) {
         <strong className="font-semibold text-ink-800">{inteiro(teto.subbaciasFora)}</strong>{' '}
         sub-bacias ficaram fora do plano, prendendo{' '}
         <strong className="font-semibold text-ink-800">{vazao(teto.vazaoTotalPresa)}</strong>.
-        Trazer todas custaria {brlMi(teto.capexParaTodas)}
+        Trazer todas custaria {brl(teto.capexParaTodas)}
         {vezes !== null && (
           <>
             {' '}
@@ -685,7 +686,7 @@ function Teto({ teto }: { teto: TetoDeSensibilidade }) {
               {inteiro(maiorDegrau.subbaciasNoMaximo)}
             </strong>{' '}
             delas ({pct(fracaoMaxima * 100)}) caberiam no dinheiro a mais —{' '}
-            {brlMi(maiorDegrau.folga)} somados os{' '}
+            {brl(maiorDegrau.folga)} somados os{' '}
             {teto.anosDoPlano > 0 ? `${teto.anosDoPlano} anos` : 'anos'} do plano.
           </>
         )}
@@ -744,8 +745,8 @@ function Teto({ teto }: { teto: TetoDeSensibilidade }) {
                     mostrar só ele ao lado de "+10%" convidava a lê-lo como
                     valor anual, errando por um fator igual ao número de anos. */}
                 <td className="py-1.5 pr-3 text-right text-ink-600">
-                  {brlMi(teto.orcamentoTotal + d.folga)}
-                  <span className="ml-1.5 text-ink-water">(+{brlMi(d.folga)})</span>
+                  {brl(teto.orcamentoTotal + d.folga)}
+                  <span className="ml-1.5 text-ink-water">(+{brl(d.folga)})</span>
                 </td>
                 <td className="py-1.5 pr-3 text-right font-semibold text-ink-800">
                   {inteiro(d.subbaciasNoMaximo)}
@@ -921,12 +922,12 @@ function QuadroDeObras({
 /** "+2", "−1", "0" — o sinal explícito, porque a coluna é de VARIAÇÃO. */
 /** `+R$ 11,0 Mi` / `-R$ 11,0 Mi` — o dinheiro do degrau, com o sinal na frente. */
 function comSinal(aMais: number): string {
-  return `${aMais < 0 ? '-' : '+'}${brlMi(Math.abs(aMais))}`
+  return `${aMais < 0 ? '-' : '+'}${brl(Math.abs(aMais))}`
 }
 
 /** `R$ 11,0 Mi a mais` / `R$ 11,0 Mi a menos`. */
 function aMaisOuAMenos(aMais: number): string {
-  return `${brlMi(Math.abs(aMais))} a ${aMais < 0 ? 'menos' : 'mais'}`
+  return `${brl(Math.abs(aMais))} a ${aMais < 0 ? 'menos' : 'mais'}`
 }
 
 function sinal(n: number): string {
@@ -983,7 +984,7 @@ function Curva({
           d.degrau === 0 ? 'orçamento de hoje' : pctDoDegrau(d.degrau),
           orcamento === null
             ? '—'
-            : brlMi(dinheiroDoDegrau(orcamento, d.degrau).novoTotal),
+            : brl(dinheiroDoDegrau(orcamento, d.degrau).novoTotal),
           medida.formatar(d.valor),
           d.estimativa ? 'estimativa (60s)' : 'simulação',
         ]),

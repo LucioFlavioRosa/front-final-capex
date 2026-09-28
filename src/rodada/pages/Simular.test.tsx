@@ -106,16 +106,16 @@ describe('Simular — o modo VALOR ÚNICO pede CAPEX anual e janela', () => {
     await valorUnico()
 
     // O SENTIDO DO CAMPO é o que este teste prende, e ele já se inverteu antes:
-    // com os defaults 50 e 8, o total é 400. Se o campo voltasse a ser o total,
-    // seriam 50.
-    await waitFor(() => expect(screen.getByText('R$ 400 Mi')).toBeInTheDocument())
+    // com os defaults de R$ 50.000.000 e 8 anos, o total é R$ 400.000.000. Se o
+    // campo voltasse a ser o total, seriam R$ 50.000.000.
+    await waitFor(() => expect(screen.getByText('R$ 400.000.000')).toBeInTheDocument())
 
     const janela = screen.getByLabelText(/Janela de CAPEX/i)
     await userEvent.clear(janela)
     await userEvent.type(janela, '4')
 
     // Encurtar a janela reduz o TOTAL, e não o teto de cada ano.
-    await waitFor(() => expect(screen.getByText('R$ 200 Mi')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('R$ 200.000.000')).toBeInTheDocument())
   })
 })
 

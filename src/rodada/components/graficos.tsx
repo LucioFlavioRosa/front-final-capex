@@ -20,7 +20,7 @@ import {
   COR_FLUXO,
   COR_META,
 } from '@/rodada/components/cores'
-import { VAZIO, brlMi, pct, sinalMi } from '@/rodada/lib/formato'
+import { brl, brlSinal, pct, VAZIO } from '@/rodada/lib/formato'
 import type {
   AnoFinanceiro,
   EbitdaAno,
@@ -67,8 +67,26 @@ const MARGEM = { top: 12, right: 12, bottom: 4, left: 4 }
 const VAO_BARRA = 4
 const LARGURA_BARRA = 16
 
-/** Eixo Y de dinheiro: milhões, sem o "R$" repetido em cada marca. */
-const tickBrl = (v: number) => (Math.abs(v) >= 1e6 ? `${Math.round(v / 1e6)} Mi` : String(v))
+/**
+ * Eixo Y de dinheiro: REAIS POR EXTENSO, sem o "R$" repetido em cada marca.
+ *
+ * Era `Mi` até 28/09/2026. A regra do dono do produto é não abreviar em lugar
+ * nenhum — a marca do eixo é onde o leitor ancora a escala do quadro inteiro, e
+ * uma marca "146 Mi" obriga a carregar o fator de cabeça para comparar com uma
+ * conta feita em reais. O "R$" fica no rótulo do eixo, uma vez.
+ */
+const tickBrl = (v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+
+/**
+ * LARGURA DA FAIXA DO EIXO DE DINHEIRO — 92px, e não os 52 de antes.
+ *
+ * Com o valor abreviado ("146 Mi") cabiam cinco caracteres; por extenso, o eixo
+ * precisa de "2.274.759.738" — treze caracteres na monoespaçada de 10px. Sem essa
+ * folga o recharts NÃO quebra nem encolhe: ele corta o começo do número, e o eixo
+ * passa a mostrar ".000.000" — que é pior do que abreviar, porque parece um
+ * número. Foi assim que apareceu na primeira conferência no navegador.
+ */
+const LARGURA_EIXO_REAIS = 92
 
 const eixoBase = {
   stroke: COR.eixo,
@@ -206,7 +224,7 @@ export function GraficoFluxoEscoamento({
       }
       tabela={{
         colunas: ['Parcela', 'Valor'],
-        linhas: parcelas.map((p) => [p.rotulo, brlMi(p.valor)]),
+        linhas: parcelas.map((p) => [p.rotulo, brl(p.valor)]),
       }}
     >
       <ResponsiveContainer width="100%" height={ALTURA + 28}>
@@ -218,7 +236,7 @@ export function GraficoFluxoEscoamento({
             interval={0}
             tick={{ ...eixoBase.tick, fontSize: 9.5, fontFamily: 'Manrope, sans-serif' }}
           />
-          <YAxis {...eixoBase} tickFormatter={tickBrl} width={52} />
+          <YAxis {...eixoBase} tickFormatter={tickBrl} width={LARGURA_EIXO_REAIS} />
           <ReferenceLine y={0} stroke={COR.eixo} />
           <Tooltip
             cursor={{ fill: COR.cursor }}
@@ -229,7 +247,7 @@ export function GraficoFluxoEscoamento({
                 linhas={[
                   {
                     rotulo: 'valor',
-                    valor: brlMi(payload?.[0]?.payload?.valor),
+                    valor: brl(payload?.[0]?.payload?.valor),
                     cor: payload?.[0]?.payload?.cor,
                   },
                 ]}
@@ -317,7 +335,7 @@ export function GraficoFluxoEscoamento({
                   >
                     {/* Em MILHÕES, que é a régua do eixo e do subtítulo. O
                         valor cru (`7215556,1`) não é legível sobre uma barra. */}
-                    {sinalMi(d.valor)}
+                    {brlSinal(d.valor)}
                   </text>
                 )
               }}
@@ -370,10 +388,10 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
         colunas: ['Ano', 'CAPEX', 'OPEX', 'Receita', 'Teto'],
         linhas: anos.map((a) => [
           a.ano,
-          brlMi(a.capex),
-          brlMi(a.opex),
-          brlMi(a.receita),
-          brlMi(a.tetoCapex),
+          brl(a.capex),
+          brl(a.opex),
+          brl(a.receita),
+          brl(a.tetoCapex),
         ]),
       }}
     >
@@ -381,7 +399,7 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
         <ComposedChart data={dados} margin={{ ...MARGEM, right: 8 }} barGap={VAO_BARRA}>
           <CartesianGrid stroke={COR.grid} vertical={false} />
           <XAxis dataKey="ano" {...eixoBase} />
-          <YAxis yAxisId="reais" {...eixoBase} tickFormatter={tickBrl} width={52} />
+          <YAxis yAxisId="reais" {...eixoBase} tickFormatter={tickBrl} width={LARGURA_EIXO_REAIS} />
           <Tooltip
             cursor={{ fill: COR.cursor }}
             content={({ active, payload, label }) => {
@@ -391,12 +409,12 @@ export function GraficoDesembolso({ anos }: { anos: AnoFinanceiro[] }) {
                   ativo={active}
                   titulo={label}
                   linhas={[
-                    { rotulo: 'CAPEX', valor: brlMi(d?.capex), cor: COR_FLUXO.capex },
-                    { rotulo: 'OPEX', valor: brlMi(d?.opex), cor: COR_FLUXO.opex },
-                    { rotulo: 'receita', valor: brlMi(d?.receita), cor: COR_FLUXO.receita },
+                    { rotulo: 'CAPEX', valor: brl(d?.capex), cor: COR_FLUXO.capex },
+                    { rotulo: 'OPEX', valor: brl(d?.opex), cor: COR_FLUXO.opex },
+                    { rotulo: 'receita', valor: brl(d?.receita), cor: COR_FLUXO.receita },
                     // `brl` devolve '—' para nulo: o tooltip diz "não há teto",
                     // e não "teto R$ 0".
-                    { rotulo: 'teto', valor: brlMi(d?.teto), cor: COR_FLUXO.teto },
+                    { rotulo: 'teto', valor: brl(d?.teto), cor: COR_FLUXO.teto },
                   ]}
                 />
               )
@@ -496,7 +514,7 @@ export function GraficoEbitda({
       titulo="EBITDA e margem por ano"
       subtitulo={`barras em R$ (eixo à esquerda), linha em % da receita${
         baseReceita ? ` ${baseReceita}` : ''
-      } (eixo à direita) · total ${brlMi(total)}`}
+      } (eixo à direita) · total ${brl(total)}`}
       escopo={escopo}
       nota={
         <>
@@ -507,7 +525,7 @@ export function GraficoEbitda({
       }
       tabela={{
         colunas: ['Ano', 'EBITDA', 'Margem'],
-        linhas: anos.map((a) => [a.ano, brlMi(a.ebitda), pct(a.margemPct)]),
+        linhas: anos.map((a) => [a.ano, brl(a.ebitda), pct(a.margemPct)]),
       }}
     >
       <ResponsiveContainer width="100%" height={ALTURA}>
@@ -520,7 +538,7 @@ export function GraficoEbitda({
             yAxisId="reais"
             {...eixoBase}
             tickFormatter={tickBrl}
-            width={52}
+            width={LARGURA_EIXO_REAIS}
             tick={{ ...eixoBase.tick, fill: 'var(--viz-fluxo-primaria)' }}
           />
           <YAxis
@@ -545,7 +563,7 @@ export function GraficoEbitda({
                   linhas={[
                     {
                       rotulo: 'EBITDA',
-                      valor: brlMi(d?.ebitda),
+                      valor: brl(d?.ebitda),
                       cor: 'var(--viz-fluxo-primaria)',
                     },
                     { rotulo: 'margem', valor: pct(d?.margem), cor: 'var(--viz-fluxo-entra)' },
@@ -787,14 +805,14 @@ export function GraficoReceitaSubBacia({ anos }: { anos: ReceitaAno[] }) {
       }
       tabela={{
         colunas: ['Ano', 'Direta', 'Indireta'],
-        linhas: anos.map((a) => [a.ano, brlMi(a.direta), a.indireta > 0 ? brlMi(a.indireta) : VAZIO]),
+        linhas: anos.map((a) => [a.ano, brl(a.direta), a.indireta > 0 ? brl(a.indireta) : VAZIO]),
       }}
     >
       <ResponsiveContainer width="100%" height={ALTURA}>
         <BarChart data={dados} margin={MARGEM}>
           <CartesianGrid stroke={COR.grid} vertical={false} />
           <XAxis dataKey="ano" {...eixoBase} />
-          <YAxis {...eixoBase} tickFormatter={tickBrl} width={44} />
+          <YAxis {...eixoBase} tickFormatter={tickBrl} width={LARGURA_EIXO_REAIS} />
           <Tooltip
             cursor={{ fill: COR.cursor }}
             content={({ active, payload, label }) => {
@@ -806,12 +824,12 @@ export function GraficoReceitaSubBacia({ anos }: { anos: ReceitaAno[] }) {
                   linhas={[
                     {
                       rotulo: 'direta',
-                      valor: brlMi(d?.direta),
+                      valor: brl(d?.direta),
                       cor: 'var(--viz-fluxo-primaria)',
                     },
                     {
                       rotulo: 'indireta',
-                      valor: brlMi(d?.indireta),
+                      valor: brl(d?.indireta),
                       cor: 'var(--viz-fluxo-entra)',
                     },
                   ]}

@@ -42,6 +42,18 @@ export interface ParametrosRodada {
    * indistinguíveis — e "cobertura 62%" não quer dizer a mesma coisa nos dois.
    */
   unidadeCobertura: string
+  /**
+   * QUANTOS ANOS O PLANO SOMA — o horizonte, e não a janela de CAPEX
+   * (`janelaCapex`, os anos em que uma obra pode COMEÇAR).
+   *
+   * A receita e o OPEX totais são somas do horizonte inteiro. Sem esse número na
+   * tela, o KPI de Receita é um total sem régua: uma usuária somou a receita de um
+   * ano à mão e não reconheceu o total de 24 anos (28/09/2026).
+   *
+   * Opcional porque a LISTA do histórico sai de outra consulta, que não o traz; o
+   * detalhe da rodada traz.
+   */
+  anosHorizonte?: number | null
 }
 
 /**

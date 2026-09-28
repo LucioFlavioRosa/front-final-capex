@@ -2,7 +2,7 @@ import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ArrowRight, X } from '@phosphor-icons/react'
 import { useCidade } from '@/rodada/api/queries'
-import { brlMi, deTotal, inteiro, pct } from '@/rodada/lib/formato'
+import { brl, deTotal, inteiro, pct } from '@/rodada/lib/formato'
 import { CAMADAS } from '@/rodada/mapa/camadas'
 import type { Camada, Contexto, FormaDoGrafico } from '@/rodada/mapa/camadas'
 import {
@@ -399,8 +399,8 @@ function Cabecalho({
  */
 function Resumo({ cidade, comparada }: { cidade: CidadeLinha; comparada: CidadeLinha | null }) {
   const linhas: { rotulo: string; a: string; b: string | null }[] = [
-    { rotulo: 'VPL', a: brlMi(cidade.vpl), b: comparada ? brlMi(comparada.vpl) : null },
-    { rotulo: 'CAPEX', a: brlMi(cidade.capex), b: comparada ? brlMi(comparada.capex) : null },
+    { rotulo: 'VPL', a: brl(cidade.vpl), b: comparada ? brl(comparada.vpl) : null },
+    { rotulo: 'CAPEX', a: brl(cidade.capex), b: comparada ? brl(comparada.capex) : null },
     {
       rotulo: 'Cobertura final',
       a: pct(cidade.coberturaFimPct),

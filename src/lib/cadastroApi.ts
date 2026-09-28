@@ -176,14 +176,20 @@ const PARAMS: Record<string, string> = {
 /**
  * SÓ LEITURA — o servidor calcula e não recebe de volta.
  *
- * `ticket` é receita ÷ ligações, feito no servidor, e ele o exclui do contrato
- * de gravação de propósito: "exigi-lo no corpo obrigaria o cliente a devolver
- * uma conta que o servidor mesmo fez" (`cadastro.py::CAMPOS_DB`). Fica fora do
- * `DB` acima porque aquele mapa serve os DOIS sentidos — incluí-lo ali o mandaria
- * de volta no `PUT`, e o servidor recusaria a ficha por campo desconhecido.
+ * Os dois tickets são a receita ÷ as ligações TOTAIS (`universo_ligacoes`), feitos
+ * no servidor, e ele os exclui do contrato de gravação de propósito: "exigi-lo no
+ * corpo obrigaria o cliente a devolver uma conta que o servidor mesmo fez"
+ * (`cadastro.py::TICKETS`). Ficam fora do `DB` acima porque aquele mapa serve os
+ * DOIS sentidos — incluí-los ali os mandaria de volta no `PUT`, e o servidor
+ * recusaria a ficha por campo desconhecido.
+ *
+ * SÃO DOIS porque a rodada escolhe a base de receita (arrecadada ou faturada) e o
+ * motor deriva o ticket dela. Esta tela não conhece a escolha da rodada, então
+ * mostra as duas: um ticket só, mudo, contradiria metade das rodadas.
  */
 const DB_DERIVADO: Record<string, string> = {
   ticket: 'ticket_medio',
+  ticketFat: 'ticket_medio_faturada',
 }
 
 /**

@@ -15,7 +15,7 @@ import {
 import { useObra, useRunMeta } from '@/rodada/api/queries'
 import { useCrumbs } from '@/rodada/state/Crumbs'
 import { useTrilhaCompleta } from '@/rodada/layout/CascaResultado'
-import { VAZIO, brl, brlMi, dataCurta, inteiro, pct, vazao } from '@/rodada/lib/formato'
+import { brl, dataCurta, inteiro, pct, vazao, VAZIO } from '@/rodada/lib/formato'
 import type { ReactNode } from 'react'
 import { useAbaResultado } from '@/rodada/layout/abaResultado'
 
@@ -79,9 +79,9 @@ export function Elemento() {
                     <BotaoExportar />
                   </>
                 }
-                destaque={{ rotulo: 'CAPEX', valor: brlMi(o.capex) }}
+                destaque={{ rotulo: 'CAPEX', valor: brl(o.capex) }}
                 itens={[
-                  { rotulo: 'OPEX anual', valor: brlMi(o.opexAno) },
+                  { rotulo: 'OPEX anual', valor: brl(o.opexAno) },
                   {
                     rotulo: 'Quantidade',
                     valor:
@@ -164,11 +164,11 @@ export function Elemento() {
                         </CelulaLink>
                       }
                     />
-                    <Campo rotulo="CAPEX construído" valor={brlMi(o.capexConstruido)} />
+                    <Campo rotulo="CAPEX construído" valor={brl(o.capexConstruido)} />
                     {/* Todos estes já devolvem '—' sozinhos quando nulos: é o
                         `formato.ts`, e é por isso que a ficha não tem um único
                         `?? 0` espalhado por ela. */}
-                    <Campo rotulo="CAPEX que falta" valor={brlMi(o.capexQueFalta)} />
+                    <Campo rotulo="CAPEX que falta" valor={brl(o.capexQueFalta)} />
                     <Campo
                       rotulo="Mês mais cedo"
                       valor={o.mesMaisCedo === null ? VAZIO : String(o.mesMaisCedo)}
@@ -225,7 +225,7 @@ export function Elemento() {
                               </td>
                               <td data-m>{vazao(d.vazao)}</td>
                               <td data-m>{pct(d.fracaoRateio * 100)}</td>
-                              <td data-m>{brlMi(d.capexRateado)}</td>
+                              <td data-m>{brl(d.capexRateado)}</td>
                             </tr>
                           ))}
                           <tr>
@@ -237,7 +237,7 @@ export function Elemento() {
                               {pct(totalRateio * 100)}
                             </td>
                             <td data-m className="font-bold">
-                              {brlMi(totalCapex)}
+                              {brl(totalCapex)}
                             </td>
                           </tr>
                         </tbody>
