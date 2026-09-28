@@ -1,0 +1,57 @@
+# Portão automático do front. Nada aqui depende de segredo nem de infraestrutura
+# da Aegea: o job sobe do zero num runner público.
+#
+# O QUE FICA DE FORA, E POR QUÊ — as duas suítes que existem no repositório e não
+# entram aqui, porque fora do lugar delas o resultado seria mentira:
+#
+#   `test:integracao`  fala com o backend REAL (grava no banco e restaura). Sem o
+#                      backend no ar ela não tem o que testar; com um backend
+#                      qualquer, testaria outra base. É suíte de máquina de
+#                      desenvolvimento, e continua sendo rodada à mão.
+#   `test:perf`        é cronômetro. Num runner compartilhado o número mede a
+#                      máquina do momento, não o componente — daria vermelho por
+#                      vizinhança e verde por sorte.
+#
+# Ou seja: este portão cobre tipos, build e os unitários (que rodam com MSW e não
+# precisam de rede). É o que dá para afirmar sem depender de nada de fora.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      # @v5 nas duas: as @v4 rodam sobre o runtime node20 dos runners, que o
+      # GitHub depreciou — o job ainda passa, com aviso, e para de passar depois.
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          # Node 22 (LTS). O 20 saiu do suporte em abril de 2026.
+          node-version: 22
+          cache: npm
+
+      # `npm ci` (e não `install`) para o CI usar exatamente o package-lock.
+      - run: npm ci
+
+      # Cada passo isolado: quem lê o log vê qual portão caiu, sem abrir o job.
+      #
+      # `lint` é `tsc --noEmit`, e AQUI ele verifica de verdade — conferido com um
+      # erro de tipo plantado de propósito. (Não vale para todo projeto: onde o
+      # tsconfig usa project references, `--noEmit` passa por cima e só `tsc -b`
+      # acusa. Por isso o passo seguinte também roda.)
+      - name: Tipos
+        run: npm run lint
+
+      # `build` é `tsc -b && vite build`: pega o que o `--noEmit` não pega e
+      # garante que o bundle SAI. Um front que compila e não empacota é um deploy
+      # quebrado que nenhum teste unitário denuncia.
+      - name: Build
+        run: npm run build
+
+      - name: Testes
+        run: npm test
