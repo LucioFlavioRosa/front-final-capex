@@ -659,6 +659,13 @@ export interface Paridade {
   /** Houve mudanca de faixa? Sem degrau, nao ha efeito-base. */
   houveDegrau: boolean
   /** VP do efeito-base, em R$. */
+  /**
+   * VP do efeito-base — CHEGA E NÃO É EXIBIDO (28/09/2026).
+   *
+   * O motor publica ZERO nas rodadas novas, porque a coluna quer dizer "quanto do VPL
+   * é efeito-base" e ele deixou de entrar no VPL. Mostrar o campo faria a tela dizer
+   * "R$ 0" onde o efeito existe e apenas não é contado. Ver `Cidade.tsx`.
+   */
   vpEfeitoBase: number
   /** Quanto o efeito-base representa do VPL da cidade. */
   pctDoVplDaCidade: number

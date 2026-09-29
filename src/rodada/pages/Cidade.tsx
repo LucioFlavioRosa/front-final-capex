@@ -187,14 +187,19 @@ export function Cidade() {
                     rotulo="Paridade"
                     valor={`${c.paridade.paridadeInicial} → ${c.paridade.paridadeFinal}`}
                   />
-                  {c.paridade.houveDegrau && (
-                    <ItemRodape
-                      rotulo="Efeito da base"
-                      valor={`${brl(c.paridade.vpEfeitoBase)} · ${pct(
-                        c.paridade.pctDoVplDaCidade,
-                      )} do VPL`}
-                    />
-                  )}
+                  {/* O EFEITO DA BASE SAIU DAQUI (28/09/2026). Só conta receita de
+                      ligação nova, por decisão do dono do produto, e o efeito-base — a
+                      base já atendida passando a pagar a nova equivalência — não entra
+                      mais no VPL. Duas razões para a linha sair, e não virar zero:
+
+                      1. o motor publica `vp_efeito_base = 0` nas rodadas novas, então
+                         com o degrau tendo acontecido a linha diria "R$ 0 · 0,0% do
+                         VPL" — que é falso: o efeito existe, só não é contado;
+                      2. o "% do VPL" era razão de duas coisas diferentes mesmo antes,
+                         porque o VPL exibido nunca incluiu o efeito.
+
+                      A transição de faixa fica, logo acima: ela é a informação real, e é
+                      ela que explica por que a tarifa de esgoto muda. */}
                 </>
               }
             />
