@@ -845,6 +845,13 @@ export interface ObraLinha {
   precoUnitario: number | null
 
   /**
+   * O que o CAPEX tem ALÉM de `quantidade × precoUnitario` — na ETE, o terreno.
+   * `null` nas demais obras, onde a conta fecha exata. Com ele a identidade da
+   * linha fecha sempre: `quantidade × precoUnitario + capexTerreno = capex`.
+   */
+  capexTerreno: number | null
+
+  /**
    * A LINHA DO TEMPO DA OBRA, em quatro fases:
    *
    *   predecessoras → execução → espera até a cobrança → ramp-up da adesão
@@ -868,6 +875,11 @@ export interface ObraLinha {
   mesesAteCobranca: number | null
   dataInicioFaturamento: string | null
   mesesRampUp: number | null
+  /**
+   * Quando a cobrança fica PLENA — o início do faturamento mais a maturação. O
+   * ramp-up começa com a cobrança e termina aqui.
+   */
+  dataCobrancaPlena: string | null
 }
 
 /** A página da lista de obras — paginada de propósito (ver `ObraLinha`). */

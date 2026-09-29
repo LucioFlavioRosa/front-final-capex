@@ -89,6 +89,7 @@ describe('ModalDoAno', () => {
       'Quantidade',
       'Unidade',
       'Preço unitário (R$)',
+      'CAPEX do terreno (R$)',
       'Ano de início',
       // A LINHA DO TEMPO, na ordem em que acontece.
       'Predecessoras (meses)',
@@ -99,6 +100,7 @@ describe('ModalDoAno', () => {
       'Até a cobrança (meses)',
       'Início do faturamento',
       'Ramp-up (meses)',
+      'Cobrança plena',
     ])
     expect(planilha.linhas).toEqual([
       [
@@ -113,6 +115,7 @@ describe('ModalDoAno', () => {
         383,
         'm',
         497.02,
+        null, // rede coletora não tem terreno
         2028,
         4,
         '2027-09',
@@ -124,6 +127,7 @@ describe('ModalDoAno', () => {
         null,
         null,
         null,
+        null, // cobrança plena: sem faturamento, não há
       ],
     ])
   })

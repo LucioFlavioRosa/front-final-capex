@@ -34,6 +34,8 @@ const COLETA: ObraLinha = {
   mesesAteCobranca: 8,
   dataInicioFaturamento: '2029-09',
   mesesRampUp: 7,
+  dataCobrancaPlena: '2030-04',
+  capexTerreno: null,
 }
 
 /** Uma EEE: não fatura, então as três colunas de cobrança vêm vazias. */
@@ -70,6 +72,9 @@ describe('a planilha das obras do ano', () => {
     expect(valor('Até a cobrança (meses)')).toBe(8)
     expect(valor('Início do faturamento')).toBe('2029-09')
     expect(valor('Ramp-up (meses)')).toBe(7)
+    expect(valor('Cobrança plena')).toBe('2030-04')
+    // Só a ETE preenche; numa rede coletora a conta fecha sem parcela extra.
+    expect(valor('CAPEX do terreno (R$)')).toBeNull()
   })
 
   it('a obra que não fatura sai VAZIA nas três colunas de cobrança, e não zerada', () => {
@@ -87,7 +92,11 @@ describe('a planilha das obras do ano', () => {
 
   it('as colunas de dinheiro estão marcadas para o Excel somar', () => {
     const dinheiro = COLUNAS_DA_PLANILHA.filter((c) => 'formato' in c && c.formato === 'dinheiro')
-    expect(dinheiro.map((c) => c.titulo)).toEqual(['CAPEX (R$)', 'Preço unitário (R$)'])
+    expect(dinheiro.map((c) => c.titulo)).toEqual([
+      'CAPEX (R$)',
+      'Preço unitário (R$)',
+      'CAPEX do terreno (R$)',
+    ])
   })
 })
 

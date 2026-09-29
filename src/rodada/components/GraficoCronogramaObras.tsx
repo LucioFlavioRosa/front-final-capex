@@ -386,6 +386,8 @@ export const COLUNAS_DA_PLANILHA = [
   { titulo: 'Quantidade', largura: 14 },
   { titulo: 'Unidade', largura: 12 },
   { titulo: 'Preço unitário (R$)', largura: 20, formato: 'dinheiro' as const },
+  // SÓ A ETE PREENCHE: é o que o CAPEX tem além de quantidade × unitário.
+  { titulo: 'CAPEX do terreno (R$)', largura: 22, formato: 'dinheiro' as const },
   { titulo: 'Ano de início', largura: 14, formato: 'inteiro' as const },
   // A LINHA DO TEMPO, na ordem em que acontece. Texto e não número nas datas:
   // 'AAAA-MM' é mês, e virar 2026 perderia o mês; virar data do Excel inventaria
@@ -400,13 +402,8 @@ export const COLUNAS_DA_PLANILHA = [
   { titulo: 'Até a cobrança (meses)', largura: 20, formato: 'inteiro' as const },
   { titulo: 'Início do faturamento', largura: 20 },
   { titulo: 'Ramp-up (meses)', largura: 16, formato: 'inteiro' as const },
+  { titulo: 'Cobrança plena', largura: 16 },
 ]
-
-/** `17` -> "17 m"; ausente -> traço. Ausente NÃO é zero: numa fase de obra, zero
- *  quer dizer "imediato" e vazio quer dizer "não se aplica a esta obra". */
-function meses(v: number | null | undefined) {
-  return v === null || v === undefined ? VAZIO : `${inteiro(v)} m`
-}
 
 export function linhaDaPlanilha(o: ObraLinha) {
   return [
@@ -421,6 +418,7 @@ export function linhaDaPlanilha(o: ObraLinha) {
     o.quantidade,
     o.unidade,
     o.precoUnitario,
+    o.capexTerreno,
     o.anoInicio,
     o.mesesPredecessoras,
     o.inicioPredecessoras,
@@ -430,6 +428,7 @@ export function linhaDaPlanilha(o: ObraLinha) {
     o.mesesAteCobranca,
     o.dataInicioFaturamento,
     o.mesesRampUp,
+    o.dataCobrancaPlena,
   ]
 }
 
@@ -662,17 +661,17 @@ function ObrasDoAno({
                   <ChipSituacao situacao={o.situacao} />
                 </td>
                 {recorte === 'todas' && <td>{CLASSIFICACAO[o.recorte]}</td>}
-                <td data-r data-g>{meses(o.mesesPredecessoras)}</td>
-                <td className="font-mono text-[11.5px]">{o.inicioPredecessoras ?? VAZIO}</td>
-                <td data-r>{meses(o.prazoMeses)}</td>
+                <td data-g className="font-mono text-[11.5px]">{o.inicioPredecessoras ?? VAZIO}</td>
+                <td className="font-mono text-[11.5px]">{o.dataInicio ?? VAZIO}</td>
                 {/* A coluna que explica por que uma obra de terceiro está numa
                     lista de 2026: ela não começa em 2026, ela FICA PRONTA. */}
                 <td className="font-mono text-[11.5px]">{o.dataPronta ?? VAZIO}</td>
-                {/* As três da cobrança saem VAZIAS fora da obra de coleta — só ela
-                    fatura. O traço diz "não se aplica"; zero diria "imediato". */}
-                <td data-r data-g>{meses(o.mesesAteCobranca)}</td>
-                <td className="font-mono text-[11.5px]">{o.dataInicioFaturamento ?? VAZIO}</td>
-                <td data-r>{meses(o.mesesRampUp)}</td>
+                {/* As duas da cobrança saem VAZIAS fora da obra de coleta — só ela
+                    fatura. O traço diz "não se aplica". */}
+                <td data-g className="font-mono text-[11.5px]">
+                  {o.dataInicioFaturamento ?? VAZIO}
+                </td>
+                <td className="font-mono text-[11.5px]">{o.dataCobrancaPlena ?? VAZIO}</td>
                 {/* AS TRÊS TÊM DE FECHAR A CONTA: quantidade × preço = CAPEX. É
                     conferência feita à mão, na tela, e arredondar qualquer uma
                     quebra a identidade — 2.173 × 392 dá 851.816 contra os
@@ -680,11 +679,9 @@ function ObrasDoAno({
                     `inteiro`/`brl`, que arredondam. */}
                 <td data-m>{decimal(o.quantidade)}</td>
                 <td data-m>{brlExato(o.precoUnitario)}</td>
-                {/* `brl` e nao `brl`: a regra esta no proprio `formato.ts`
-                    — numa COLUNA de 72 linhas a regua tem de ser a mesma, e o
-                    `brl` cai para o formato cheio abaixo de um milhao, o que
-                    alterna "R$ 4,1 Mi" e "R$ 493.774" em linhas vizinhas e
-                    obriga a converter de cabeca justamente para comparar. */}
+                {/* SÓ A ETE TEM: nas demais a conta fecha sem parcela extra, e a
+                    célula sai vazia em vez de zero. */}
+                <td data-m>{brlExato(o.capexTerreno)}</td>
                 <td data-m>{brlExato(o.capex)}</td>
               </tr>
             ))}
