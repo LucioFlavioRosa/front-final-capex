@@ -461,10 +461,24 @@ export function corpoDaRodada(e: EstadoSimulacao): CorpoNovaRodada {
     base_receita: e.baseReceita,
     curva_adocao: e.curvaAdocao,
     usar_cts: e.usarCts,
-    // SÓ VIAJA COM A CTS LIGADA. Sem coletor a pergunta não existe, e o servidor RECUSA o
-    // par contraditório (422) em vez de gravar um pedido que promete um recorte que não
-    // aconteceu. Mandar `undefined` faz a chave sair do JSON.
-    cts_na_cobertura: e.usarCts ? e.ctsNaCobertura : undefined,
+    // SÓ VIAJA QUANDO DIZ ALGO — CTS ligada E a escolha diferente do default.
+    //
+    // Duas razões, e a segunda veio da revisão do Codex:
+    //
+    // 1. Sem coletor a pergunta não existe, e o servidor RECUSA o par contraditório (422)
+    //    em vez de gravar um pedido que promete um recorte que não aconteceu.
+    // 2. `ausente = conta` é o contrato com o motor, e mandar `true` explícito faz um
+    //    pedido idêntico a uma rodada antiga ter digest diferente — as duas deixam de
+    //    deduplicar e o cluster roda duas vezes para o mesmo resultado.
+    //
+    // HOJE ISSO NÃO MUDA NADA NA PRÁTICA, e vale dizer para ninguém "simplificar" de
+    // volta: `ETE_FASEADA` passou a viajar sempre em 29/09/2026, e ele sozinho já separa
+    // toda rodada nova das 127 antigas. Medido com um pedido real do banco: tirar só esta
+    // chave não restaura a igualdade. A correção vale para quando aquele parâmetro puder
+    // sair — aí esta seria a chave a quebrar a dedupe.
+    //
+    // `undefined` faz a chave sair do JSON.
+    cts_na_cobertura: e.usarCts && !e.ctsNaCobertura ? false : undefined,
     cobertura_so_residencial: e.coberturaSoResidencial,
     unidade_cobertura: e.unidadeCobertura,
     data_inicio: e.dataInicio.trim() || null,

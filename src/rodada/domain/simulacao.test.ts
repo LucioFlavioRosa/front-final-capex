@@ -368,10 +368,20 @@ describe('a CTS conta na cobertura?', () => {
   // Pedido do dono do produto em 29/09/2026. A pergunta só existe com a CTS ligada, e é
   // isso que estes casos prendem — o condicional é o que pode quebrar sem ninguém ver,
   // porque a tela continua bonita nos dois estados.
-  it('viaja quando a CTS está ligada, nos dois valores', () => {
+  it('viaja SÓ quando diz algo — "não conta" vai, "conta" é omitido', () => {
+    // `ausente = conta` é o contrato com o motor. Mandar `true` explícito faria um pedido
+    // idêntico a uma rodada antiga ter digest diferente, e as duas deixariam de deduplicar
+    // — cluster rodando duas vezes para o mesmo resultado. Achado pela revisão do Codex.
     const e = { ...estadoInicial(), unidadeId: 'u1', usarCts: true }
-    expect(corpoDaRodada({ ...e, ctsNaCobertura: true }).cts_na_cobertura).toBe(true)
     expect(corpoDaRodada({ ...e, ctsNaCobertura: false }).cts_na_cobertura).toBe(false)
+    expect(corpoDaRodada({ ...e, ctsNaCobertura: true }).cts_na_cobertura).toBeUndefined()
+  })
+
+  it('o default omitido é o que preserva a dedupe com rodada antiga', () => {
+    // O par do teste acima, dito pelo efeito: o corpo de quem não mexeu no botão não pode
+    // ter a chave, senão ele não é mais "o mesmo pedido" de antes da feature.
+    const e = { ...estadoInicial(), unidadeId: 'u1', usarCts: true }
+    expect('cts_na_cobertura' in JSON.parse(JSON.stringify(corpoDaRodada(e)))).toBe(false)
   })
 
   it('NÃO viaja com a CTS desligada, mesmo com o valor guardado no estado', () => {
