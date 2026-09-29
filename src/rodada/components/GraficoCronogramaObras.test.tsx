@@ -238,6 +238,60 @@ describe('ModalDoAno', () => {
     expect(planilha.colunas.map((c: { titulo: string }) => c.titulo)).toContain('Classificação')
   })
 
+  it('MÓDULOS DE ETE DO MESMO SISTEMA vêm como UMA linha, com a quantidade deles', async () => {
+    // O pedido do dono do produto: no modo faseado cada módulo de ETE é uma obra
+    // própria no banco, e a lista repetia a mesma ETE três vezes com "1 módulo"
+    // em cada linha — enquanto uma rede aparece uma vez com 2.173,08 m. O
+    // servidor funde os `#m*` do mesmo sistema; aqui o que se cobra é o que a
+    // fusão muda NA TELA.
+    servidor.use(
+      http.get('/api/runs/:runId/obras', () =>
+        HttpResponse.json({
+          total: 1,
+          itens: [
+            {
+              obraId: 'ete_b1e13#m1',
+              obrasAgrupadas: 3,
+              componente: 'ETE (módulo)',
+              situacao: 'construida',
+              recorte: 'escolhida',
+              cidadeId: 'Belford Roxo',
+              sistemaId: 'Sistema 13',
+              subBaciaId: null,
+              capex: 1_297_611.33,
+              quantidade: 3,
+              unidade: 'modulo',
+              precoUnitario: 432_537.11,
+              capexTerreno: 0,
+              anoInicio: 2028,
+              dataPronta: '2030-06',
+              prazoMeses: 24,
+            },
+          ],
+        }),
+      ),
+    )
+    abrir()
+
+    // 1. UMA linha, com os três módulos na quantidade.
+    const corpo = screen.getByRole('dialog').querySelector('tbody')!
+    await waitFor(() => expect(corpo.querySelectorAll('tr')).toHaveLength(1))
+    expect(await screen.findByText('3')).toBeInTheDocument()
+
+    // 2. Sem o `#m1` do primeiro módulo: a linha soma os três, e mostrar o id de
+    //    um deles seria mentira sobre o que está somado ali.
+    expect(screen.getByText('ete_b1e13')).toBeInTheDocument()
+    expect(screen.queryByText('ete_b1e13#m1')).not.toBeInTheDocument()
+
+    // 3. E não é link: a página de detalhe é de UMA obra, e aqui são três.
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+
+    // 4. A conta fecha: 3 × 432.537,11 = 1.297.611,33. É o que o usuário
+    //    confere de olho, e foi o defeito que ele achou na primeira versão.
+    expect(screen.getByText('R$ 432.537,11')).toBeInTheDocument()
+    expect(screen.getByText('R$ 1.297.611,33')).toBeInTheDocument()
+  })
+
   it('fecha pelo botão Fechar e pelo X do cabeçalho', async () => {
     const aoFechar = vi.fn()
     abrir(2028, aoFechar)

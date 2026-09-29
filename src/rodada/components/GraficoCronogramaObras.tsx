@@ -569,13 +569,16 @@ function ObrasDoAno({
               <th scope="colgroup" colSpan={recorte === 'todas' ? 7 : 6} className="!pb-1" data-fixa>
                 Identificação
               </th>
-              <th scope="colgroup" colSpan={4} data-g className="!pb-1">
+              {/* Os `colSpan` SOMAM o número de colunas da linha de baixo. Quando
+                  não somam, cada rótulo de grupo escorrega para cima das colunas do
+                  grupo seguinte — foi o desalinhamento relatado. */}
+              <th scope="colgroup" colSpan={3} data-g className="!pb-1">
                 Cronograma
               </th>
-              <th scope="colgroup" colSpan={3} data-g className="!pb-1">
+              <th scope="colgroup" colSpan={2} data-g className="!pb-1">
                 Cobrança
               </th>
-              <th scope="colgroup" colSpan={3} data-g className="!pb-1 text-right">
+              <th scope="colgroup" colSpan={4} data-g className="!pb-1 text-right">
                 Custo
               </th>
             </tr>
@@ -593,31 +596,33 @@ function ObrasDoAno({
                   largura sem informar. Na planilha ela vai sempre — lá o
                   arquivo sai da ferramenta e precisa dizer de onde veio. */}
               {recorte === 'todas' && <th scope="col">Classificação</th>}
-              {/* A LINHA DO TEMPO, na ordem em que acontece. Cada fase traz a
-                  DURAÇÃO e o mês em que ela começa — quem planeja lê as duas
-                  coisas, e só a duração não diz quando mobilizar. */}
-              <th scope="col" data-r data-g>
+              {/* CINCO MARCOS, EM DATA — mês e ano —, na ordem em que acontecem.
+                  A duração de cada fase sai na planilha; na tela o que se confere é
+                  QUANDO, e uma coluna de "17 m" não diz em que mês mobilizar.
+
+                  SEM `data-r`: estas células são texto ('AAAA-MM') alinhado à
+                  esquerda, e o título tem de seguir o dado — título à direita sobre
+                  coluna à esquerda foi o desalinhamento relatado. */}
+              <th scope="col" data-g>
                 Predecessoras
               </th>
-              <th scope="col">Início</th>
-              <th scope="col" data-r>
-                Execução
-              </th>
-              <th scope="col">Conclusão</th>
-              <th scope="col" data-r data-g>
-                Até cobrar
-              </th>
-              <th scope="col">Fatura de</th>
-              <th scope="col" data-r>
+              <th scope="col">Início da obra</th>
+              <th scope="col">Fim da obra</th>
+              <th scope="col" data-g>
                 Ramp-up
               </th>
-              {/* O CAPEX decomposto: quantidade × preço unitário. Quando a origem
-                  manda os dois, eles MANDAM — o motor recalcula o CAPEX deles. */}
+              <th scope="col">Cobrança plena</th>
+              {/* O CAPEX decomposto: quantidade × preço unitário (+ terreno, que só
+                  a ETE tem). Estas quatro são numéricas e vão à direita, como as
+                  células `data-m`. */}
               <th scope="col" data-r data-g>
                 Qtd.
               </th>
               <th scope="col" data-r>
                 Preço unit.
+              </th>
+              <th scope="col" data-r>
+                Terreno
               </th>
               <th scope="col" data-r>
                 CAPEX
@@ -627,21 +632,21 @@ function ObrasDoAno({
           <tbody>
             {obras.isPending && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 17 : 16} className="py-6 text-center text-[12.5px] text-ink-water">
+                <td colSpan={recorte === 'todas' ? 16 : 15} className="py-6 text-center text-[12.5px] text-ink-water">
                   Carregando as obras de {ano}…
                 </td>
               </tr>
             )}
             {obras.isError && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 17 : 16} className="py-6 text-center text-[12.5px] text-danger">
+                <td colSpan={recorte === 'todas' ? 16 : 15} className="py-6 text-center text-[12.5px] text-danger">
                   Não foi possível carregar as obras deste ano.
                 </td>
               </tr>
             )}
             {!obras.isPending && !obras.isError && vazio && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 17 : 16} className="py-6 text-center text-[12.5px] text-ink-water">
+                <td colSpan={recorte === 'todas' ? 16 : 15} className="py-6 text-center text-[12.5px] text-ink-water">
                   Nenhuma obra com ano de execução em {ano}.
                 </td>
               </tr>
@@ -649,9 +654,17 @@ function ObrasDoAno({
             {itens.map((o) => (
               <tr key={o.obraId}>
                 <td data-fixa>
-                  <CelulaLink to={`/resultados/${runId}/obras/${o.obraId}`}>
-                    <span className="font-mono">{o.obraId}</span>
-                  </CelulaLink>
+                  {/* LINHA FUNDIDA NÃO TEM DETALHE: quando ela representa vários
+                      módulos de ETE, não existe uma obra para abrir. Mostra o nome da
+                      ETE (sem o `#m1` do primeiro módulo, que seria mentira sobre o
+                      que a linha soma) e não vira link. */}
+                  {o.obrasAgrupadas > 1 ? (
+                    <span className="font-mono">{o.obraId.split('#')[0]}</span>
+                  ) : (
+                    <CelulaLink to={`/resultados/${runId}/obras/${o.obraId}`}>
+                      <span className="font-mono">{o.obraId}</span>
+                    </CelulaLink>
+                  )}
                 </td>
                 <td>{o.componente}</td>
                 <td>{o.cidadeId}</td>

@@ -15,6 +15,7 @@ import type { ObraLinha } from '@/rodada/domain/resultado'
 
 const COLETA: ObraLinha = {
   obraId: 'lig_b1',
+  obrasAgrupadas: 1,
   componente: 'Ligação de esgoto',
   situacao: 'construida',
   cidadeId: 'c1',

@@ -440,6 +440,7 @@ export const handlers = [
       itens: [
         {
           obraId: 'rede_b2b27_1_2',
+          obrasAgrupadas: 1,
           componente: 'Rede coletora',
           situacao: 'construida',
           recorte: 'escolhida',

@@ -818,6 +818,16 @@ export interface ElementoLinha {
  */
 export interface ObraLinha {
   obraId: string
+  /**
+   * Quantas OBRAS esta linha representa. 1 em tudo, menos nos módulos de ETE, que o
+   * servidor funde numa linha só: no modo faseado cada módulo é uma obra própria, e a
+   * lista repetia a mesma ETE com "1 módulo" em cada linha — enquanto nos demais
+   * elementos uma obra traz a quantidade dela (2.173,08 m de rede).
+   *
+   * Maior que 1 significa que não há página de detalhe para abrir: o detalhe é de UMA
+   * obra, e aqui são várias.
+   */
+  obrasAgrupadas: number
   componente: string
   situacao: SituacaoObra
   cidadeId: string
