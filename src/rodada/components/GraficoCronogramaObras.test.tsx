@@ -91,16 +91,15 @@ describe('ModalDoAno', () => {
       'Preço unitário (R$)',
       'CAPEX do terreno (R$)',
       'Ano de início',
-      // A LINHA DO TEMPO, na ordem em que acontece.
+      // A LINHA DO TEMPO: as duas datas que o motor calcula, e a duração de cada
+      // fase, na ordem em que acontecem. As datas DERIVADAS não saem — ver a nota
+      // em `planilhaDeObras.test.ts`.
+      'Início da obra',
+      'Fim da obra',
       'Predecessoras (meses)',
-      'Início das predecessoras',
-      'Início da execução',
-      'Prazo (meses)',
-      'Conclusão',
+      'Obra (meses)',
       'Até a cobrança (meses)',
-      'Início do faturamento',
       'Ramp-up (meses)',
-      'Cobrança plena',
     ])
     expect(planilha.linhas).toEqual([
       [
@@ -117,17 +116,14 @@ describe('ModalDoAno', () => {
         497.02,
         null, // rede coletora não tem terreno
         2028,
-        4,
-        '2027-09',
-        '2028-01',
-        9,
-        '2028-09',
-        // Rede coletora não fatura: as três saem NULAS, e não zeradas. Zero diria
+        '2028-01', // início da obra
+        '2028-09', // fim da obra — e 2028-01 + 9 meses, que é a coluna seguinte
+        4,         // predecessoras
+        9,         // obra
+        // Rede coletora não fatura: as duas saem NULAS, e não zeradas. Zero diria
         // "cobra na hora"; vazio diz "não se aplica a esta obra".
         null,
         null,
-        null,
-        null, // cobrança plena: sem faturamento, não há
       ],
     ])
   })

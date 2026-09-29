@@ -6,7 +6,9 @@
  * arquivo sai com prazo na coluna de CAPEX sem erro nenhum. Este teste é a amarra.
  *
  * Nasceu com as colunas de fases da obra (28/09/2026), que dobraram o tamanho da
- * planilha — de 13 para 20 colunas.
+ * planilha — de 13 para 20 colunas. No mesmo dia caiu para 17: as três datas
+ * DERIVADAS (início das predecessoras, início do faturamento, cobrança plena) deram
+ * lugar à duração de cada fase, por decisão do dono do produto.
  */
 import { describe, expect, it } from 'vitest'
 import { COLUNAS_DA_PLANILHA, linhaDaPlanilha } from '@/rodada/components/GraficoCronogramaObras'
@@ -64,31 +66,37 @@ describe('a planilha das obras do ano', () => {
     expect(valor('CAPEX (R$)')).toBe(693_474)
     expect(valor('Quantidade')).toBe(242)
     expect(valor('Preço unitário (R$)')).toBe(2863.84)
-    // a linha do tempo, na ordem em que acontece
+    // A linha do tempo: as duas datas que o motor calcula, e a duração de cada fase.
+    expect(valor('Início da obra')).toBe('2026-10')
+    expect(valor('Fim da obra')).toBe('2028-03')
     expect(valor('Predecessoras (meses)')).toBe(8)
-    expect(valor('Início das predecessoras')).toBe('2026-02')
-    expect(valor('Início da execução')).toBe('2026-10')
-    expect(valor('Prazo (meses)')).toBe(17)
-    expect(valor('Conclusão')).toBe('2028-03')
+    expect(valor('Obra (meses)')).toBe(17)
     expect(valor('Até a cobrança (meses)')).toBe(8)
-    expect(valor('Início do faturamento')).toBe('2029-09')
     expect(valor('Ramp-up (meses)')).toBe(7)
-    expect(valor('Cobrança plena')).toBe('2030-04')
+    // AS DATAS DERIVADAS NÃO SAEM. O servidor ainda as calcula, e a planilha
+    // deliberadamente não as leva: "fim da obra + até a cobrança" não dá o início do
+    // faturamento, porque o motor ancora a cobrança em janeiro do ano seguinte ao da
+    // cadeia pronta. Levar a data para o Excel repetiria lá o par que não fecha.
+    expect(titulos).not.toContain('Início do faturamento')
+    expect(titulos).not.toContain('Cobrança plena')
+    expect(titulos).not.toContain('Início das predecessoras')
     // Só a ETE preenche; numa rede coletora a conta fecha sem parcela extra.
     expect(valor('CAPEX do terreno (R$)')).toBeNull()
   })
 
-  it('a obra que não fatura sai VAZIA nas três colunas de cobrança, e não zerada', () => {
+  it('a obra que não fatura sai VAZIA nas colunas de cobrança, e não zerada', () => {
     // Zero ali diria "fatura imediatamente"; vazio diz "não se aplica". A diferença
-    // importa porque a planilha é feita para ser somada.
+    // importa porque a planilha é feita para ser somada. E nestas obras os campos
+    // carregam o default da classe `Obra` do motor (1 e 2), que não é dado do
+    // cadastro — o servidor já os anula, e a planilha não pode reintroduzi-los.
     const titulos = COLUNAS_DA_PLANILHA.map((c) => c.titulo)
     const linha = linhaDaPlanilha(NAO_FATURA)
-    for (const t of ['Até a cobrança (meses)', 'Início do faturamento', 'Ramp-up (meses)']) {
+    for (const t of ['Até a cobrança (meses)', 'Ramp-up (meses)']) {
       expect(linha[titulos.indexOf(t)]).toBeNull()
     }
     // e o que é dela continua saindo
-    expect(linha[titulos.indexOf('Prazo (meses)')]).toBe(17)
-    expect(linha[titulos.indexOf('Início da execução')]).toBe('2026-10')
+    expect(linha[titulos.indexOf('Obra (meses)')]).toBe(17)
+    expect(linha[titulos.indexOf('Início da obra')]).toBe('2026-10')
   })
 
   it('as colunas de dinheiro estão marcadas para o Excel somar', () => {
@@ -166,5 +174,37 @@ describe('a tabela do modal', () => {
       expect(comTodas).toBe(colunas)
       expect(sem).toBe(colunas - condicionais)
     }
+  })
+
+  it('OS GRUPOS SOMAM as colunas que eles cobrem, e as células somam o mesmo', async () => {
+    // O DESALINHAMENTO RELATADO em 28/09/2026 foi exatamente isto: a segunda linha do
+    // cabeçalho ganhou colunas e os `colSpan` da PRIMEIRA ficaram nos antigos (somavam
+    // 10 numa tabela de 16). Cada rótulo de grupo escorrega para cima do grupo
+    // seguinte, e daí para a direita todo título fica sobre a coluna errada.
+    //
+    // As três linhas — grupos, títulos e células — têm de somar o mesmo número, e
+    // conferir só duas delas deixa passar justamente o caso que aconteceu.
+    const fonte = await import('node:fs/promises').then((fs) =>
+      fs.readFile('src/rodada/components/GraficoCronogramaObras.tsx', 'utf-8'),
+    )
+    const thead = fonte.slice(fonte.indexOf('<thead'), fonte.indexOf('</thead>'))
+    const [, grupos, titulos] = thead.split('<tr>')
+
+    const soma = (linha: string) =>
+      [...linha.matchAll(/colSpan=\{(?:recorte === 'todas' \? (\d+) : \d+|(\d+))\}/g)]
+        .reduce((s, m) => s + Number(m[1] ?? m[2]), 0)
+
+    const nasCelulas = fonte.slice(fonte.indexOf('{itens.map('), fonte.indexOf('</tbody>'))
+    const conta = (s: string, re: RegExp) => (s.match(re) ?? []).length
+
+    const colunas = conta(titulos, /<th\b/g)
+    expect(soma(grupos)).toBe(colunas)
+    expect(conta(nasCelulas, /<td\b/g)).toBe(colunas)
+
+    // E a coluna condicional é a MESMA nas três: se ela aparecesse só no cabeçalho, a
+    // tabela alinharia no filtro "todas" e desalinharia nos outros três.
+    const condicional = /recorte === 'todas' && </g
+    expect(conta(grupos, /recorte === 'todas' \? \d+ : \d+/g)).toBe(1)
+    expect(conta(titulos, condicional)).toBe(conta(nasCelulas, condicional))
   })
 })

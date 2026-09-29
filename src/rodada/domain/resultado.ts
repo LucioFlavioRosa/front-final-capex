@@ -871,6 +871,17 @@ export interface ObraLinha {
    * ancorando o fim do intervalo no início da execução: licença e mobilização
    * terminam quando a obra começa. No motor `tempo_predecessoras` é um piso, e não
    * uma janela agendada.
+   *
+   * AS TRÊS DATAS DERIVADAS — `inicioPredecessoras`, `dataInicioFaturamento` e
+   * `dataCobrancaPlena` — CHEGAM E NÃO SÃO EXIBIDAS, de propósito (28/09/2026). O
+   * motor não ancora o faturamento na conclusão da cadeia: ele pula para janeiro do
+   * ano seguinte e só então soma o lag. Então "conclusão + meses até a cobrança"
+   * nunca dava `dataInicioFaturamento`, e foi por esse par que o usuário descobriu o
+   * comportamento. O cálculo do otimizador fica como está, por decisão do dono do
+   * produto — o VPL é uma aproximação uniforme e a comparação entre planos continua
+   * justa —, e a tela passou a mostrar a DURAÇÃO de cada fase no lugar da data
+   * derivada. Quem quiser reexibi-las precisa antes resolver a âncora, ou a tabela
+   * volta a mostrar um par que não fecha.
    */
   /** Início da EXECUÇÃO, 'AAAA-MM'. Obra de terceiro não tem. */
   dataInicio: string | null

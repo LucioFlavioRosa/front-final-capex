@@ -389,20 +389,21 @@ export const COLUNAS_DA_PLANILHA = [
   // SÓ A ETE PREENCHE: é o que o CAPEX tem além de quantidade × unitário.
   { titulo: 'CAPEX do terreno (R$)', largura: 22, formato: 'dinheiro' as const },
   { titulo: 'Ano de início', largura: 14, formato: 'inteiro' as const },
-  // A LINHA DO TEMPO, na ordem em que acontece. Texto e não número nas datas:
-  // 'AAAA-MM' é mês, e virar 2026 perderia o mês; virar data do Excel inventaria
-  // um dia que o motor não calculou.
+  // A LINHA DO TEMPO: as duas datas que o motor calcula, e a duração de cada fase.
+  // Texto e não número nas datas: 'AAAA-MM' é mês, e virar 2026 perderia o mês;
+  // virar data do Excel inventaria um dia que o motor não calculou.
+  //
+  // MESMAS COLUNAS DA TELA. O arquivo é a conferência da lista que o usuário está
+  // olhando; trazer aqui uma data derivada que a tela não mostra faria o mesmo par
+  // irreconciliável reaparecer no Excel.
+  { titulo: 'Início da obra', largura: 18 },
+  { titulo: 'Fim da obra', largura: 14 },
   { titulo: 'Predecessoras (meses)', largura: 20, formato: 'inteiro' as const },
-  { titulo: 'Início das predecessoras', largura: 22 },
-  { titulo: 'Início da execução', largura: 18 },
-  { titulo: 'Prazo (meses)', largura: 14, formato: 'inteiro' as const },
-  { titulo: 'Conclusão', largura: 12 },
-  // As três últimas saem VAZIAS na obra que não fatura, e é de propósito: só a
+  { titulo: 'Obra (meses)', largura: 14, formato: 'inteiro' as const },
+  // As duas últimas saem VAZIAS na obra que não fatura, e é de propósito: só a
   // obra de coleta tem cobrança. Zero ali seria um número que alguém soma.
   { titulo: 'Até a cobrança (meses)', largura: 20, formato: 'inteiro' as const },
-  { titulo: 'Início do faturamento', largura: 20 },
   { titulo: 'Ramp-up (meses)', largura: 16, formato: 'inteiro' as const },
-  { titulo: 'Cobrança plena', largura: 16 },
 ]
 
 export function linhaDaPlanilha(o: ObraLinha) {
@@ -420,15 +421,12 @@ export function linhaDaPlanilha(o: ObraLinha) {
     o.precoUnitario,
     o.capexTerreno,
     o.anoInicio,
-    o.mesesPredecessoras,
-    o.inicioPredecessoras,
     o.dataInicio,
-    o.prazoMeses,
     o.dataPronta,
+    o.mesesPredecessoras,
+    o.prazoMeses,
     o.mesesAteCobranca,
-    o.dataInicioFaturamento,
     o.mesesRampUp,
-    o.dataCobrancaPlena,
   ]
 }
 
@@ -572,11 +570,14 @@ function ObrasDoAno({
               {/* Os `colSpan` SOMAM o número de colunas da linha de baixo. Quando
                   não somam, cada rótulo de grupo escorrega para cima das colunas do
                   grupo seguinte — foi o desalinhamento relatado. */}
-              <th scope="colgroup" colSpan={3} data-g className="!pb-1">
+              <th scope="colgroup" colSpan={2} data-g className="!pb-1">
                 Cronograma
               </th>
-              <th scope="colgroup" colSpan={2} data-g className="!pb-1">
-                Cobrança
+              {/* A UNIDADE DITA UMA VEZ, no grupo: as quatro colunas de baixo são
+                  "meses", e repetir "(meses)" em cada título gastaria quatro vezes a
+                  largura para dizer a mesma coisa. */}
+              <th scope="colgroup" colSpan={4} data-g className="!pb-1 text-right">
+                Prazos (meses)
               </th>
               <th scope="colgroup" colSpan={4} data-g className="!pb-1 text-right">
                 Custo
@@ -596,22 +597,43 @@ function ObrasDoAno({
                   largura sem informar. Na planilha ela vai sempre — lá o
                   arquivo sai da ferramenta e precisa dizer de onde veio. */}
               {recorte === 'todas' && <th scope="col">Classificação</th>}
-              {/* CINCO MARCOS, EM DATA — mês e ano —, na ordem em que acontecem.
-                  A duração de cada fase sai na planilha; na tela o que se confere é
-                  QUANDO, e uma coluna de "17 m" não diz em que mês mobilizar.
+              {/* AS DUAS DATAS QUE O MOTOR CALCULA, e só elas. As outras três que
+                  esta tabela mostrou — início das predecessoras, início do faturamento
+                  e cobrança plena — eram DERIVADAS de uma duração somada a uma destas,
+                  e o dono do produto pediu a duração no lugar da data derivada: "ao
+                  invés de colocar datas vamos colocar meses para cada".
 
-                  SEM `data-r`: estas células são texto ('AAAA-MM') alinhado à
-                  esquerda, e o título tem de seguir o dado — título à direita sobre
-                  coluna à esquerda foi o desalinhamento relatado. */}
+                  A troca também tira da tela um par que NÃO FECHAVA: o motor ancora o
+                  faturamento em janeiro do ano seguinte ao da cadeia pronta e só então
+                  soma o lag, então "fim da obra + até a cobrança" nunca dava a data de
+                  faturamento — foi assim que o defeito apareceu. O cálculo do
+                  otimizador fica como está, por decisão do dono do produto (28/09/2026):
+                  o VPL é uma aproximação que vale igual para todos os planos, e a
+                  comparação entre eles continua justa.
+
+                  SEM `data-r`: são texto ('AAAA-MM') à esquerda, e o título segue o
+                  dado — título à direita sobre coluna à esquerda foi o desalinhamento
+                  relatado. */}
               <th scope="col" data-g>
+                Início da obra
+              </th>
+              <th scope="col">Fim da obra</th>
+              {/* AS QUATRO FASES, na ordem em que acontecem. Numéricas e à direita,
+                  como as do custo: é coluna que se compara de cima a baixo. E
+                  `Fim − Início da obra` = `Obra`, a conferência que a tabela passa a
+                  permitir sem que o usuário saia dela. */}
+              <th scope="col" data-r data-g>
                 Predecessoras
               </th>
-              <th scope="col">Início da obra</th>
-              <th scope="col">Fim da obra</th>
-              <th scope="col" data-g>
+              <th scope="col" data-r>
+                Obra
+              </th>
+              <th scope="col" data-r>
+                Até a cobrança
+              </th>
+              <th scope="col" data-r>
                 Ramp-up
               </th>
-              <th scope="col">Cobrança plena</th>
               {/* O CAPEX decomposto: quantidade × preço unitário (+ terreno, que só
                   a ETE tem). Estas quatro são numéricas e vão à direita, como as
                   células `data-m`. */}
@@ -632,21 +654,21 @@ function ObrasDoAno({
           <tbody>
             {obras.isPending && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 16 : 15} className="py-6 text-center text-[12.5px] text-ink-water">
+                <td colSpan={recorte === 'todas' ? 17 : 16} className="py-6 text-center text-[12.5px] text-ink-water">
                   Carregando as obras de {ano}…
                 </td>
               </tr>
             )}
             {obras.isError && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 16 : 15} className="py-6 text-center text-[12.5px] text-danger">
+                <td colSpan={recorte === 'todas' ? 17 : 16} className="py-6 text-center text-[12.5px] text-danger">
                   Não foi possível carregar as obras deste ano.
                 </td>
               </tr>
             )}
             {!obras.isPending && !obras.isError && vazio && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 16 : 15} className="py-6 text-center text-[12.5px] text-ink-water">
+                <td colSpan={recorte === 'todas' ? 17 : 16} className="py-6 text-center text-[12.5px] text-ink-water">
                   Nenhuma obra com ano de execução em {ano}.
                 </td>
               </tr>
@@ -674,17 +696,18 @@ function ObrasDoAno({
                   <ChipSituacao situacao={o.situacao} />
                 </td>
                 {recorte === 'todas' && <td>{CLASSIFICACAO[o.recorte]}</td>}
-                <td data-g className="font-mono text-[11.5px]">{o.inicioPredecessoras ?? VAZIO}</td>
-                <td className="font-mono text-[11.5px]">{o.dataInicio ?? VAZIO}</td>
+                <td data-g className="font-mono text-[11.5px]">{o.dataInicio ?? VAZIO}</td>
                 {/* A coluna que explica por que uma obra de terceiro está numa
                     lista de 2026: ela não começa em 2026, ela FICA PRONTA. */}
                 <td className="font-mono text-[11.5px]">{o.dataPronta ?? VAZIO}</td>
-                {/* As duas da cobrança saem VAZIAS fora da obra de coleta — só ela
-                    fatura. O traço diz "não se aplica". */}
-                <td data-g className="font-mono text-[11.5px]">
-                  {o.dataInicioFaturamento ?? VAZIO}
-                </td>
-                <td className="font-mono text-[11.5px]">{o.dataCobrancaPlena ?? VAZIO}</td>
+                <td data-m data-g>{inteiro(o.mesesPredecessoras)}</td>
+                <td data-m>{inteiro(o.prazoMeses)}</td>
+                {/* AS DUAS DA COBRANÇA SAEM VAZIAS fora da obra de coleta — só ela
+                    fatura, e nas demais estes campos carregam o default da classe
+                    `Obra` do motor, que não é dado do cadastro. O traço diz "não se
+                    aplica"; zero seria um número que alguém soma. */}
+                <td data-m>{inteiro(o.mesesAteCobranca)}</td>
+                <td data-m>{inteiro(o.mesesRampUp)}</td>
                 {/* AS TRÊS TÊM DE FECHAR A CONTA: quantidade × preço = CAPEX. É
                     conferência feita à mão, na tela, e arredondar qualquer uma
                     quebra a identidade — 2.173 × 392 dá 851.816 contra os
