@@ -14,7 +14,7 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { QuadroGrafico } from '@/rodada/components/QuadroGrafico'
 import { TituloSecao } from '@/rodada/components/pecas'
 import { COR, COR_COMPONENTE, corDoComponente } from '@/rodada/components/cores'
-import { brl, compacto, inteiro, VAZIO } from '@/rodada/lib/formato'
+import { brl, brlExato, compacto, decimal, inteiro, VAZIO } from '@/rodada/lib/formato'
 import type { ElementoDoAno } from '@/rodada/domain/resultado'
 
 /**
@@ -500,9 +500,14 @@ function tabelaDe(serie: SerieComponente) {
     colunas: ['Ano', `Quantidade (${u})`, `Preço unitário (R$/${u})`, 'CAPEX'],
     linhas: serie.pontos.map((p) => [
       p.ano,
-      p.quantidade === null ? VAZIO : inteiro(p.quantidade),
-      p.preco === null ? VAZIO : brl(p.preco),
-      p.capex === null ? VAZIO : brl(p.capex),
+      // EXATOS, e não arredondados: o comentário acima promete que a identidade
+      // `quantidade × preço = CAPEX` é conferível número a número — e com
+      // `inteiro`/`brl` ela NÃO fecha (2.173 × 392 = 851.816 contra 852.086).
+      // Mesmo defeito que a lista de obras do cronograma tinha, achado pela
+      // revisão do Codex em 28/09/2026.
+      decimal(p.quantidade),
+      brlExato(p.preco),
+      brlExato(p.capex),
     ]),
   }
 }

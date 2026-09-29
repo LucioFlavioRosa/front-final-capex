@@ -440,6 +440,7 @@ export const handlers = [
       itens: [
         {
           obraId: 'rede_b2b27_1_2',
+          obrasAgrupadas: 1,
           componente: 'Rede coletora',
           situacao: 'construida',
           recorte: 'escolhida',
@@ -452,6 +453,18 @@ export const handlers = [
           anoInicio: 2028,
           dataPronta: '2028-09',
           prazoMeses: 9,
+          precoUnitario: 497.02,
+          dataInicio: '2028-01',
+          mesesPredecessoras: 4,
+          inicioPredecessoras: '2027-09',
+          // REDE COLETORA não é a âncora de receita: as três da cobrança vêm
+          // nulas do servidor, e não zeradas. Ver `_fases`, no backend.
+          mesesAteCobranca: null,
+          dataInicioFaturamento: null,
+          mesesRampUp: null,
+          dataCobrancaPlena: null,
+          // Rede coletora não tem terreno: a conta fecha em quantidade × unitário.
+          capexTerreno: null,
         },
       ],
     }),

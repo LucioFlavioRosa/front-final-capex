@@ -19,7 +19,7 @@ import { COR, corDoComponente } from '@/rodada/components/cores'
 import { CelulaLink, ChipSituacao, rotuloSituacao } from '@/rodada/components/pecas'
 import { useCronogramaDeObras, useObras } from '@/rodada/api/queries'
 import { baixarXlsx } from '@/rodada/lib/xlsx'
-import { brl, inteiro, VAZIO } from '@/rodada/lib/formato'
+import { brl, brlExato, decimal, inteiro, VAZIO } from '@/rodada/lib/formato'
 import type { AnoDeObras, ObraLinha } from '@/rodada/domain/resultado'
 
 /**
@@ -385,11 +385,21 @@ export const COLUNAS_DA_PLANILHA = [
   { titulo: 'CAPEX (R$)', largura: 18, formato: 'dinheiro' as const },
   { titulo: 'Quantidade', largura: 14 },
   { titulo: 'Unidade', largura: 12 },
+  { titulo: 'Preço unitário (R$)', largura: 20, formato: 'dinheiro' as const },
+  // SÓ A ETE PREENCHE: é o que o CAPEX tem além de quantidade × unitário.
+  { titulo: 'CAPEX do terreno (R$)', largura: 22, formato: 'dinheiro' as const },
   { titulo: 'Ano de início', largura: 14, formato: 'inteiro' as const },
-  // Texto e não número: 'AAAA-MM' é mês, e virar 2026 perderia o mês; virar
-  // data do Excel inventaria um dia que o motor não calculou.
-  { titulo: 'Conclusão', largura: 12 },
-  { titulo: 'Prazo (meses)', largura: 14, formato: 'inteiro' as const },
+  // A LINHA DO TEMPO, EM DURAÇÃO — nenhuma data. MESMAS COLUNAS DA TELA: o arquivo é
+  // a conferência da lista que o usuário está olhando, e uma data que a tela deixou de
+  // mostrar reapareceria aqui com a mesma discussão (ver a nota do cabeçalho da
+  // tabela). O ano de início acima continua, porque é o ano da BARRA que abriu esta
+  // lista — identificação, e não fase.
+  { titulo: 'Predecessoras (meses)', largura: 20, formato: 'inteiro' as const },
+  { titulo: 'Obra (meses)', largura: 14, formato: 'inteiro' as const },
+  // As duas últimas saem VAZIAS na obra que não fatura, e é de propósito: só a
+  // obra de coleta tem cobrança. Zero ali seria um número que alguém soma.
+  { titulo: 'Até a cobrança (meses)', largura: 20, formato: 'inteiro' as const },
+  { titulo: 'Ramp-up (meses)', largura: 16, formato: 'inteiro' as const },
 ]
 
 export function linhaDaPlanilha(o: ObraLinha) {
@@ -404,9 +414,13 @@ export function linhaDaPlanilha(o: ObraLinha) {
     o.capex,
     o.quantidade,
     o.unidade,
+    o.precoUnitario,
+    o.capexTerreno,
     o.anoInicio,
-    o.dataPronta,
+    o.mesesPredecessoras,
     o.prazoMeses,
+    o.mesesAteCobranca,
+    o.mesesRampUp,
   ]
 }
 
@@ -530,9 +544,40 @@ function ObrasDoAno({
           <caption className="sr-only">Obras executadas em {ano}</caption>
           {/* O cabeçalho gruda porque a rolagem é da tabela: numa lista de 116
               linhas, saber qual coluna é qual no meio da rolagem vale a regra. */}
-          <thead className="sticky top-0 z-10 bg-white">
+          {/* CABEÇALHO EM DOIS NÍVEIS. A tabela tem 18 colunas porque esta lista é
+              usada para CONFERIR obra a obra, e juntar campos economizaria largura
+              cobrando a conta na hora de bater um número. O que a largura pede em
+              troca é orientação: os grupos dizem de que assunto é cada faixa, e a
+              linha vertical marca onde um assunto acaba.
+
+              `data-g` (grupo) é a primeira coluna de cada faixa — é ela que
+              desenha a divisória, no cabeçalho e no corpo. */}
+          <thead className="sticky top-0 z-20 bg-white">
             <tr>
-              <th scope="col">Obra</th>
+              {/* `colgroup` e não `col`: estes cabeçalhos mandam num GRUPO de
+                  colunas, e é assim que um leitor de tela anuncia a relação com as
+                  colunas filhas. Com `scope="col"` eles viram cabeçalho de uma
+                  coluna só, e o agrupamento se perde. */}
+              <th scope="colgroup" colSpan={recorte === 'todas' ? 7 : 6} className="!pb-1" data-fixa>
+                Identificação
+              </th>
+              {/* Os `colSpan` SOMAM o número de colunas da linha de baixo. Quando
+                  não somam, cada rótulo de grupo escorrega para cima das colunas do
+                  grupo seguinte — foi o desalinhamento relatado. */}
+              {/* A UNIDADE DITA UMA VEZ, no grupo: as quatro colunas de baixo são
+                  "meses", e repetir "(meses)" em cada título gastaria quatro vezes a
+                  largura para dizer a mesma coisa. */}
+              <th scope="colgroup" colSpan={4} data-g className="!pb-1 text-right">
+                Prazos (meses)
+              </th>
+              <th scope="colgroup" colSpan={4} data-g className="!pb-1 text-right">
+                Custo
+              </th>
+            </tr>
+            <tr>
+              <th scope="col" data-fixa>
+                Obra
+              </th>
               <th scope="col">Componente</th>
               <th scope="col">Cidade</th>
               <th scope="col">Sistema</th>
@@ -543,7 +588,50 @@ function ObrasDoAno({
                   largura sem informar. Na planilha ela vai sempre — lá o
                   arquivo sai da ferramenta e precisa dizer de onde veio. */}
               {recorte === 'todas' && <th scope="col">Classificação</th>}
-              <th scope="col">Conclusão</th>
+              {/* SÓ DURAÇÃO, NENHUMA DATA (28/09/2026, decisão do dono do produto).
+                  Esta tabela já mostrou cinco datas, e cada uma trouxe uma discussão:
+
+                  - as três DERIVADAS — início das predecessoras, início do faturamento
+                    e cobrança plena — não fechavam com a duração ao lado. O motor
+                    ancora o faturamento em janeiro do ano seguinte ao da cadeia pronta
+                    e só então soma o lag, então "fim da obra + até a cobrança" nunca
+                    dava o início do faturamento. Foi por esse par que o comportamento
+                    apareceu. O cálculo do otimizador fica como está: o VPL é uma
+                    aproximação que vale igual para todos os planos, e a comparação
+                    entre eles continua justa;
+                  - as duas REAIS — início e fim da obra — cobrem só a janela de
+                    EXECUÇÃO, e por isso escondiam as predecessoras: uma obra que começa
+                    em 2027-01 pode ter mobilizado em 2026-01, e as datas não diziam.
+
+                  A duração de cada etapa não tem nenhum dos dois problemas: é o que o
+                  cadastro informou, para a obra daquela linha, sem âncora nenhuma.
+
+                  Numéricas e à direita, como as do custo: é coluna que se compara de
+                  cima a baixo. */}
+              <th scope="col" data-r data-g>
+                Predecessoras
+              </th>
+              <th scope="col" data-r>
+                Obra
+              </th>
+              <th scope="col" data-r>
+                Até a cobrança
+              </th>
+              <th scope="col" data-r>
+                Ramp-up
+              </th>
+              {/* O CAPEX decomposto: quantidade × preço unitário (+ terreno, que só
+                  a ETE tem). Estas quatro são numéricas e vão à direita, como as
+                  células `data-m`. */}
+              <th scope="col" data-r data-g>
+                Qtd.
+              </th>
+              <th scope="col" data-r>
+                Preço unit.
+              </th>
+              <th scope="col" data-r>
+                Terreno
+              </th>
               <th scope="col" data-r>
                 CAPEX
               </th>
@@ -552,31 +640,39 @@ function ObrasDoAno({
           <tbody>
             {obras.isPending && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 9 : 8} className="py-6 text-center text-[12.5px] text-ink-water">
+                <td colSpan={recorte === 'todas' ? 15 : 14} className="py-6 text-center text-[12.5px] text-ink-water">
                   Carregando as obras de {ano}…
                 </td>
               </tr>
             )}
             {obras.isError && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 9 : 8} className="py-6 text-center text-[12.5px] text-danger">
+                <td colSpan={recorte === 'todas' ? 15 : 14} className="py-6 text-center text-[12.5px] text-danger">
                   Não foi possível carregar as obras deste ano.
                 </td>
               </tr>
             )}
             {!obras.isPending && !obras.isError && vazio && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 9 : 8} className="py-6 text-center text-[12.5px] text-ink-water">
+                <td colSpan={recorte === 'todas' ? 15 : 14} className="py-6 text-center text-[12.5px] text-ink-water">
                   Nenhuma obra com ano de execução em {ano}.
                 </td>
               </tr>
             )}
             {itens.map((o) => (
               <tr key={o.obraId}>
-                <td>
-                  <CelulaLink to={`/resultados/${runId}/obras/${o.obraId}`}>
-                    <span className="font-mono">{o.obraId}</span>
-                  </CelulaLink>
+                <td data-fixa>
+                  {/* LINHA FUNDIDA NÃO TEM DETALHE: quando ela representa vários
+                      módulos de ETE, não existe uma obra para abrir. Mostra o nome da
+                      ETE (sem o `#m1` do primeiro módulo, que seria mentira sobre o
+                      que a linha soma) e não vira link. */}
+                  {o.obrasAgrupadas > 1 ? (
+                    <span className="font-mono">{o.obraId.split('#')[0]}</span>
+                  ) : (
+                    <CelulaLink to={`/resultados/${runId}/obras/${o.obraId}`}>
+                      <span className="font-mono">{o.obraId}</span>
+                    </CelulaLink>
+                  )}
                 </td>
                 <td>{o.componente}</td>
                 <td>{o.cidadeId}</td>
@@ -586,15 +682,25 @@ function ObrasDoAno({
                   <ChipSituacao situacao={o.situacao} />
                 </td>
                 {recorte === 'todas' && <td>{CLASSIFICACAO[o.recorte]}</td>}
-                {/* A coluna que explica por que uma obra de terceiro está numa
-                    lista de 2026: ela não começa em 2026, ela FICA PRONTA. */}
-                <td className="font-mono text-[11.5px]">{o.dataPronta ?? VAZIO}</td>
-                {/* `brl` e nao `brl`: a regra esta no proprio `formato.ts`
-                    — numa COLUNA de 72 linhas a regua tem de ser a mesma, e o
-                    `brl` cai para o formato cheio abaixo de um milhao, o que
-                    alterna "R$ 4,1 Mi" e "R$ 493.774" em linhas vizinhas e
-                    obriga a converter de cabeca justamente para comparar. */}
-                <td data-m>{brl(o.capex)}</td>
+                <td data-m data-g>{inteiro(o.mesesPredecessoras)}</td>
+                <td data-m>{inteiro(o.prazoMeses)}</td>
+                {/* AS DUAS DA COBRANÇA SAEM VAZIAS fora da obra de coleta — só ela
+                    fatura, e nas demais estes campos carregam o default da classe
+                    `Obra` do motor, que não é dado do cadastro. O traço diz "não se
+                    aplica"; zero seria um número que alguém soma. */}
+                <td data-m>{inteiro(o.mesesAteCobranca)}</td>
+                <td data-m>{inteiro(o.mesesRampUp)}</td>
+                {/* AS TRÊS TÊM DE FECHAR A CONTA: quantidade × preço = CAPEX. É
+                    conferência feita à mão, na tela, e arredondar qualquer uma
+                    quebra a identidade — 2.173 × 392 dá 851.816 contra os
+                    852.086 gravados. Por isso `decimal`/`brlExato` aqui, e não
+                    `inteiro`/`brl`, que arredondam. */}
+                <td data-m>{decimal(o.quantidade)}</td>
+                <td data-m>{brlExato(o.precoUnitario)}</td>
+                {/* SÓ A ETE TEM: nas demais a conta fecha sem parcela extra, e a
+                    célula sai vazia em vez de zero. */}
+                <td data-m>{brlExato(o.capexTerreno)}</td>
+                <td data-m>{brlExato(o.capex)}</td>
               </tr>
             ))}
           </tbody>

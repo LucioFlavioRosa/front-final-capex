@@ -818,6 +818,16 @@ export interface ElementoLinha {
  */
 export interface ObraLinha {
   obraId: string
+  /**
+   * Quantas OBRAS esta linha representa. 1 em tudo, menos nos módulos de ETE, que o
+   * servidor funde numa linha só: no modo faseado cada módulo é uma obra própria, e a
+   * lista repetia a mesma ETE com "1 módulo" em cada linha — enquanto nos demais
+   * elementos uma obra traz a quantidade dela (2.173,08 m de rede).
+   *
+   * Maior que 1 significa que não há página de detalhe para abrir: o detalhe é de UMA
+   * obra, e aqui são várias.
+   */
+  obrasAgrupadas: number
   componente: string
   situacao: SituacaoObra
   cidadeId: string
@@ -836,7 +846,61 @@ export interface ObraLinha {
   anoInicio: number | null
   /** Conclusão, 'AAAA-MM'. Para obra de terceiro é a única data que existe. */
   dataPronta: string | null
+
+  /**
+   * Preço de UMA unidade do elemento (a de `unidade`). Com `quantidade`, é a
+   * decomposição do CAPEX: quando a origem manda os dois, eles mandam — o motor
+   * recalcula `capex = quantidade × precoUnitario` e avisa se o informado diverge.
+   */
+  precoUnitario: number | null
+
+  /**
+   * O que o CAPEX tem ALÉM de `quantidade × precoUnitario` — na ETE, o terreno.
+   * `null` nas demais obras, onde a conta fecha exata. Com ele a identidade da
+   * linha fecha sempre: `quantidade × precoUnitario + capexTerreno = capex`.
+   */
+  capexTerreno: number | null
+
+  /**
+   * A LINHA DO TEMPO DA OBRA, em quatro fases:
+   *
+   *   predecessoras → execução → espera até a cobrança → ramp-up da adesão
+   *
+   * Três datas o motor calcula: o início da execução, a conclusão e o início do
+   * faturamento. A quarta — o início das predecessoras — é DERIVADA no servidor,
+   * ancorando o fim do intervalo no início da execução: licença e mobilização
+   * terminam quando a obra começa. No motor `tempo_predecessoras` é um piso, e não
+   * uma janela agendada.
+   *
+   * AS TRÊS DATAS DERIVADAS — `inicioPredecessoras`, `dataInicioFaturamento` e
+   * `dataCobrancaPlena` — CHEGAM E NÃO SÃO EXIBIDAS, de propósito (28/09/2026). O
+   * motor não ancora o faturamento na conclusão da cadeia: ele pula para janeiro do
+   * ano seguinte e só então soma o lag. Então "conclusão + meses até a cobrança"
+   * nunca dava `dataInicioFaturamento`, e foi por esse par que o usuário descobriu o
+   * comportamento. O cálculo do otimizador fica como está, por decisão do dono do
+   * produto — o VPL é uma aproximação uniforme e a comparação entre planos continua
+   * justa —, e a tela passou a mostrar a DURAÇÃO de cada fase no lugar da data
+   * derivada. Quem quiser reexibi-las precisa antes resolver a âncora, ou a tabela
+   * volta a mostrar um par que não fecha.
+   */
+  /** Início da EXECUÇÃO, 'AAAA-MM'. Obra de terceiro não tem. */
+  dataInicio: string | null
   prazoMeses: number | null
+  mesesPredecessoras: number | null
+  inicioPredecessoras: string | null
+  /**
+   * SÓ NA OBRA DE COLETA — a âncora de receita. Nas demais vem `null`, e não o
+   * default do motor: uma EEE não tem "tempo até a cobrança", e mostrar 1 mês ali
+   * seria um número que alguém soma.
+   */
+  mesesAteCobranca: number | null
+  dataInicioFaturamento: string | null
+  mesesRampUp: number | null
+  /**
+   * Quando a cobrança fica PLENA — o início do faturamento mais a maturação. O
+   * ramp-up começa com a cobrança e termina aqui.
+   */
+  dataCobrancaPlena: string | null
 }
 
 /** A página da lista de obras — paginada de propósito (ver `ObraLinha`). */

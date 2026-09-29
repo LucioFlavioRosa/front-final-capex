@@ -88,9 +88,15 @@ describe('ModalDoAno', () => {
       'CAPEX (R$)',
       'Quantidade',
       'Unidade',
+      'Preço unitário (R$)',
+      'CAPEX do terreno (R$)',
       'Ano de início',
-      'Conclusão',
-      'Prazo (meses)',
+      // A LINHA DO TEMPO, SÓ EM DURAÇÃO. Nenhuma data — ver a nota no cabeçalho
+      // da tabela, em `GraficoCronogramaObras.tsx`.
+      'Predecessoras (meses)',
+      'Obra (meses)',
+      'Até a cobrança (meses)',
+      'Ramp-up (meses)',
     ])
     expect(planilha.linhas).toEqual([
       [
@@ -104,9 +110,15 @@ describe('ModalDoAno', () => {
         190_342, // reais CHEIOS, como número — a coluna precisa somar
         383,
         'm',
+        497.02,
+        null, // rede coletora não tem terreno
         2028,
-        '2028-09',
-        9,
+        4, // predecessoras
+        9, // obra
+        // Rede coletora não fatura: as duas saem NULAS, e não zeradas. Zero diria
+        // "cobra na hora"; vazio diz "não se aplica a esta obra".
+        null,
+        null,
       ],
     ])
   })
@@ -162,7 +174,15 @@ describe('ModalDoAno', () => {
     // O caso que a segunda série criou: 2026 tem 136 conclusões de terceiro e
     // nenhuma obra da Aegea. Se o filtro de ano tivesse continuado só em
     // `data_inicio`, clicar naquela barra abriria um modal vazio sobre uma barra
-    // cheia — e a coluna Conclusão é o que explica por que a obra está ali.
+    // cheia.
+    //
+    // A COLUNA CONCLUSÃO ERA O QUE EXPLICAVA por que a obra está ali — "ela não
+    // começa em 2026, ela FICA PRONTA" —, e ela saiu da tabela em 28/09/2026, com as
+    // outras datas. O que sobra dizendo isso é a classificação "De terceiro" mais a
+    // regra do servidor (`ANO_SQL`: obra de terceiro entra pelo ano da CONCLUSÃO,
+    // porque o motor não a sequencia e ela não tem início). O teste cobra o que
+    // sobrou; se um dia a explicação tiver de voltar à tela, é aqui que se vê que
+    // ela não está lá.
     servidor.use(
       http.get('/api/runs/:runId/obras', () =>
         HttpResponse.json({
@@ -198,7 +218,10 @@ describe('ModalDoAno', () => {
     )
 
     expect(await screen.findByText('eee_e1b25_3_1')).toBeInTheDocument()
-    expect(screen.getByText('2026-05')).toBeInTheDocument()
+    expect(screen.getByText('De terceiro')).toBeInTheDocument()
+    // E NENHUMA DATA, em lugar nenhum da tabela: é a decisão de 28/09/2026, e é ela
+    // que faz esta lista de terceiro não dizer mais por que 2026.
+    expect(screen.queryByText('2026-05')).not.toBeInTheDocument()
     // A asserção é sobre o SUBTÍTULO, e não sobre o diálogo inteiro: a coluna
     // CAPEX das linhas mostra "R$ 0" legitimamente, e cobrar o diálogo todo
     // faria o teste falhar por causa da tabela.
@@ -207,14 +230,68 @@ describe('ModalDoAno', () => {
     // CAPEX de terceiro é zero por definição: o subtítulo não inventa "R$ 0,0".
     expect(subtitulo).not.toHaveTextContent('R$')
 
-    // E a exportacao leva a data que justifica a linha estar neste ano.
+    // A exportacao acompanha a tela: sem data, e com a classificacao.
     await userEvent.click(screen.getByRole('button', { name: /Exportar Excel/ }))
     const [planilha] = baixarXlsx.mock.calls[0]
-    expect(planilha.linhas[0]).toContain('2026-05')
+    expect(planilha.linhas[0]).not.toContain('2026-05')
     expect(planilha.linhas[0]).toContain('De terceiro')
     // A classificacao vai na planilha mesmo saindo de um recorte so: o arquivo
     // deixa a ferramenta, e nada mais diria de qual filtro ele veio.
     expect(planilha.colunas.map((c: { titulo: string }) => c.titulo)).toContain('Classificação')
+  })
+
+  it('MÓDULOS DE ETE DO MESMO SISTEMA vêm como UMA linha, com a quantidade deles', async () => {
+    // O pedido do dono do produto: no modo faseado cada módulo de ETE é uma obra
+    // própria no banco, e a lista repetia a mesma ETE três vezes com "1 módulo"
+    // em cada linha — enquanto uma rede aparece uma vez com 2.173,08 m. O
+    // servidor funde os `#m*` do mesmo sistema; aqui o que se cobra é o que a
+    // fusão muda NA TELA.
+    servidor.use(
+      http.get('/api/runs/:runId/obras', () =>
+        HttpResponse.json({
+          total: 1,
+          itens: [
+            {
+              obraId: 'ete_b1e13#m1',
+              obrasAgrupadas: 3,
+              componente: 'ETE (módulo)',
+              situacao: 'construida',
+              recorte: 'escolhida',
+              cidadeId: 'Belford Roxo',
+              sistemaId: 'Sistema 13',
+              subBaciaId: null,
+              capex: 1_297_611.33,
+              quantidade: 3,
+              unidade: 'modulo',
+              precoUnitario: 432_537.11,
+              capexTerreno: 0,
+              anoInicio: 2028,
+              dataPronta: '2030-06',
+              prazoMeses: 24,
+            },
+          ],
+        }),
+      ),
+    )
+    abrir()
+
+    // 1. UMA linha, com os três módulos na quantidade.
+    const corpo = screen.getByRole('dialog').querySelector('tbody')!
+    await waitFor(() => expect(corpo.querySelectorAll('tr')).toHaveLength(1))
+    expect(await screen.findByText('3')).toBeInTheDocument()
+
+    // 2. Sem o `#m1` do primeiro módulo: a linha soma os três, e mostrar o id de
+    //    um deles seria mentira sobre o que está somado ali.
+    expect(screen.getByText('ete_b1e13')).toBeInTheDocument()
+    expect(screen.queryByText('ete_b1e13#m1')).not.toBeInTheDocument()
+
+    // 3. E não é link: a página de detalhe é de UMA obra, e aqui são três.
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+
+    // 4. A conta fecha: 3 × 432.537,11 = 1.297.611,33. É o que o usuário
+    //    confere de olho, e foi o defeito que ele achou na primeira versão.
+    expect(screen.getByText('R$ 432.537,11')).toBeInTheDocument()
+    expect(screen.getByText('R$ 1.297.611,33')).toBeInTheDocument()
   })
 
   it('fecha pelo botão Fechar e pelo X do cabeçalho', async () => {
