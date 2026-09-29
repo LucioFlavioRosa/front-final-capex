@@ -29,3 +29,6 @@ vite.config.d.ts
 .agents/
 .claude/
 skills-lock.json
+
+# Relatorios de revisao do Codex: saida de ferramenta, nao codigo do front.
+relatorio-codex-*.md
