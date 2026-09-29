@@ -188,27 +188,42 @@ describe('a tabela do modal', () => {
     //
     // As três linhas — grupos, títulos e células — têm de somar o mesmo número, e
     // conferir só duas delas deixa passar justamente o caso que aconteceu.
+    //
+    // NOS DOIS MODOS DO FILTRO, e somando `colSpan` também no corpo. A primeira versão
+    // deste teste olhava só o primeiro lado do ternário e contava `<td>` como 1: a
+    // revisão do Codex mostrou que `colSpan={recorte === 'todas' ? 7 : 5}` passava (o
+    // modo sem "Classificação" ficava errado) e que um `colSpan={2}` numa célula do
+    // corpo também passava.
     const fonte = await import('node:fs/promises').then((fs) =>
       fs.readFile('src/rodada/components/GraficoCronogramaObras.tsx', 'utf-8'),
     )
     const thead = fonte.slice(fonte.indexOf('<thead'), fonte.indexOf('</thead>'))
     const [, grupos, titulos] = thead.split('<tr>')
+    const celulas = fonte.slice(fonte.indexOf('{itens.map('), fonte.indexOf('</tbody>'))
 
-    const soma = (linha: string) =>
-      [...linha.matchAll(/colSpan=\{(?:recorte === 'todas' \? (\d+) : \d+|(\d+))\}/g)]
-        .reduce((s, m) => s + Number(m[1] ?? m[2]), 0)
+    /**
+     * Quantas COLUNAS um trecho ocupa, no modo pedido: cada `<th>`/`<td>` vale o seu
+     * `colSpan` (1 quando não tem), e a célula condicional só conta em "todas".
+     */
+    const largura = (trecho: string, tag: 'th' | 'td', comTodas: boolean) => {
+      const re = new RegExp(
+        `(\\{recorte === 'todas' && )?<${tag}\\b([^>]*?)>`,
+        'g',
+      )
+      let total = 0
+      for (const m of trecho.matchAll(re)) {
+        if (m[1] && !comTodas) continue
+        const span = /colSpan=\{(?:recorte === 'todas' \? (\d+) : (\d+)|(\d+))\}/.exec(m[2])
+        total += span ? Number(comTodas ? (span[1] ?? span[3]) : (span[2] ?? span[3])) : 1
+      }
+      return total
+    }
 
-    const nasCelulas = fonte.slice(fonte.indexOf('{itens.map('), fonte.indexOf('</tbody>'))
-    const conta = (s: string, re: RegExp) => (s.match(re) ?? []).length
-
-    const colunas = conta(titulos, /<th\b/g)
-    expect(soma(grupos)).toBe(colunas)
-    expect(conta(nasCelulas, /<td\b/g)).toBe(colunas)
-
-    // E a coluna condicional é a MESMA nas três: se ela aparecesse só no cabeçalho, a
-    // tabela alinharia no filtro "todas" e desalinharia nos outros três.
-    const condicional = /recorte === 'todas' && </g
-    expect(conta(grupos, /recorte === 'todas' \? \d+ : \d+/g)).toBe(1)
-    expect(conta(titulos, condicional)).toBe(conta(nasCelulas, condicional))
+    for (const comTodas of [true, false]) {
+      const colunas = largura(titulos, 'th', comTodas)
+      expect(colunas).toBeGreaterThan(10)                      // o trecho foi achado
+      expect(largura(grupos, 'th', comTodas)).toBe(colunas)    // os grupos cobrem tudo
+      expect(largura(celulas, 'td', comTodas)).toBe(colunas)   // e o corpo também
+    }
   })
 })
