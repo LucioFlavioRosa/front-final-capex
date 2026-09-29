@@ -91,11 +91,8 @@ describe('ModalDoAno', () => {
       'Preço unitário (R$)',
       'CAPEX do terreno (R$)',
       'Ano de início',
-      // A LINHA DO TEMPO: as duas datas que o motor calcula, e a duração de cada
-      // fase, na ordem em que acontecem. As datas DERIVADAS não saem — ver a nota
-      // em `planilhaDeObras.test.ts`.
-      'Início da obra',
-      'Fim da obra',
+      // A LINHA DO TEMPO, SÓ EM DURAÇÃO. Nenhuma data — ver a nota no cabeçalho
+      // da tabela, em `GraficoCronogramaObras.tsx`.
       'Predecessoras (meses)',
       'Obra (meses)',
       'Até a cobrança (meses)',
@@ -116,10 +113,8 @@ describe('ModalDoAno', () => {
         497.02,
         null, // rede coletora não tem terreno
         2028,
-        '2028-01', // início da obra
-        '2028-09', // fim da obra — e 2028-01 + 9 meses, que é a coluna seguinte
-        4,         // predecessoras
-        9,         // obra
+        4, // predecessoras
+        9, // obra
         // Rede coletora não fatura: as duas saem NULAS, e não zeradas. Zero diria
         // "cobra na hora"; vazio diz "não se aplica a esta obra".
         null,
@@ -179,7 +174,15 @@ describe('ModalDoAno', () => {
     // O caso que a segunda série criou: 2026 tem 136 conclusões de terceiro e
     // nenhuma obra da Aegea. Se o filtro de ano tivesse continuado só em
     // `data_inicio`, clicar naquela barra abriria um modal vazio sobre uma barra
-    // cheia — e a coluna Conclusão é o que explica por que a obra está ali.
+    // cheia.
+    //
+    // A COLUNA CONCLUSÃO ERA O QUE EXPLICAVA por que a obra está ali — "ela não
+    // começa em 2026, ela FICA PRONTA" —, e ela saiu da tabela em 28/09/2026, com as
+    // outras datas. O que sobra dizendo isso é a classificação "De terceiro" mais a
+    // regra do servidor (`ANO_SQL`: obra de terceiro entra pelo ano da CONCLUSÃO,
+    // porque o motor não a sequencia e ela não tem início). O teste cobra o que
+    // sobrou; se um dia a explicação tiver de voltar à tela, é aqui que se vê que
+    // ela não está lá.
     servidor.use(
       http.get('/api/runs/:runId/obras', () =>
         HttpResponse.json({
@@ -215,7 +218,10 @@ describe('ModalDoAno', () => {
     )
 
     expect(await screen.findByText('eee_e1b25_3_1')).toBeInTheDocument()
-    expect(screen.getByText('2026-05')).toBeInTheDocument()
+    expect(screen.getByText('De terceiro')).toBeInTheDocument()
+    // E NENHUMA DATA, em lugar nenhum da tabela: é a decisão de 28/09/2026, e é ela
+    // que faz esta lista de terceiro não dizer mais por que 2026.
+    expect(screen.queryByText('2026-05')).not.toBeInTheDocument()
     // A asserção é sobre o SUBTÍTULO, e não sobre o diálogo inteiro: a coluna
     // CAPEX das linhas mostra "R$ 0" legitimamente, e cobrar o diálogo todo
     // faria o teste falhar por causa da tabela.
@@ -224,10 +230,10 @@ describe('ModalDoAno', () => {
     // CAPEX de terceiro é zero por definição: o subtítulo não inventa "R$ 0,0".
     expect(subtitulo).not.toHaveTextContent('R$')
 
-    // E a exportacao leva a data que justifica a linha estar neste ano.
+    // A exportacao acompanha a tela: sem data, e com a classificacao.
     await userEvent.click(screen.getByRole('button', { name: /Exportar Excel/ }))
     const [planilha] = baixarXlsx.mock.calls[0]
-    expect(planilha.linhas[0]).toContain('2026-05')
+    expect(planilha.linhas[0]).not.toContain('2026-05')
     expect(planilha.linhas[0]).toContain('De terceiro')
     // A classificacao vai na planilha mesmo saindo de um recorte so: o arquivo
     // deixa a ferramenta, e nada mais diria de qual filtro ele veio.

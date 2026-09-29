@@ -6,9 +6,10 @@
  * arquivo sai com prazo na coluna de CAPEX sem erro nenhum. Este teste é a amarra.
  *
  * Nasceu com as colunas de fases da obra (28/09/2026), que dobraram o tamanho da
- * planilha — de 13 para 20 colunas. No mesmo dia caiu para 17: as três datas
- * DERIVADAS (início das predecessoras, início do faturamento, cobrança plena) deram
- * lugar à duração de cada fase, por decisão do dono do produto.
+ * planilha — de 13 para 20 colunas. No mesmo dia caiu para 17: por decisão do dono do
+ * produto, as CINCO datas deram lugar à duração das quatro fases. As três derivadas
+ * não fechavam com a duração ao lado; as duas reais cobriam só a janela de execução e
+ * escondiam as predecessoras.
  */
 import { describe, expect, it } from 'vitest'
 import { COLUNAS_DA_PLANILHA, linhaDaPlanilha } from '@/rodada/components/GraficoCronogramaObras'
@@ -66,20 +67,22 @@ describe('a planilha das obras do ano', () => {
     expect(valor('CAPEX (R$)')).toBe(693_474)
     expect(valor('Quantidade')).toBe(242)
     expect(valor('Preço unitário (R$)')).toBe(2863.84)
-    // A linha do tempo: as duas datas que o motor calcula, e a duração de cada fase.
-    expect(valor('Início da obra')).toBe('2026-10')
-    expect(valor('Fim da obra')).toBe('2028-03')
+    // A linha do tempo, só em duração — a ordem em que as fases acontecem.
     expect(valor('Predecessoras (meses)')).toBe(8)
     expect(valor('Obra (meses)')).toBe(17)
     expect(valor('Até a cobrança (meses)')).toBe(8)
     expect(valor('Ramp-up (meses)')).toBe(7)
-    // AS DATAS DERIVADAS NÃO SAEM. O servidor ainda as calcula, e a planilha
-    // deliberadamente não as leva: "fim da obra + até a cobrança" não dá o início do
-    // faturamento, porque o motor ancora a cobrança em janeiro do ano seguinte ao da
-    // cadeia pronta. Levar a data para o Excel repetiria lá o par que não fecha.
-    expect(titulos).not.toContain('Início do faturamento')
-    expect(titulos).not.toContain('Cobrança plena')
-    expect(titulos).not.toContain('Início das predecessoras')
+    // NENHUMA DATA NA PLANILHA, e é decisão, não esquecimento (28/09/2026). As três
+    // DERIVADAS não fechavam com a duração ao lado; as duas REAIS cobriam só a janela
+    // de execução e escondiam as predecessoras. O arquivo acompanha a tela, senão a
+    // mesma discussão reaparece no Excel.
+    for (const t of ['Início do faturamento', 'Cobrança plena', 'Início das predecessoras',
+                     'Início da obra', 'Fim da obra', 'Início da execução', 'Conclusão']) {
+      expect(titulos).not.toContain(t)
+    }
+    // O ano de início FICA: é o ano da barra que abriu a lista — identificação da
+    // linha, e não fase dela.
+    expect(valor('Ano de início')).toBe(2026)
     // Só a ETE preenche; numa rede coletora a conta fecha sem parcela extra.
     expect(valor('CAPEX do terreno (R$)')).toBeNull()
   })
@@ -96,7 +99,7 @@ describe('a planilha das obras do ano', () => {
     }
     // e o que é dela continua saindo
     expect(linha[titulos.indexOf('Obra (meses)')]).toBe(17)
-    expect(linha[titulos.indexOf('Início da obra')]).toBe('2026-10')
+    expect(linha[titulos.indexOf('Predecessoras (meses)')]).toBe(8)
   })
 
   it('as colunas de dinheiro estão marcadas para o Excel somar', () => {
@@ -150,8 +153,9 @@ describe('os três números que o usuário multiplica', () => {
  * O `colSpan` das mensagens de estado tem de bater com o número de colunas.
  *
  * Ele é escrito à mão e some da revisão: acrescentei oito colunas e ajustei o
- * número no chute, errando por um (18 onde são 17). Célula que declara mais colunas
- * do que a tabela tem empurra a borda da tabela para fora do contêiner.
+ * número no chute, errando por um (18 onde eram 17) — e a tabela mudou de tamanho três
+ * vezes no mesmo dia depois disso. Célula que declara mais colunas do que a tabela tem
+ * empurra a borda da tabela para fora do contêiner.
  *
  * O teste lê o próprio componente, porque a contagem só existe no JSX — não há
  * estrutura de dados que a descreva.

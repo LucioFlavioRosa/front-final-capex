@@ -389,15 +389,11 @@ export const COLUNAS_DA_PLANILHA = [
   // SÓ A ETE PREENCHE: é o que o CAPEX tem além de quantidade × unitário.
   { titulo: 'CAPEX do terreno (R$)', largura: 22, formato: 'dinheiro' as const },
   { titulo: 'Ano de início', largura: 14, formato: 'inteiro' as const },
-  // A LINHA DO TEMPO: as duas datas que o motor calcula, e a duração de cada fase.
-  // Texto e não número nas datas: 'AAAA-MM' é mês, e virar 2026 perderia o mês;
-  // virar data do Excel inventaria um dia que o motor não calculou.
-  //
-  // MESMAS COLUNAS DA TELA. O arquivo é a conferência da lista que o usuário está
-  // olhando; trazer aqui uma data derivada que a tela não mostra faria o mesmo par
-  // irreconciliável reaparecer no Excel.
-  { titulo: 'Início da obra', largura: 18 },
-  { titulo: 'Fim da obra', largura: 14 },
+  // A LINHA DO TEMPO, EM DURAÇÃO — nenhuma data. MESMAS COLUNAS DA TELA: o arquivo é
+  // a conferência da lista que o usuário está olhando, e uma data que a tela deixou de
+  // mostrar reapareceria aqui com a mesma discussão (ver a nota do cabeçalho da
+  // tabela). O ano de início acima continua, porque é o ano da BARRA que abriu esta
+  // lista — identificação, e não fase.
   { titulo: 'Predecessoras (meses)', largura: 20, formato: 'inteiro' as const },
   { titulo: 'Obra (meses)', largura: 14, formato: 'inteiro' as const },
   // As duas últimas saem VAZIAS na obra que não fatura, e é de propósito: só a
@@ -421,8 +417,6 @@ export function linhaDaPlanilha(o: ObraLinha) {
     o.precoUnitario,
     o.capexTerreno,
     o.anoInicio,
-    o.dataInicio,
-    o.dataPronta,
     o.mesesPredecessoras,
     o.prazoMeses,
     o.mesesAteCobranca,
@@ -570,9 +564,6 @@ function ObrasDoAno({
               {/* Os `colSpan` SOMAM o número de colunas da linha de baixo. Quando
                   não somam, cada rótulo de grupo escorrega para cima das colunas do
                   grupo seguinte — foi o desalinhamento relatado. */}
-              <th scope="colgroup" colSpan={2} data-g className="!pb-1">
-                Cronograma
-              </th>
               {/* A UNIDADE DITA UMA VEZ, no grupo: as quatro colunas de baixo são
                   "meses", e repetir "(meses)" em cada título gastaria quatro vezes a
                   largura para dizer a mesma coisa. */}
@@ -597,31 +588,26 @@ function ObrasDoAno({
                   largura sem informar. Na planilha ela vai sempre — lá o
                   arquivo sai da ferramenta e precisa dizer de onde veio. */}
               {recorte === 'todas' && <th scope="col">Classificação</th>}
-              {/* AS DUAS DATAS QUE O MOTOR CALCULA, e só elas. As outras três que
-                  esta tabela mostrou — início das predecessoras, início do faturamento
-                  e cobrança plena — eram DERIVADAS de uma duração somada a uma destas,
-                  e o dono do produto pediu a duração no lugar da data derivada: "ao
-                  invés de colocar datas vamos colocar meses para cada".
+              {/* SÓ DURAÇÃO, NENHUMA DATA (28/09/2026, decisão do dono do produto).
+                  Esta tabela já mostrou cinco datas, e cada uma trouxe uma discussão:
 
-                  A troca também tira da tela um par que NÃO FECHAVA: o motor ancora o
-                  faturamento em janeiro do ano seguinte ao da cadeia pronta e só então
-                  soma o lag, então "fim da obra + até a cobrança" nunca dava a data de
-                  faturamento — foi assim que o defeito apareceu. O cálculo do
-                  otimizador fica como está, por decisão do dono do produto (28/09/2026):
-                  o VPL é uma aproximação que vale igual para todos os planos, e a
-                  comparação entre eles continua justa.
+                  - as três DERIVADAS — início das predecessoras, início do faturamento
+                    e cobrança plena — não fechavam com a duração ao lado. O motor
+                    ancora o faturamento em janeiro do ano seguinte ao da cadeia pronta
+                    e só então soma o lag, então "fim da obra + até a cobrança" nunca
+                    dava o início do faturamento. Foi por esse par que o comportamento
+                    apareceu. O cálculo do otimizador fica como está: o VPL é uma
+                    aproximação que vale igual para todos os planos, e a comparação
+                    entre eles continua justa;
+                  - as duas REAIS — início e fim da obra — cobrem só a janela de
+                    EXECUÇÃO, e por isso escondiam as predecessoras: uma obra que começa
+                    em 2027-01 pode ter mobilizado em 2026-01, e as datas não diziam.
 
-                  SEM `data-r`: são texto ('AAAA-MM') à esquerda, e o título segue o
-                  dado — título à direita sobre coluna à esquerda foi o desalinhamento
-                  relatado. */}
-              <th scope="col" data-g>
-                Início da obra
-              </th>
-              <th scope="col">Fim da obra</th>
-              {/* AS QUATRO FASES, na ordem em que acontecem. Numéricas e à direita,
-                  como as do custo: é coluna que se compara de cima a baixo. E
-                  `Fim − Início da obra` = `Obra`, a conferência que a tabela passa a
-                  permitir sem que o usuário saia dela. */}
+                  A duração de cada etapa não tem nenhum dos dois problemas: é o que o
+                  cadastro informou, para a obra daquela linha, sem âncora nenhuma.
+
+                  Numéricas e à direita, como as do custo: é coluna que se compara de
+                  cima a baixo. */}
               <th scope="col" data-r data-g>
                 Predecessoras
               </th>
@@ -654,21 +640,21 @@ function ObrasDoAno({
           <tbody>
             {obras.isPending && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 17 : 16} className="py-6 text-center text-[12.5px] text-ink-water">
+                <td colSpan={recorte === 'todas' ? 15 : 14} className="py-6 text-center text-[12.5px] text-ink-water">
                   Carregando as obras de {ano}…
                 </td>
               </tr>
             )}
             {obras.isError && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 17 : 16} className="py-6 text-center text-[12.5px] text-danger">
+                <td colSpan={recorte === 'todas' ? 15 : 14} className="py-6 text-center text-[12.5px] text-danger">
                   Não foi possível carregar as obras deste ano.
                 </td>
               </tr>
             )}
             {!obras.isPending && !obras.isError && vazio && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 17 : 16} className="py-6 text-center text-[12.5px] text-ink-water">
+                <td colSpan={recorte === 'todas' ? 15 : 14} className="py-6 text-center text-[12.5px] text-ink-water">
                   Nenhuma obra com ano de execução em {ano}.
                 </td>
               </tr>
@@ -696,10 +682,6 @@ function ObrasDoAno({
                   <ChipSituacao situacao={o.situacao} />
                 </td>
                 {recorte === 'todas' && <td>{CLASSIFICACAO[o.recorte]}</td>}
-                <td data-g className="font-mono text-[11.5px]">{o.dataInicio ?? VAZIO}</td>
-                {/* A coluna que explica por que uma obra de terceiro está numa
-                    lista de 2026: ela não começa em 2026, ela FICA PRONTA. */}
-                <td className="font-mono text-[11.5px]">{o.dataPronta ?? VAZIO}</td>
                 <td data-m data-g>{inteiro(o.mesesPredecessoras)}</td>
                 <td data-m>{inteiro(o.prazoMeses)}</td>
                 {/* AS DUAS DA COBRANÇA SAEM VAZIAS fora da obra de coleta — só ela
