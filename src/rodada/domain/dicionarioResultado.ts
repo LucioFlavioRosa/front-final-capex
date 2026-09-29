@@ -33,9 +33,9 @@ export const DICIONARIO_RESULTADO: Record<string, Verbete> = {
     origem: MOTOR,
     tipo: 'R$, valor presente',
     oque:
-      'A soma do valor presente de todas as sub-bacias do plano: receita menos CAPEX e OPEX, descontados pelo WACC até a data-base. O efeito-base de paridade fica DE FORA — ele é receita que existiria sem o plano.',
+      'A soma do valor presente de todas as sub-bacias do plano: receita menos CAPEX e OPEX, descontados pelo WACC até a data-base. Só entra receita de LIGAÇÃO NOVA — o efeito-base de paridade (a base já atendida passando a pagar a nova equivalência) fica de fora, porque é receita que existiria sem o plano.',
     porque:
-      'É o placar do plano, e o que comparar entre duas rodadas da mesma unidade. Uma ressalva: o otimizador ainda ESCOLHE o plano maximizando o VPL com o efeito-base incluído, então este número não é exatamente a função que ele maximizou — a diferença é o efeito-base, que aparece à parte no detalhe da sub-bacia.',
+      'É o placar do plano, e o que comparar entre duas rodadas da mesma unidade. Desde 28/09/2026 ele é exatamente a função que o otimizador maximiza: antes o efeito-base saía só do número apresentado e continuava dentro da escolha do plano, então um plano valia mais por cruzar faixa de paridade em cima de quem já era atendido. Rodadas publicadas ANTES dessa data foram escolhidas com a regra antiga — o número delas aqui já vinha sem o efeito, mas o plano delas não.',
     exemplo: 'R$ 451.300.000',
   },
   CAPEX_TOTAL: {
@@ -60,11 +60,11 @@ export const DICIONARIO_RESULTADO: Record<string, Verbete> = {
   },
   RECEITA_TOTAL: {
     rotulo: 'Receita no horizonte',
-    tec: 'otim_meta.receita_total',
+    tec: 'SUM(otim_ano.receita)',
     origem: MOTOR,
     tipo: 'R$, nominal',
     oque:
-      'A receita de esgoto que o plano gera SOMANDO TODOS OS ANOS DO HORIZONTE — não é receita de um ano. Sai na base escolhida na rodada: arrecadada (o que efetivamente entra em caixa) ou faturada (o que é emitido); o rótulo do KPI mostra qual das duas. Inclui as duas parcelas: as ligações novas que as obras habilitam e o efeito-base (a base já atendida passando a pagar a nova paridade).',
+      'A receita de esgoto que o plano gera SOMANDO TODOS OS ANOS DO HORIZONTE — não é receita de um ano. Sai na base escolhida na rodada: arrecadada (o que efetivamente entra em caixa) ou faturada (o que é emitido); o rótulo do KPI mostra qual das duas. Conta SÓ LIGAÇÃO NOVA, nas duas parcelas dela: a tarifa recorrente e a taxa de ligação. O efeito-base fica de fora, e aparece à parte em `otim_ano.receita_efeito_base` para quem quiser ver o excluído.',
     porque:
       'Somar um horizonte de 24 anos dá um número uma ordem de grandeza acima da receita anual, e foi por isso que o rótulo passou a dizer "no horizonte": uma conta anual feita à mão não bate com ele, e não deveria. Para ver ano a ano, o quadro de fluxo de caixa logo abaixo. A escolha entre arrecadada e faturada muda o VPL: a arrecadada já desconta inadimplência, e é por isso que a base viaja com a rodada e aparece junto do número.',
     exemplo: 'R$ 1.602.900.000 (arrecadada) — cerca de R$ 66.800.000 por ano num horizonte de 24 anos',
