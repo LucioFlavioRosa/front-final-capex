@@ -72,6 +72,21 @@ export interface EstadoSimulacao {
   baseReceita: BaseReceita
   curvaAdocao: CurvaAdocao
   usarCts: boolean
+  /**
+   * A CTS conta na COBERTURA? Só tem efeito com `usarCts` ligada.
+   *
+   * `true` (o default, e o que toda rodada anterior a 29/09/2026 fez) = as ligações novas
+   * do coletor somam na cobertura da cidade, como as de qualquer sub-bacia.
+   *
+   * `false` = elas ficam de fora do MEDIDOR. A receita delas não muda — o coletor fatura
+   * de todo jeito —, mas a receita TOTAL pode mudar, porque a cobertura alimenta a faixa
+   * de paridade e o fator multiplica a tarifa recorrente da cidade inteira. Decisão do
+   * dono do produto, para o produto ter uma cobertura realizada em vez de duas.
+   *
+   * O universo da CTS CONTINUA no denominador — também escolha dele —, então com o botão
+   * desligado 100% de cobertura deixa de ser atingível.
+   */
+  ctsNaCobertura: boolean
   coberturaSoResidencial: boolean
   unidadeCobertura: UnidadeCobertura
   dataInicio: string
@@ -114,6 +129,7 @@ export function estadoInicial(): EstadoSimulacao {
     baseReceita: 'arrecadada',
     curvaAdocao: 'scurve',
     usarCts: true,
+    ctsNaCobertura: true,
     coberturaSoResidencial: false,
     // `ligacoes` é o default do motor, e era o que 140 das 141 cidades da base
     // usavam — a régua nova não muda o resultado de quem não a tocar.
@@ -422,6 +438,15 @@ export interface CorpoNovaRodada {
   base_receita: BaseReceita
   curva_adocao: CurvaAdocao
   usar_cts: boolean
+  /**
+   * OPCIONAL de propósito: a chave só viaja com `usar_cts` ligada.
+   *
+   * Sem coletor a pergunta não existe, e o servidor RECUSA o par contraditório com 422 em
+   * vez de gravar um pedido que promete um recorte que não aconteceu. E ela entra no digest
+   * da deduplicação, então mandá-la sempre faria toda rodada anterior a 29/09/2026 deixar
+   * de casar com uma nova idêntica — gastando cluster para produzir o mesmo resultado.
+   */
+  cts_na_cobertura?: boolean
   cobertura_so_residencial: boolean
   unidade_cobertura: UnidadeCobertura
   data_inicio: string | null
@@ -436,6 +461,10 @@ export function corpoDaRodada(e: EstadoSimulacao): CorpoNovaRodada {
     base_receita: e.baseReceita,
     curva_adocao: e.curvaAdocao,
     usar_cts: e.usarCts,
+    // SÓ VIAJA COM A CTS LIGADA. Sem coletor a pergunta não existe, e o servidor RECUSA o
+    // par contraditório (422) em vez de gravar um pedido que promete um recorte que não
+    // aconteceu. Mandar `undefined` faz a chave sair do JSON.
+    cts_na_cobertura: e.usarCts ? e.ctsNaCobertura : undefined,
     cobertura_so_residencial: e.coberturaSoResidencial,
     unidade_cobertura: e.unidadeCobertura,
     data_inicio: e.dataInicio.trim() || null,

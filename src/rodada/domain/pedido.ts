@@ -35,6 +35,7 @@ const ROTULOS: Record<string, string> = {
   BASE_RECEITA: 'Base de receita',
   USAR_CTS: 'Usar Coletores de tempo seco (CTS)',
   COBERTURA_SO_RESIDENCIAL: 'Recorte da cobertura',
+  CTS_NA_COBERTURA: 'A CTS conta na cobertura?',
   ANOS_EXTRA_CONCLUSAO: 'Anos extras para concluir',
   INCLUIR_INDUSTRIAL: 'Incluir indústria',
   MAX_TIME_S: 'Tempo máximo do solver',

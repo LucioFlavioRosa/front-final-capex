@@ -363,3 +363,28 @@ describe('rótulos', () => {
     expect(t).not.toMatch(/executor|vaga/i)
   })
 })
+
+describe('a CTS conta na cobertura?', () => {
+  // Pedido do dono do produto em 29/09/2026. A pergunta só existe com a CTS ligada, e é
+  // isso que estes casos prendem — o condicional é o que pode quebrar sem ninguém ver,
+  // porque a tela continua bonita nos dois estados.
+  it('viaja quando a CTS está ligada, nos dois valores', () => {
+    const e = { ...estadoInicial(), unidadeId: 'u1', usarCts: true }
+    expect(corpoDaRodada({ ...e, ctsNaCobertura: true }).cts_na_cobertura).toBe(true)
+    expect(corpoDaRodada({ ...e, ctsNaCobertura: false }).cts_na_cobertura).toBe(false)
+  })
+
+  it('NÃO viaja com a CTS desligada, mesmo com o valor guardado no estado', () => {
+    // O servidor RECUSA o par contraditório com 422, de propósito: um pedido que diz
+    // "tirei a CTS da cobertura" sem CTS promete um recorte que não aconteceu. Se esta
+    // linha sumir, disparar uma rodada sem CTS depois de ter mexido no botão passa a
+    // devolver 422 — e a tela não tem como explicar o erro.
+    const e = { ...estadoInicial(), unidadeId: 'u1', usarCts: false, ctsNaCobertura: false }
+    expect(corpoDaRodada(e).cts_na_cobertura).toBeUndefined()
+    expect('cts_na_cobertura' in JSON.parse(JSON.stringify(corpoDaRodada(e)))).toBe(false)
+  })
+
+  it('o default CONTA, e é o comportamento de toda rodada anterior', () => {
+    expect(estadoInicial().ctsNaCobertura).toBe(true)
+  })
+})
