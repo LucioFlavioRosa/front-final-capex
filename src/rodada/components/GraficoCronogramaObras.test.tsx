@@ -90,6 +90,12 @@ describe('ModalDoAno', () => {
       'Unidade',
       'Preço unitário (R$)',
       'CAPEX do terreno (R$)',
+      // AS DUAS PARCELAS DE MÓDULO vão SEMPRE na planilha, ainda que na tela só
+      // apareçam na ETE com módulos de dois preços: o arquivo é levado para fora da
+      // ferramenta, e coluna que aparece e desaparece conforme o ano quebraria
+      // qualquer fórmula montada sobre ele.
+      'CAPEX módulos iniciais (R$)',
+      'CAPEX módulos de expansão (R$)',
       'Ano de início',
       // A LINHA DO TEMPO, SÓ EM DURAÇÃO. Nenhuma data — ver a nota no cabeçalho
       // da tabela, em `GraficoCronogramaObras.tsx`.
@@ -112,6 +118,9 @@ describe('ModalDoAno', () => {
         'm',
         497.02,
         null, // rede coletora não tem terreno
+        // E não tem módulo: as duas parcelas só existem na ETE nova com dois preços.
+        null,
+        null,
         2028,
         4, // predecessoras
         9, // obra
@@ -265,6 +274,8 @@ describe('ModalDoAno', () => {
               unidade: 'modulo',
               precoUnitario: 432_537.11,
               capexTerreno: 0,
+              capexIniciais: null,
+              capexExpansao: null,
               anoInicio: 2028,
               dataPronta: '2030-06',
               prazoMeses: 24,
@@ -306,5 +317,89 @@ describe('ModalDoAno', () => {
     expect(fechar).toHaveLength(2)
     for (const b of fechar) await userEvent.click(b)
     await waitFor(() => expect(aoFechar).toHaveBeenCalledTimes(2))
+  })
+})
+
+/**
+ * AS COLUNAS DE PARCELA DE MÓDULO aparecem só quando existem.
+ *
+ * A ETE nova pode ter módulos iniciais e de expansão a preços diferentes (pedido do
+ * cliente, 29/09/2026). Nesse caso a linha não tem preço unitário — não existe um preço
+ * que multiplique a quantidade —, e o dinheiro se lê nas duas parcelas.
+ *
+ * Quando o cadastro deixa as colunas de expansão em branco, o módulo de expansão é igual
+ * ao de construção e NADA muda: um preço só, `quantidade × unitário` como sempre, e a
+ * tabela não ganha coluna. É o caso de todas as ETEs de hoje, e duas colunas
+ * permanentemente vazias sugeririam que falta dado onde não falta.
+ */
+describe('ModalDoAno — as parcelas de módulo da ETE', () => {
+  const ETE = {
+    obraId: 'ete_b2e27#nova',
+    obrasAgrupadas: 2,
+    componente: 'Módulo de ETE',
+    situacao: 'construida' as const,
+    cidadeId: 'Belford Roxo',
+    sistemaId: 'Sistema 27',
+    subBaciaId: null,
+    capex: 1_060_000,
+    recorte: 'escolhida' as const,
+    dataPronta: '2028-10',
+    quantidade: 2,
+    unidade: 'modulo',
+    anoInicio: 2028,
+    dataInicio: '2028-01',
+    prazoMeses: 9,
+    mesesPredecessoras: 4,
+    mesesAteCobranca: null,
+    mesesRampUp: null,
+    inicioPredecessoras: '2027-09',
+    dataInicioFaturamento: null,
+    inicioCobrancaPlena: null,
+  }
+
+  function responder(extra: Record<string, unknown>) {
+    servidor.use(
+      http.get('/api/runs/:runId/obras', () =>
+        HttpResponse.json({ total: 1, itens: [{ ...ETE, ...extra }] }),
+      ),
+    )
+  }
+
+  it('com DOIS preços, abre as duas colunas e a conta fecha por elas', async () => {
+    responder({
+      precoUnitario: null,
+      capexTerreno: 300_000,
+      capexIniciais: 500_000,
+      capexExpansao: 260_000,
+    })
+    abrir()
+    // Linha fundida (pacote + expansão): mostra a ETE sem o `#nova`, que seria
+    // mentira sobre o que a linha soma.
+    expect(await screen.findByText('ete_b2e27')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Mód. iniciais' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Mód. expansão' })).toBeInTheDocument()
+    // 300.000 + 500.000 + 260.000 = 1.060.000, que é o CAPEX da linha.
+    for (const valor of ['R$ 300.000,00', 'R$ 500.000,00', 'R$ 260.000,00', 'R$ 1.060.000,00']) {
+      expect(screen.getByText(valor)).toBeInTheDocument()
+    }
+  })
+
+  it('com UM preço só, a tabela não ganha coluna nenhuma', async () => {
+    responder({
+      precoUnitario: 500_000,
+      capexTerreno: 300_000,
+      capexIniciais: null,
+      capexExpansao: null,
+      capex: 1_300_000,
+    })
+    abrir()
+    // Linha fundida (pacote + expansão): mostra a ETE sem o `#nova`, que seria
+    // mentira sobre o que a linha soma.
+    expect(await screen.findByText('ete_b2e27')).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Mód. iniciais' })).toBeNull()
+    expect(screen.queryByRole('columnheader', { name: 'Mód. expansão' })).toBeNull()
+    // E a identidade de sempre continua na tela: 2 × 500.000 + 300.000 = 1.300.000.
+    expect(screen.getByText('R$ 500.000,00')).toBeInTheDocument()
+    expect(screen.getByText('R$ 1.300.000,00')).toBeInTheDocument()
   })
 })

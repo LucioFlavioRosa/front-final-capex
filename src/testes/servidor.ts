@@ -465,6 +465,8 @@ export const handlers = [
           dataCobrancaPlena: null,
           // Rede coletora não tem terreno: a conta fecha em quantidade × unitário.
           capexTerreno: null,
+          capexIniciais: null,
+          capexExpansao: null,
         },
       ],
     }),
