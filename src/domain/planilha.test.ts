@@ -9,8 +9,10 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
+  COLOCA_NO_SISTEMA,
   LEIA_ME,
   SISTEMAS,
+  colunaImportavel,
   colunasImportaveis,
   daCelula,
   editavelNaPlanilha,
@@ -182,12 +184,19 @@ describe('a mescla da planilha preenchida', () => {
       'Sub-bacias': aba([
         {
           sub_bacia_id: 'b1', preco_por_ligacao: 1100.5, tempo_arrecadacao: 3,
-          // coluna do Databricks: o que vier aqui é ignorado
+          // coluna do Databricks: o que vier aqui é ignorado — e AVISADO
           receita_faturada_media_mensal: 999999, ligacoes_atuais: 1,
         },
       ]),
     }))
-    expect(r.avisos).toEqual([])
+    // IGNORADA NÃO É INVISÍVEL (30/09/2026). Antes, mudar uma coluna que a planilha
+    // não leva de volta não produzia nada: nem efeito, nem aviso. Para quem fez, é
+    // indistinguível de um defeito — e foi o relato de um tester. Este teste já
+    // mudava DUAS colunas do Databricks de propósito, e afirmava silêncio.
+    expect(r.avisos).toEqual([
+      expect.stringContaining('"Receita faturada (média mensal)" não volta pela planilha'),
+      expect.stringContaining('"Ligações atuais" não volta pela planilha'),
+    ])
     expect(r.alteracoes).toBe(2)
     const linha = r.dados['subbacia-operacional'][0]
     expect(linha.preco_por_ligacao).toBe('1.100,5')
@@ -487,5 +496,105 @@ describe('a mescla da planilha preenchida', () => {
     expect(r.avisos).toEqual(['A aba "Rascunho" não é uma aba do cadastro e foi ignorada.'])
     const r2 = mesclarPlanilha(unidadeDeTeste(), arquivo({ ' sub-bacias ': aba([{ sub_bacia_id: 'b1', tempo_ramp_up: 6 }]) }))
     expect(r2.dados['subbacia-operacional'][0].tempo_ramp_up).toBe('6')
+  })
+})
+
+/**
+ * O QUE A PLANILHA PROMETE E O QUE ELA ACEITA TÊM DE SER A MESMA COISA.
+ *
+ * Relatado por um tester em 30/09/2026: "atualizo um dado de uma coluna que já vem
+ * preenchida no download e ao subir não é salva, pelo menos não vejo na interface".
+ *
+ * Eram duas causas, e as duas valiam para TODAS as abas:
+ *
+ * 1. O arquivo pintava de âmbar ("preencha aqui") 11 colunas que o upload descarta —
+ *    `ete_name`, o `sistema_id` da ETE, `cts_id`, `cts_name`, `cidade_id`, `cidade_name`
+ *    e as duas da aba de sobreposição. Eram duas regras parecidas e divergentes:
+ *    `editavelNaPlanilha` não excluía id nem nome, `colunaImportavel` excluía.
+ * 2. Mudar uma coluna que não volta não produzia NADA: nem efeito, nem aviso. `aplicar`
+ *    só percorria as importáveis, então a mudança não era rejeitada — era invisível.
+ */
+describe('a planilha não promete o que não aceita', () => {
+  it('toda coluna pintada como preenchível é aceita no upload', () => {
+    const divergentes: string[] = []
+    for (const aba of SCHEMA) {
+      for (const c of aba.cols ?? []) {
+        const pintada = editavelNaPlanilha(aba, c)
+        const aceita = colunaImportavel(c) || COLOCA_NO_SISTEMA[aba.key] === c.coluna
+        if (pintada !== aceita) divergentes.push(`${aba.key}.${c.coluna}`)
+      }
+    }
+    expect(divergentes).toEqual([])
+  })
+
+  it('o id e o nome continuam fora — id se escolhe na tela', () => {
+    // O guarda do outro lado: a regra derivada não pode ter aberto a porta para ids.
+    const ete = SCHEMA.find((a) => a.key === 'ete-capex')!
+    expect(editavelNaPlanilha(ete, ete.cols.find((c) => c.coluna === 'sistema_id')!)).toBe(false)
+    expect(editavelNaPlanilha(ete, ete.cols.find((c) => c.coluna === 'ete_name')!)).toBe(false)
+    // e o que a unidade preenche continua âmbar
+    expect(editavelNaPlanilha(ete, ete.cols.find((c) => c.coluna === 'capex_por_modulo')!)).toBe(true)
+  })
+
+  it('a CTS continua entrando no sistema pela aba dela', () => {
+    // A única exceção: coluna de id que o upload lê, por caminho próprio.
+    const cts = SCHEMA.find((a) => a.key === 'cts-operacional')!
+    expect(editavelNaPlanilha(cts, cts.cols.find((c) => c.coluna === 'sistema_id')!)).toBe(true)
+  })
+})
+
+describe('mudança em coluna que não volta é AVISADA, e não ignorada em silêncio', () => {
+  it('avisa por COLUNA, e não por linha', () => {
+    // UMA unidade tem centenas de sub-bacias: um aviso por linha afogaria a lista que a
+    // pessoa precisa ler. Duas linhas da mesma aba, a mesma coluna de leitura mudada nas
+    // duas — e um aviso só, dizendo quantas.
+    const unidade = unidadeDeTeste()
+    const r = mesclarPlanilha(unidade, arquivo({
+      'CAPEX das sub-bacias': aba([
+        { sub_bacia_id: 'b1', componente: 'Rede coletora', sistema_name: 'Outro Sistema' },
+        { sub_bacia_id: 'b1', componente: 'Ligacao de esgoto', sistema_name: 'Outro Sistema' },
+      ]),
+    }))
+    const sobre = r.avisos.filter((a) => a.includes('não volta pela planilha'))
+    expect(sobre).toHaveLength(1)
+    expect(sobre[0]).toContain('2 linhas diferentes foram ignoradas')
+  })
+
+  it('não avisa quando a planilha traz a coluna IGUAL ao que a tela tem', () => {
+    // A planilha traz as colunas de leitura junto, e devolvê-las intactas é o caso
+    // normal: quem preenche baixa, mexe numa célula e sobe o arquivo inteiro.
+    const unidade = unidadeDeTeste()
+    const linha = unidade.data['subbacia-operacional'][0]
+    const r = mesclarPlanilha(unidade, arquivo({
+      'Sub-bacias': aba([
+        {
+          sub_bacia_id: linha.sub_bacia_id,
+          ligacoes_atuais: Number(String(linha.ligacoes_atuais).replace(/\./g, '').replace(',', '.')),
+          preco_por_ligacao: 1234,
+        },
+      ]),
+    }))
+    expect(r.avisos.filter((a) => a.includes('não volta pela planilha'))).toEqual([])
+    expect(r.alteracoes).toBe(1)
+  })
+
+  it('célula vazia na planilha não conta como edição', () => {
+    // Coluna que a pessoa apagou, ou que a planilha não trouxe: não é uma tentativa de
+    // mudar nada, e avisar sobre ela encheria a lista sem motivo.
+    const unidade = unidadeDeTeste()
+    const r = mesclarPlanilha(unidade, arquivo({
+      'Sub-bacias': aba([{ sub_bacia_id: 'b1', ligacoes_atuais: '', preco_por_ligacao: 1234 }]),
+    }))
+    expect(r.avisos.filter((a) => a.includes('não volta pela planilha'))).toEqual([])
+  })
+
+  it('o aviso diz o que fazer, e não só o que não aconteceu', () => {
+    const unidade = unidadeDeTeste()
+    const r = mesclarPlanilha(unidade, arquivo({
+      'Sub-bacias': aba([{ sub_bacia_id: 'b1', ligacoes_atuais: 7 }]),
+    }))
+    const aviso = r.avisos.find((a) => a.includes('Ligações atuais'))!
+    expect(aviso).toContain('vem preenchida para dar contexto')
+    expect(aviso).toContain('use a tela')
   })
 })

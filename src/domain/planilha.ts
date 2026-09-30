@@ -181,6 +181,9 @@ export const SO_NA_TELA = new Set(['usa_macrorregiao_cts'])
  */
 export const COLOCA_NO_SISTEMA: Record<string, string> = { 'cts-operacional': 'sistema_id' }
 
+/** As colunas de `COLOCA_NO_SISTEMA`, de qualquer aba — quem entra por caminho próprio. */
+const COLOCA_NO_SISTEMA_TODAS = new Set(Object.values(COLOCA_NO_SISTEMA))
+
 /**
  * A COLUNA ENTRA NA VOLTA? Só a que a unidade preenche, e mesmo entre essas os
  * ids ficam de fora — id se escolhe na tela (a lista de destinos do Fluxo, o
@@ -194,9 +197,25 @@ export const colunaImportavel = (c: ColDef): boolean =>
 export const colunasImportaveis = (aba: AbaDef): string[] =>
   aba.cols.filter(colunaImportavel).map((c) => c.coluna)
 
-/** Como a coluna se apresenta no arquivo: editável (âmbar), ou só leitura (cinza). */
+/**
+ * Como a coluna se apresenta no arquivo: editável (âmbar), ou só leitura (cinza).
+ *
+ * DERIVA DE `colunaImportavel`, e não repete a regra. Enquanto eram duas regras
+ * parecidas, elas divergiam em 11 colunas — e a divergência tinha um lado só: o
+ * arquivo pintava de âmbar ("preencha aqui") colunas que o upload DESCARTA, e
+ * descarta calado, porque `aplicar` só percorre as importáveis e nunca vê a
+ * coluna para avisar.
+ *
+ * Relatado por tester em 30/09/2026: "atualizo um dado de uma coluna que já vem
+ * preenchida no download e ao subir não é salva". Eram `ete_name`, `sistema_id`
+ * da ETE, `cts_id`, `cts_name`, `cidade_id`, `cidade_name` e as duas da aba de
+ * sobreposição — todas pintadas como preenchíveis, todas ignoradas.
+ *
+ * A ÚNICA exceção continua sendo `COLOCA_NO_SISTEMA`: ali a coluna é um id e o
+ * upload a lê mesmo assim, por um caminho próprio (`colocarCtsNoSistema`).
+ */
 export const editavelNaPlanilha = (aba: AbaDef, c: ColDef): boolean =>
-  (c.origem === 'un' && !SO_NA_TELA.has(c.coluna)) || COLOCA_NO_SISTEMA[aba.key] === c.coluna
+  colunaImportavel(c) || COLOCA_NO_SISTEMA[aba.key] === c.coluna
 
 // -------------------------------------------------------------- o regime
 
@@ -501,14 +520,68 @@ interface Mesclado {
 }
 
 /** Aplica as colunas importáveis de `origem` sobre `linha`. Devolve a linha nova ou null se nada mudou. */
+/**
+ * CÉLULA MUDADA NUMA COLUNA QUE NÃO VOLTA: conta, para avisar depois.
+ *
+ * A planilha traz as colunas de leitura junto — é o que dá contexto a quem
+ * preenche. Mas quem edita uma delas não recebia NADA: `aplicar` só percorria as
+ * importáveis, então a mudança não era rejeitada, era invisível. Para quem fez, é
+ * indistinguível de um defeito — e foi exatamente o relato do tester em
+ * 30/09/2026 ("atualizo um dado de uma coluna que já vem preenchida no download e
+ * ao subir não é salva").
+ *
+ * A contagem é por COLUNA, e não por linha: uma unidade tem centenas de
+ * sub-bacias, e um aviso por linha afogaria a lista que a pessoa precisa ler.
+ */
+function contarIgnorada(
+  ignoradas: Map<string, number>,
+  linha: Row,
+  origem: Record<string, unknown>,
+  importaveis: Set<string>,
+): void {
+  for (const col of Object.keys(origem)) {
+    //: DUAS FAMÍLIAS DE COLUNA FICAM FORA, e as duas porque já têm resposta melhor:
+    //:
+    //: - a que COLOCA NO SISTEMA entra por caminho próprio (`colocarCtsNoSistema`) e não
+    //:   está em `importaveis` — avisar que ela "não volta" seria falso;
+    //: - a da CAIXA DA MACRORREGIÃO (`SO_NA_TELA`) já tem aviso dedicado, que diz em que
+    //:   regime o arquivo nasceu e o que fazer. Um aviso genérico ao lado dele é ruído.
+    //:
+    //: Aviso falso ou repetido gasta a atenção que os verdadeiros precisam.
+    if (COLOCA_NO_SISTEMA_TODAS.has(col) || SO_NA_TELA.has(col)) continue
+    if (importaveis.has(col) || semResultado(origem[col])) continue
+    const valor = daCelula(col, origem[col])
+    //: vazio na planilha não é edição: a coluna pode simplesmente não ter vindo.
+    if (!valor || (linha[col] ?? '') === valor) continue
+    ignoradas.set(col, (ignoradas.get(col) ?? 0) + 1)
+  }
+}
+
+/** Os avisos das colunas que não voltam, um por coluna. */
+function avisarIgnoradas(
+  planilha: PlanilhaDaAba,
+  ignoradas: Map<string, number>,
+  avisos: string[],
+): void {
+  for (const [col, n] of [...ignoradas].sort((a, b) => b[1] - a[1])) {
+    avisos.push(
+      `${planilha.nome}: a coluna "${colunaLabel(col)}" não volta pela planilha — ` +
+        `${n} ${n === 1 ? 'linha diferente foi ignorada' : 'linhas diferentes foram ignoradas'}. ` +
+        `Ela vem preenchida para dar contexto; para mudá-la, use a tela.`,
+    )
+  }
+}
+
 function aplicar(
   linha: Row,
   origem: Record<string, unknown>,
   colunas: string[],
   avisar: (texto: string) => void,
+  ignoradas?: Map<string, number>,
 ): { linha: Row; alteracoes: number } | null {
   let alteracoes = 0
   const nova: Row = { ...linha }
+  if (ignoradas) contarIgnorada(ignoradas, linha, origem, new Set(colunas))
   for (const col of colunas) {
     if (!(col in origem)) continue // coluna que a planilha não trouxe: fica como está
     if (semResultado(origem[col])) {
@@ -527,7 +600,10 @@ function mesclarUnica(planilha: PlanilhaDaAba, aba: AbaLida, avisos: string[]): 
   const linha = planilha.linhas[0]
   const origem = aba.linhas[0]
   if (!linha || !origem) return null
-  const r = aplicar(linha, origem, colunasImportaveis(planilha.aba), aviso(planilha, PRIMEIRA_LINHA_DE_DADO, avisos))
+  const naoVoltam = new Map<string, number>()
+  const r = aplicar(linha, origem, colunasImportaveis(planilha.aba),
+                    aviso(planilha, PRIMEIRA_LINHA_DE_DADO, avisos), naoVoltam)
+  avisarIgnoradas(planilha, naoVoltam, avisos)
   if (!r) return null
   return { linhas: [r.linha, ...planilha.linhas.slice(1)], alteracoes: r.alteracoes }
 }
@@ -550,6 +626,8 @@ function mesclarPorChave(
   const linhas = [...planilha.linhas]
   let alteracoes = 0
   let ignoradas = 0
+  //: as colunas que a planilha traz e NÃO leva de volta, contadas por coluna
+  const naoVoltam = new Map<string, number>()
   const ehFluxo = planilha.aba.key === 'sistema-topologia'
   const nomeDoComponente = ehFluxo
     ? new Map(planilha.linhas.map((l) => [txt(l.componente_sistema_id), txt(l.componente_sistema_nome)]))
@@ -591,12 +669,14 @@ function mesclarPorChave(
       linhas[i], entrada,
       ehFluxo ? [...colunas, 'componente_sistema_nome_jusante'] : colunas,
       aviso(planilha, linhaDoArquivo, avisos),
+      naoVoltam,
     )
     if (!r) return
     linhas[i] = r.linha
     alteracoes += r.alteracoes
   })
   if (ignoradas > 5) avisos.push(`${planilha.nome}: mais ${ignoradas - 5} linha(s) com id desconhecido foram ignoradas.`)
+  avisarIgnoradas(planilha, naoVoltam, avisos)
 
   return alteracoes ? { linhas, alteracoes } : null
 }
