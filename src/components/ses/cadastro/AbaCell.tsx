@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { CIDADE_EDITAVEL_EM, PLACEHOLDER, SELECTS } from '../../../data/cadastroUnidade/schema'
+import { CAMPOS_SO_ETE_NOVA, CIDADE_EDITAVEL_EM, PLACEHOLDER, SELECTS } from '../../../data/cadastroUnidade/schema'
 import { computeCalc } from '../../../domain/calc'
 import { opcoesDaCelula, rotuloNo, type Dados } from '../../../domain/fluxo'
 import type { Cidade, Origem, Row } from '../../../data/cadastroUnidade/types'
@@ -77,8 +77,6 @@ interface AbaCellProps {
    */
   numerica?: boolean
 }
-
-const CAMPOS_SO_ETE_NOVA = ['capex_terreno', 'modulos']
 
 /**
  * O MAPA DE COR POR ORIGEM — em volume baixo, e é o volume que importa.
