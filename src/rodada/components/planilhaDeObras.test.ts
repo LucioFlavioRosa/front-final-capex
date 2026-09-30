@@ -12,7 +12,11 @@
  * escondiam as predecessoras.
  */
 import { describe, expect, it } from 'vitest'
-import { COLUNAS_DA_PLANILHA, linhaDaPlanilha } from '@/rodada/components/GraficoCronogramaObras'
+import {
+  COLUNAS_DA_PLANILHA,
+  colunasDaTabelaDeObras,
+  linhaDaPlanilha,
+} from '@/rodada/components/GraficoCronogramaObras'
 import { brlExato, decimal, VAZIO } from '@/rodada/lib/formato'
 import type { ObraLinha } from '@/rodada/domain/resultado'
 
@@ -40,6 +44,8 @@ const COLETA: ObraLinha = {
   mesesRampUp: 7,
   dataCobrancaPlena: '2030-04',
   capexTerreno: null,
+  capexIniciais: null,
+  capexExpansao: null,
 }
 
 /** Uma EEE: não fatura, então as três colunas de cobrança vêm vazias. */
@@ -108,6 +114,12 @@ describe('a planilha das obras do ano', () => {
       'CAPEX (R$)',
       'Preço unitário (R$)',
       'CAPEX do terreno (R$)',
+      // AS DUAS PARCELAS DE MÓDULO vão sempre na planilha, ainda que na tela só
+      // apareçam na ETE com módulos de dois preços: o arquivo sai da ferramenta, e
+      // coluna que aparece e desaparece conforme o ano quebraria fórmula feita sobre
+      // ele. Marcadas como dinheiro, para o Excel somá-las como soma o resto.
+      'CAPEX módulos iniciais (R$)',
+      'CAPEX módulos de expansão (R$)',
     ])
   })
 })
@@ -161,22 +173,69 @@ describe('os três números que o usuário multiplica', () => {
  * estrutura de dados que a descreva.
  */
 describe('a tabela do modal', () => {
-  it('declara o mesmo número de colunas no cabeçalho e nas mensagens de estado', async () => {
-    const fonte = await import('node:fs/promises').then((fs) =>
+  const fonteDoComponente = () =>
+    import('node:fs/promises').then((fs) =>
       fs.readFile('src/rodada/components/GraficoCronogramaObras.tsx', 'utf-8'),
     )
-    const thead = fonte.slice(fonte.indexOf('<thead'), fonte.indexOf('</thead>'))
-    const segundaLinha = thead.split('<tr>')[2]
-    const colunas = (segundaLinha.match(/<th\b/g) ?? []).length
-    const condicionais = (segundaLinha.match(/recorte === 'todas' && <th/g) ?? []).length
 
-    const usado = fonte.match(/colSpan=\{recorte === 'todas' \? (\d+) : (\d+)\}/g) ?? []
-    const mensagens = usado.filter((m) => !m.includes('? 7 :'))   // o do grupo é outro
-    expect(mensagens.length).toBeGreaterThan(0)
-    for (const m of mensagens) {
-      const [comTodas, sem] = (m.match(/(\d+) : (\d+)/) ?? []).slice(1).map(Number)
-      expect(comTodas).toBe(colunas)
-      expect(sem).toBe(colunas - condicionais)
+  /**
+   * As CONDIÇÕES que abrem coluna, e o que gera os modos conferidos abaixo.
+   *
+   * `recorte === 'todas'` abre a Classificação; `temParcelasDeModulo` abre as duas
+   * parcelas de módulo da ETE nova com módulos de dois preços (29/09/2026). Cada
+   * condição nova aqui DOBRA os modos que o teste confere — que é o ponto: o
+   * desalinhamento de 28/09 aconteceu porque um dos modos ficou sem conferência.
+   */
+  const CONDICOES = ["recorte === 'todas'", 'temParcelasDeModulo']
+
+  const MODOS = [
+    { "recorte === 'todas'": true, temParcelasDeModulo: false },
+    { "recorte === 'todas'": false, temParcelasDeModulo: false },
+    { "recorte === 'todas'": true, temParcelasDeModulo: true },
+    { "recorte === 'todas'": false, temParcelasDeModulo: true },
+  ]
+
+  const escapar = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+  /**
+   * Quantas COLUNAS um trecho ocupa no modo pedido: cada `<th>`/`<td>` vale o seu
+   * `colSpan` (1 quando não tem), e a célula condicional só conta quando a condição
+   * dela está ligada.
+   *
+   * Somando `colSpan` também no corpo, e em todos os modos. A primeira versão deste
+   * teste olhava só um lado do ternário e contava `<td>` como 1: a revisão do Codex
+   * mostrou que `colSpan={recorte === 'todas' ? 7 : 5}` passava (o modo sem
+   * "Classificação" ficava errado) e que um `colSpan={2}` no corpo também passava.
+   */
+  const largura = (trecho: string, tag: 'th' | 'td', modo: Record<string, boolean>) => {
+    const cond = CONDICOES.map(escapar).join('|')
+    const re = new RegExp(`(?:\\{(${cond}) && )?<${tag}\\b([^>]*?)>`, 'g')
+    let total = 0
+    for (const m of trecho.matchAll(re)) {
+      if (m[1] && !modo[m[1]]) continue
+      const t = new RegExp(`colSpan=\\{(?:(${cond}) \\? (\\d+) : (\\d+)|(\\d+))\\}`).exec(m[2])
+      if (!t) {
+        total += 1
+        continue
+      }
+      total += Number(t[4] ?? (modo[t[1]] ? t[2] : t[3]))
+    }
+    return total
+  }
+
+  it('declara o mesmo número de colunas no cabeçalho e nas mensagens de estado', async () => {
+    const fonte = await fonteDoComponente()
+    const thead = fonte.slice(fonte.indexOf('<thead'), fonte.indexOf('</thead>'))
+    const titulos = thead.split('<tr>')[2]
+
+    // As três mensagens declaram `colunasDaTabela`, que sai de `colunasDaTabelaDeObras`.
+    // Conferir a FUNÇÃO contra a contagem do próprio JSX é o que impede o número no
+    // chute — antes ele era escrito à mão em cada mensagem.
+    expect((fonte.match(/colSpan=\{colunasDaTabela\}/g) ?? []).length).toBe(3)
+    for (const modo of MODOS) {
+      expect(
+        colunasDaTabelaDeObras(modo["recorte === 'todas'"], modo.temParcelasDeModulo),
+      ).toBe(largura(titulos, 'th', modo))
     }
   })
 
@@ -188,42 +247,16 @@ describe('a tabela do modal', () => {
     //
     // As três linhas — grupos, títulos e células — têm de somar o mesmo número, e
     // conferir só duas delas deixa passar justamente o caso que aconteceu.
-    //
-    // NOS DOIS MODOS DO FILTRO, e somando `colSpan` também no corpo. A primeira versão
-    // deste teste olhava só o primeiro lado do ternário e contava `<td>` como 1: a
-    // revisão do Codex mostrou que `colSpan={recorte === 'todas' ? 7 : 5}` passava (o
-    // modo sem "Classificação" ficava errado) e que um `colSpan={2}` numa célula do
-    // corpo também passava.
-    const fonte = await import('node:fs/promises').then((fs) =>
-      fs.readFile('src/rodada/components/GraficoCronogramaObras.tsx', 'utf-8'),
-    )
+    const fonte = await fonteDoComponente()
     const thead = fonte.slice(fonte.indexOf('<thead'), fonte.indexOf('</thead>'))
     const [, grupos, titulos] = thead.split('<tr>')
     const celulas = fonte.slice(fonte.indexOf('{itens.map('), fonte.indexOf('</tbody>'))
 
-    /**
-     * Quantas COLUNAS um trecho ocupa, no modo pedido: cada `<th>`/`<td>` vale o seu
-     * `colSpan` (1 quando não tem), e a célula condicional só conta em "todas".
-     */
-    const largura = (trecho: string, tag: 'th' | 'td', comTodas: boolean) => {
-      const re = new RegExp(
-        `(\\{recorte === 'todas' && )?<${tag}\\b([^>]*?)>`,
-        'g',
-      )
-      let total = 0
-      for (const m of trecho.matchAll(re)) {
-        if (m[1] && !comTodas) continue
-        const span = /colSpan=\{(?:recorte === 'todas' \? (\d+) : (\d+)|(\d+))\}/.exec(m[2])
-        total += span ? Number(comTodas ? (span[1] ?? span[3]) : (span[2] ?? span[3])) : 1
-      }
-      return total
-    }
-
-    for (const comTodas of [true, false]) {
-      const colunas = largura(titulos, 'th', comTodas)
-      expect(colunas).toBeGreaterThan(10)                      // o trecho foi achado
-      expect(largura(grupos, 'th', comTodas)).toBe(colunas)    // os grupos cobrem tudo
-      expect(largura(celulas, 'td', comTodas)).toBe(colunas)   // e o corpo também
+    for (const modo of MODOS) {
+      const colunas = largura(titulos, 'th', modo)
+      expect(colunas).toBeGreaterThan(10)                   // o trecho foi achado
+      expect(largura(grupos, 'th', modo)).toBe(colunas)     // os grupos cobrem tudo
+      expect(largura(celulas, 'td', modo)).toBe(colunas)    // e o corpo também
     }
   })
 })

@@ -862,11 +862,27 @@ export interface ObraLinha {
   precoUnitario: number | null
 
   /**
-   * O que o CAPEX tem ALÉM de `quantidade × precoUnitario` — na ETE, o terreno.
-   * `null` nas demais obras, onde a conta fecha exata. Com ele a identidade da
-   * linha fecha sempre: `quantidade × precoUnitario + capexTerreno = capex`.
+   * O TERRENO da ETE. `null` nas demais obras, onde a conta fecha exata.
    */
   capexTerreno: number | null
+
+  /**
+   * AS DUAS PARCELAS DE MÓDULO, e só quando a linha tem módulos de DOIS preços —
+   * quando `precoUnitario` é `null`. A ETE nova pode ter módulos iniciais e de
+   * expansão com preço próprio (29/09/2026).
+   *
+   * `null` nas duas quando há um preço só, que é o caso de todo cadastro que
+   * deixou as colunas de expansão em branco: ali `quantidade × precoUnitario` JÁ
+   * INCLUI os módulos de expansão, e mostrar a parcela ao lado faria quem soma a
+   * linha contar os mesmos módulos duas vezes.
+   *
+   * A identidade da linha é UMA das duas, nunca as duas somadas:
+   *
+   *   um preço      `quantidade × precoUnitario + capexTerreno = capex`
+   *   dois preços   `capexIniciais + capexExpansao + capexTerreno = capex`
+   */
+  capexIniciais: number | null
+  capexExpansao: number | null
 
   /**
    * A LINHA DO TEMPO DA OBRA, em quatro fases:
