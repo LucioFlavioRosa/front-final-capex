@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Question, Trash } from '@phosphor-icons/react'
 import type { AbaDef, Cidade, ColDef, Origem, Row } from '../../../data/cadastroUnidade/types'
-import { CIDADE_EDITAVEL_EM, COLUNA_AJUDA, LARGURA_ACOES, colunaLabel, colunaLargura, ehAditiva, larguraDaGrade } from '../../../data/cadastroUnidade/schema'
+import { CAMPOS_SO_ETE_NOVA, CIDADE_EDITAVEL_EM, COLUNA_AJUDA, LARGURA_ACOES, colunaLabel, colunaLargura, ehAditiva, larguraDaGrade } from '../../../data/cadastroUnidade/schema'
 import { DICT } from '../../../domain/dicionario'
 import { computeCalc } from '../../../domain/calc'
 import { colunasDoEscopo } from '../../../domain/escopo'
@@ -224,9 +224,6 @@ interface AbaGridProps {
    */
   focarLinha?: { idx: number; nonce: number } | null
 }
-
-/** Espelha as regras de bloqueio do `AbaCell` — o que ele desabilita, o colar não escreve. */
-const CAMPOS_SO_ETE_NOVA = ['capex_terreno', 'modulos']
 
 function celulaEditavel(aba: AbaDef, row: Row | undefined, col: string, origem: Origem): boolean {
   if (!row) return false

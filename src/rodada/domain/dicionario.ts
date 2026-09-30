@@ -170,4 +170,15 @@ export const DICIONARIO_RODADA: Record<string, Verbete> = {
       'O RECORTE ACABA NA COBERTURA. Receita, VPL, vazão e CAPEX usam o total nos dois casos — quem paga a conta é a ligação, seja de casa ou de fábrica, e a indústria manda esgoto que a ETE precisa tratar. Só residenciais: universo e base atendida saem das colunas residenciais da base comercial. Todas as ligações: saem dos totais.',
     exemplo: 'todas as ligações',
   },
+  CTS_NA_COBERTURA: {
+    rotulo: 'A CTS conta na cobertura?',
+    tec: 'CTS_NA_COBERTURA',
+    origem: VOCE,
+    tipo: 'conta · não conta',
+    oque:
+      'Se as ligações novas do coletor de tempo seco somam na cobertura da cidade. Só existe com a CTS ligada na rodada.',
+    porque:
+      'A RECEITA DA CTS NÃO MUDA NOS DOIS CASOS — o coletor fatura de todo jeito. O que muda é o MEDIDOR: com "não conta", as ligações novas da CTS ficam fora da cobertura e, portanto, fora das metas. Duas consequências que valem saber. Primeira: o universo e a base da CTS CONTINUAM no denominador, então a cidade passa a ter uma parcela que ninguém alcança e 100% deixa de ser atingível (numa cidade medida, a cobertura final cai de 90,15% para 87,51%). Segunda: a cobertura alimenta a faixa de paridade esgoto/água, e o fator multiplica a tarifa recorrente — então cruzar faixa mais tarde derruba a receita da cidade inteira. Ou seja, a receita TOTAL pode mudar, ainda que a da CTS não mude. Foi escolha deliberada, para o produto ter uma cobertura realizada em vez de duas.',
+    exemplo: 'conta',
+  },
 }

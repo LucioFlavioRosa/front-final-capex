@@ -235,7 +235,15 @@ const OBRA: Record<string, string> = {
   wacc: 'wacc',
 }
 
-const ETE: Record<string, string> = {
+/**
+ * Ficha da ETE: nome curto do backend ↔ coluna da planilha.
+ *
+ * EXPORTADO porque os dois sentidos da gravação passam por este mesmo mapa — a
+ * leitura em `ete-capex` e o `PUT` de cada ficha. Uma coluna que falte aqui
+ * desaparece nos dois, sem erro: a tela mostra a célula vazia e a gravação manda
+ * vazio por cima do que estava no banco.
+ */
+export const COLUNAS_DA_ETE: Record<string, string> = {
   capMod: 'capacidade_por_modulo',
   capexMod: 'capex_por_modulo',
   opexMod: 'opex_por_modulo',
@@ -245,6 +253,8 @@ const ETE: Record<string, string> = {
   nova: 'nova',
   terreno: 'capex_terreno',
   modulos: 'modulos',
+  capExpMod: 'capacidade_por_modulo_expansao',
+  capexExpMod: 'capex_por_modulo_expansao',
   wacc: 'wacc',
 }
 
@@ -491,7 +501,7 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
 
     'ete-capex': etes.etes.map((e) => {
       const linha: Row = { ete_id: e.id ?? '', ete_name: e.nome ?? e.id ?? '', sistema_id: e.sisId ?? '' }
-      for (const [curto, coluna] of Object.entries(ETE)) linha[coluna] = e[curto] ?? ''
+      for (const [curto, coluna] of Object.entries(COLUNAS_DA_ETE)) linha[coluna] = e[curto] ?? ''
       linha.capacidade_ociosa = e.ociosa ?? ''
       // Prazo e janela da obra da ETE, que o servidor manda ao lado das colunas de `ETE`.
       linha.tempo_predecessoras = e.tPred ?? ''
@@ -745,7 +755,7 @@ export async function salvarCadastro(
   for (const e of d['ete-capex'] ?? []) {
     if (!e.ete_id || igual(e, eteBase.get(e.ete_id))) continue
     const ficha: Record<string, string> = {}
-    for (const [curto, coluna] of Object.entries(ETE)) ficha[curto] = e[coluna] ?? ''
+    for (const [curto, coluna] of Object.entries(COLUNAS_DA_ETE)) ficha[curto] = e[coluna] ?? ''
     ficha.tPred = e.tempo_predecessoras ?? ''
     ficha.anoObrig = e.obra_obrigatoria_ano ?? ''
     ficha.proibAte = e.obra_proibida_ate ?? ''

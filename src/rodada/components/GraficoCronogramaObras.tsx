@@ -388,6 +388,17 @@ export const COLUNAS_DA_PLANILHA = [
   { titulo: 'Preço unitário (R$)', largura: 20, formato: 'dinheiro' as const },
   // SÓ A ETE PREENCHE: é o que o CAPEX tem além de quantidade × unitário.
   { titulo: 'CAPEX do terreno (R$)', largura: 22, formato: 'dinheiro' as const },
+  // AS DUAS PARCELAS DE MÓDULO, e só na ETE que tem módulos de DOIS preços — onde
+  // não existe um preço unitário que multiplique a quantidade. Vazias no resto,
+  // inclusive em toda ETE cujo cadastro deixou as colunas de expansão em branco:
+  // lá `quantidade × unitário` já inclui os módulos de expansão, e repetir a
+  // parcela ao lado faria a soma contar os mesmos módulos duas vezes.
+  //
+  // Na planilha elas vão SEMPRE, como a Classificação: o arquivo é levado para
+  // fora da ferramenta, e uma coluna que aparece e desaparece conforme o ano
+  // quebraria qualquer fórmula montada sobre ele.
+  { titulo: 'CAPEX módulos iniciais (R$)', largura: 26, formato: 'dinheiro' as const },
+  { titulo: 'CAPEX módulos de expansão (R$)', largura: 28, formato: 'dinheiro' as const },
   { titulo: 'Ano de início', largura: 14, formato: 'inteiro' as const },
   // A LINHA DO TEMPO, EM DURAÇÃO — nenhuma data. MESMAS COLUNAS DA TELA: o arquivo é
   // a conferência da lista que o usuário está olhando, e uma data que a tela deixou de
@@ -401,6 +412,21 @@ export const COLUNAS_DA_PLANILHA = [
   { titulo: 'Até a cobrança (meses)', largura: 20, formato: 'inteiro' as const },
   { titulo: 'Ramp-up (meses)', largura: 16, formato: 'inteiro' as const },
 ]
+
+/**
+ * QUANTAS COLUNAS A TABELA DO MODAL TEM, no modo pedido.
+ *
+ * Exportada porque o `colSpan` das mensagens de estado ("Carregando…", "Nenhuma obra…")
+ * é escrito à mão e some da revisão: já foi ajustado no chute, errando por um, e célula
+ * que declara mais colunas do que a tabela tem empurra a borda para fora do contêiner.
+ * O teste conta os `<th>` do próprio JSX e confere contra esta função, nos quatro modos.
+ *
+ * `comClassificacao` é o filtro em "todas"; `comParcelas`, a ETE com módulos de dois
+ * preços, que abre as duas colunas de parcela.
+ */
+export const colunasDaTabelaDeObras = (comClassificacao: boolean, comParcelas: boolean) =>
+  (comClassificacao ? 15 : 14) + (comParcelas ? 2 : 0)
+
 
 export function linhaDaPlanilha(o: ObraLinha) {
   return [
@@ -416,6 +442,8 @@ export function linhaDaPlanilha(o: ObraLinha) {
     o.unidade,
     o.precoUnitario,
     o.capexTerreno,
+    o.capexIniciais,
+    o.capexExpansao,
     o.anoInicio,
     o.mesesPredecessoras,
     o.prazoMeses,
@@ -486,6 +514,21 @@ function ObrasDoAno({
   const itens = obras.data?.itens ?? []
   const faltando = (obras.data?.total ?? 0) - itens.length
   const vazio = itens.length === 0
+  /**
+   * AS PARCELAS DE MÓDULO APARECEM SÓ QUANDO EXISTEM.
+   *
+   * Elas só vêm preenchidas na ETE nova que tem módulos iniciais e de expansão a
+   * preços diferentes — e nenhuma ETE do cadastro tem isso hoje. Duas colunas
+   * permanentemente vazias numa tabela de 14 gastariam largura para não dizer nada,
+   * e ainda sugeririam que falta dado onde não falta.
+   *
+   * Na PLANILHA elas vão sempre: lá o arquivo sai da ferramenta, e uma coluna que
+   * aparece e desaparece conforme o ano quebraria fórmula montada sobre ele.
+   */
+  const temParcelasDeModulo = itens.some(
+    (o) => o.capexIniciais != null || o.capexExpansao != null,
+  )
+  const colunasDaTabela = colunasDaTabelaDeObras(recorte === 'todas', temParcelasDeModulo)
 
   const exportar = () =>
     baixarXlsx(
@@ -570,7 +613,12 @@ function ObrasDoAno({
               <th scope="colgroup" colSpan={4} data-g className="!pb-1 text-right">
                 Prazos (meses)
               </th>
-              <th scope="colgroup" colSpan={4} data-g className="!pb-1 text-right">
+              <th
+                scope="colgroup"
+                colSpan={temParcelasDeModulo ? 6 : 4}
+                data-g
+                className="!pb-1 text-right"
+              >
                 Custo
               </th>
             </tr>
@@ -632,6 +680,8 @@ function ObrasDoAno({
               <th scope="col" data-r>
                 Terreno
               </th>
+              {temParcelasDeModulo && <th scope="col" data-r>Mód. iniciais</th>}
+              {temParcelasDeModulo && <th scope="col" data-r>Mód. expansão</th>}
               <th scope="col" data-r>
                 CAPEX
               </th>
@@ -640,21 +690,21 @@ function ObrasDoAno({
           <tbody>
             {obras.isPending && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 15 : 14} className="py-6 text-center text-[12.5px] text-ink-water">
+                <td colSpan={colunasDaTabela} className="py-6 text-center text-[12.5px] text-ink-water">
                   Carregando as obras de {ano}…
                 </td>
               </tr>
             )}
             {obras.isError && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 15 : 14} className="py-6 text-center text-[12.5px] text-danger">
+                <td colSpan={colunasDaTabela} className="py-6 text-center text-[12.5px] text-danger">
                   Não foi possível carregar as obras deste ano.
                 </td>
               </tr>
             )}
             {!obras.isPending && !obras.isError && vazio && (
               <tr>
-                <td colSpan={recorte === 'todas' ? 15 : 14} className="py-6 text-center text-[12.5px] text-ink-water">
+                <td colSpan={colunasDaTabela} className="py-6 text-center text-[12.5px] text-ink-water">
                   Nenhuma obra com ano de execução em {ano}.
                 </td>
               </tr>
@@ -700,6 +750,12 @@ function ObrasDoAno({
                 {/* SÓ A ETE TEM: nas demais a conta fecha sem parcela extra, e a
                     célula sai vazia em vez de zero. */}
                 <td data-m>{brlExato(o.capexTerreno)}</td>
+                {/* AS DUAS PARCELAS DE MÓDULO, quando a ETE tem módulos de dois
+                    preços. Aí `Preço unit.` sai vazio, porque não existe um preço
+                    que multiplique a quantidade, e a conta da linha passa a ser
+                    `iniciais + expansão + terreno = CAPEX`. */}
+                {temParcelasDeModulo && <td data-m>{brlExato(o.capexIniciais)}</td>}
+                {temParcelasDeModulo && <td data-m>{brlExato(o.capexExpansao)}</td>}
                 <td data-m>{brlExato(o.capex)}</td>
               </tr>
             ))}

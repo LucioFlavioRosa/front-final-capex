@@ -96,6 +96,28 @@ export function cidadesDoCadastro(dados: Record<string, import('./types').Row[]>
 export const CIDADE_EDITAVEL_EM = ['metas-cobertura', 'fator-esgoto']
 
 /**
+ * COLUNAS DA ABA `ete-capex` QUE SÓ SE APLICAM À ETE NOVA.
+ *
+ * `AbaCell` mostra "—" nelas quando `nova !== 'Sim'`, e `AbaGrid` recusa a
+ * edição e o colar. A lista estava DUPLICADA nos dois arquivos, com o segundo
+ * dizendo em comentário que espelhava o primeiro — e um espelho que alguém tem
+ * de lembrar de atualizar quebra de um jeito particularmente ruim: a célula
+ * aparece travada e o colar escreve nela.
+ *
+ * As duas últimas entraram em 29/09/2026, com o módulo de expansão da ETE nova
+ * (migração 026 do serviço): numa ETE existente todo módulo já é expansão, e lá
+ * `capacidade_por_modulo`/`capex_por_modulo` já significam "o módulo que eu
+ * construo" — preencher estas duas não mudaria nada, e oferecê-las diria o
+ * contrário.
+ */
+export const CAMPOS_SO_ETE_NOVA = [
+  'capex_terreno',
+  'modulos',
+  'capacidade_por_modulo_expansao',
+  'capex_por_modulo_expansao',
+]
+
+/**
  * UNIDADE DE MEDIDA PADRÃO por tipo de infraestrutura.
  *
  * A unidade de medida não é escolha de quem preenche, é propriedade do
@@ -312,7 +334,9 @@ export const COLUNA_LABELS: Record<string, string> = {
   // para decidir ETE nova vs expansão e o que `CAMPOS_SO_ETE_NOVA` usa para
   // travar a célula — renomeá-la quebraria as duas coisas em silêncio.
   capex_terreno: 'Custo de terreno e estrutura de fim de plano',
-  modulos: 'Módulos',
+  modulos: 'Módulos iniciais',
+  capacidade_por_modulo_expansao: 'Capacidade por módulo de expansão',
+  capex_por_modulo_expansao: 'CAPEX por módulo de expansão',
   ano: 'Ano',
   cobertura_pct: 'Cobertura (%)',
   paridade: 'Paridade',
@@ -799,7 +823,17 @@ export const SCHEMA: AbaDef[] = [
       { coluna: 'capacidade_ociosa', origem: 'calc', procedencia: 'mock', oque: 'Folga = capacidade nominal − vazão de operação.', porque: 'Absorve vazão nova sem exigir módulo novo.' },
       { coluna: 'nova', origem: 'un', procedencia: 'mock', oque: 'Indica se esta é uma ETE nova (greenfield) ou uma ETE existente em expansão.', porque: "Só ETE nova tem custo de terreno e número de módulos preenchíveis — os demais campos ficam travados quando a resposta é 'Não'." },
       { coluna: 'capex_terreno', origem: 'un', procedencia: 'mock', oque: 'Custo do terreno da ETE nova.', porque: 'ETE nova é um pacote único: terreno + módulos.', exemplo: '912.405' },
-      { coluna: 'modulos', origem: 'un', procedencia: 'mock', oque: 'Número de módulos da ETE nova.', porque: 'Define a capacidade total do pacote (teto de vazão).', exemplo: '4' },
+      { coluna: 'modulos', origem: 'un', procedencia: 'mock', oque: 'Quantos módulos a ETE nova nasce tendo.', porque: 'É o pacote inicial, indivisível: se a ETE for construída, ela nasce com estes módulos, ainda que a vazão conectada caiba em menos. O que passa da capacidade deles vira módulo de expansão, e quantos serão é decisão da simulação, não do cadastro.', exemplo: '4' },
+      /*
+       * O MÓDULO DE EXPANSÃO DA ETE NOVA (29/09/2026).
+       *
+       * Pedido do cliente: os módulos iniciais têm vazão e preço específicos, e os
+       * de expansão têm outros. As duas colunas são OPCIONAIS e vazias significam
+       * "igual ao módulo inicial" — que é o caso de todas as ETEs de hoje, e por
+       * isso elas não entram na conta de pendências.
+       */
+      { coluna: 'capacidade_por_modulo_expansao', origem: 'un', procedencia: 'vazio', oque: 'Vazão que cada módulo de EXPANSÃO trata, quando é diferente da do módulo inicial.', porque: 'É ela que define quantos módulos de expansão a vazão acima do pacote exige. Vazia = igual à capacidade por módulo.', exemplo: '25', opcional: 'usa a capacidade do módulo inicial' },
+      { coluna: 'capex_por_modulo_expansao', origem: 'un', procedencia: 'vazio', oque: 'Investimento de um módulo de EXPANSÃO, quando é diferente do inicial.', porque: 'O CAPEX da ETE passa a ser terreno + módulos iniciais + módulos de expansão, cada parcela ao seu preço. Vazia = igual ao CAPEX por módulo; zero significa sem custo, e não ausente.', exemplo: '260.000', opcional: 'usa o CAPEX do módulo inicial' },
       { coluna: 'wacc', origem: 'un', procedencia: 'mock', oque: 'Custo de capital do componente, quando há financiamento nominalmente atrelado.', porque: 'Desconta CAPEX/OPEX e entra rateado por vazão na taxa da receita das sub-bacias. Vazio = usa o WACC médio da unidade (Operações Financeiras).', exemplo: '0,091' , opcional: 'herda o WACC médio da unidade'},
     ],
   },

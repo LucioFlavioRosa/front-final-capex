@@ -482,6 +482,34 @@ export function Simular() {
                     ]}
                   />
                 </div>
+                {/* SÓ APARECE COM A CTS LIGADA, porque só aí a pergunta existe: sem
+                    coletor não há nó de CTS e a resposta não mudaria nada. Deixá-lo
+                    visível e inerte ofereceria um controle que não faz efeito — e o
+                    servidor recusa o par contraditório, então a tela seria a única a
+                    sugerir que ele valia. */}
+                {estado.usarCts && (
+                  <div>
+                    <RotuloParametro
+                      texto="A CTS conta na cobertura?"
+                      tecnico="CTS_NA_COBERTURA"
+                    />
+                    <SegmentedControl
+                      aria-label="A CTS conta na cobertura?"
+                      value={estado.ctsNaCobertura ? 'conta' : 'nao'}
+                      onChange={(v) =>
+                        despachar({ tipo: 'set', patch: { ctsNaCobertura: v === 'conta' } })
+                      }
+                      /* CONTA | NÃO CONTA, e o rótulo faz a pergunta — mesma gramática
+                         dos dois acima. O que muda em cada resposta (a receita da CTS
+                         não muda; a paridade e a meta mudam) está no dicionário, no `?`
+                         do rótulo: é explicação longa, e não cabe numa pílula. */
+                      options={[
+                        { value: 'conta', label: 'Conta' },
+                        { value: 'nao', label: 'Não conta' },
+                      ]}
+                    />
+                  </div>
+                )}
                 <div>
                   <RotuloParametro
                     texto="Recorte da cobertura"
@@ -724,6 +752,14 @@ function ResumoDaRodada({
             escolha que se acabou de fazer ao lado; "sim" e "não" obrigavam a
             traduzir de volta para as opções que aparecem nas pílulas. */}
         <Item rotulo="Usar CTS" valor={rotuloUsarCts(estado.usarCts)} />
+        {/* No resumo ele também só aparece com a CTS ligada: um resumo que lista uma
+            escolha sem efeito faz o leitor procurar o efeito. */}
+        {estado.usarCts && (
+          <Item
+            rotulo="CTS na cobertura"
+            valor={estado.ctsNaCobertura ? 'conta' : 'não conta'}
+          />
+        )}
         <Item
           rotulo="Recorte da cobertura"
           valor={estado.coberturaSoResidencial ? 'só residenciais' : 'todas as ligações'}
