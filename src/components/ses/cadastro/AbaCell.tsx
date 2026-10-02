@@ -35,6 +35,18 @@ interface AbaCellProps {
   dados: Dados
   onChange: (col: string, value: string) => void
   /**
+   * A REGRA ESTRUTURAL JÁ RESOLVIDA, pela `celulaEditavel` da grade.
+   *
+   * Vem pronta, e não é re-derivada aqui, porque ESTE arquivo era a terceira cópia da mesma
+   * pergunta: `celulaEditavel` liberou as medidas da base em 01/10/2026 e a célula continuou
+   * se desenhando como texto de leitura, porque tinha o seu próprio `origem === 'db'`. Do
+   * lado de fora não houve mudança nenhuma — foi exatamente o relato do dono do produto.
+   *
+   * É OBRIGATÓRIA de propósito: com valor padrão, a próxima liberação volta a parar aqui em
+   * silêncio.
+   */
+  editavelNaEstrutura: boolean
+  /**
    * Célula fora do modo de edição. O campo continua desenhado igual e ainda
    * recebe foco (é assim que a navegação por setas "acende" a célula certa),
    * mas não aceita digitação: quem trata a tecla é o grid, que decide entre
@@ -213,7 +225,7 @@ function CampoEdicao({ valor, placeholder, classe, onChange }: {
   )
 }
 
-export function AbaCell({ abaKey, col, origem, row, cidades, dados, onChange, somenteLeitura = false, bloqueada = somenteLeitura, numerica = false }: AbaCellProps) {
+export function AbaCell({ abaKey, col, origem, row, cidades, dados, onChange, editavelNaEstrutura, somenteLeitura = false, bloqueada = somenteLeitura, numerica = false }: AbaCellProps) {
   const v = row[col] ?? ''
   // Numérica vence: uma coluna que termina em `_id` mas guarda número (o ano,
   // por exemplo) já é comparada por grandeza, e o alinhamento à direita é a
@@ -258,20 +270,20 @@ export function AbaCell({ abaKey, col, origem, row, cidades, dados, onChange, so
   }
 
   /**
-   * Coluna do Databricks é SOMENTE LEITURA no site.
+   * COLUNA DO DATABRICKS QUE O SERVIDOR NÃO GRAVA — essa, sim, é só leitura.
    *
-   * Esses campos se corrigem na ORIGEM, no Databricks, nunca aqui — um valor
-   * digitado na tela seria
-   * sobrescrito na próxima carga, e nesse intervalo a unidade teria trabalhado
-   * sobre um número que o motor não vai ler. Onde o dado ainda não chegou, a
-   * célula fica VAZIA de propósito: o vazio é o recado de que falta integração,
-   * e mascará-lo com um campo editável é que seria o erro.
+   * A regra era "coluna do Databricks não se edita no site", e o argumento era que o valor
+   * digitado seria sobrescrito na próxima carga. Para a IDENTIDADE da linha e para as
+   * DERIVADAS continua valendo. Para a MEDIDA, não: a ficha de coleta grava
+   * `{...bloco_db, ...params}` com trilha de override, e é assim que um número errado na
+   * base comercial se corrige enquanto a origem não é consertada. Quem decide é o contrato
+   * (`cadastroUnidade/gravavel.ts`), e a resposta chega em `editavelNaEstrutura`.
    *
-   * A exceção é a cidade nas abas cujas linhas a unidade cria (ver
-   * `CIDADE_EDITAVEL_EM`) — lá não existe linha no Databricks para herdar.
+   * Onde o dado ainda não chegou, a célula fica VAZIA de propósito: o vazio é o recado de
+   * que falta integração. O que mudou é que agora dá para escrever nela.
    */
   const cidadeEditavel = col === 'cidade_id' && CIDADE_EDITAVEL_EM.includes(abaKey)
-  if (origem === 'db' && !cidadeEditavel) {
+  if (origem === 'db' && !editavelNaEstrutura) {
     return (
       <Texto
         valor={v}

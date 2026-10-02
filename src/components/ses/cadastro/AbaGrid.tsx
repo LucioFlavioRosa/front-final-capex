@@ -1,10 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Question, Trash } from '@phosphor-icons/react'
 import type { AbaDef, Cidade, ColDef, Origem, Row } from '../../../data/cadastroUnidade/types'
+import { colunaGravavel, type ContextoDeGravacao } from '../../../data/cadastroUnidade/gravavel'
 import { CAMPOS_SO_ETE_NOVA, CIDADE_EDITAVEL_EM, COLUNA_AJUDA, LARGURA_ACOES, colunaLabel, colunaLargura, ehAditiva, larguraDaGrade } from '../../../data/cadastroUnidade/schema'
 import { DICT } from '../../../domain/dicionario'
 import { computeCalc } from '../../../domain/calc'
 import { colunasDoEscopo } from '../../../domain/escopo'
+import { contextoDeGravacao, editavelNaPlanilha } from '../../../domain/planilha'
 import type { Dados } from '../../../domain/fluxo'
 import { Tooltip } from '../../ui/Tooltip'
 import { useAuth } from '../../../auth/AuthContext'
@@ -41,9 +43,31 @@ function Tecla({ children }: { children: string }) {
   )
 }
 
-function OrigemBadge({ origem }: { origem: Origem }) {
+/**
+ * O RÓTULO DIZ DE ONDE VEM; A COR DIZ SE DÁ PARA DIGITAR.
+ *
+ * Eram a mesma informação: `db` saía em azul-água e azul-água significava travado. Desde
+ * 01/10/2026 não é mais verdade — a MEDIDA que veio da base se corrige aqui, com trilha,
+ * e só o id, o nome e as colunas calculadas continuam travados. Com uma cor só, a aba
+ * ficava idêntica à de antes e a liberação era invisível: foi o que o dono do produto
+ * relatou ("não vi nada de diferença").
+ *
+ * Então a cor passou a seguir o CONTRATO — o mesmo com que a planilha pinta o cabeçalho
+ * do arquivo. Âmbar no arquivo e âmbar na tela querem dizer a mesma coisa, que é o que
+ * permite baixar, preencher e reconhecer o que foi preenchido.
+ */
+function OrigemBadge({ origem, editavel }: { origem: Origem; editavel: boolean }) {
   return (
-    <span className={`text-[9px] font-bold rounded px-[3px] whitespace-nowrap align-middle ${badgeTone[origem]}`}>
+    <span
+      className={`text-[9px] font-bold rounded px-[3px] whitespace-nowrap align-middle ${
+        editavel ? badgeTone.un : badgeTone[origem]
+      }`}
+      title={
+        editavel
+          ? `${badgeLabel[origem]} — o valor vem desta origem e você pode corrigi-lo aqui`
+          : `${badgeLabel[origem]} — só leitura`
+      }
+    >
       {badgeLabel[origem]}
     </span>
   )
@@ -225,11 +249,40 @@ interface AbaGridProps {
   focarLinha?: { idx: number; nonce: number } | null
 }
 
-function celulaEditavel(aba: AbaDef, row: Row | undefined, col: string, origem: Origem): boolean {
+/**
+ * A CÉLULA SE DIGITA? A pergunta é "o servidor grava esta coluna?", e quem responde é o
+ * contrato (`cadastroUnidade/gravavel.ts`) — o MESMO que decide o que a planilha leva de
+ * volta.
+ *
+ * Era `origem !== 'db'`, e isso travava medida que o servidor aceita. A ficha de coleta
+ * grava `{...bloco_db, ...params}`: a medida que veio da base é SOBREPONÍVEL, com trilha.
+ * Travá-la aqui obrigava a corrigir um dado errado fora da plataforma e esperar a carga.
+ *
+ * Os dois lados vêm do mesmo lugar de propósito. Liberar só a planilha faria o arquivo
+ * poder mais que a tela — e o aviso da importação ("para mudá-la, use a tela") passaria a
+ * mentir justamente nas colunas em que ele aparece.
+ *
+ * O PAPEL é outra pergunta, e vem depois, em `podeEditarCelula`: esta função é a regra
+ * estrutural, igual para todo mundo.
+ */
+export function celulaEditavel(
+  aba: AbaDef,
+  row: Row | undefined,
+  col: string,
+  origem: Origem,
+  ctx: ContextoDeGravacao = {},
+): boolean {
   if (!row) return false
   if (origem === 'calc') return false
   if (aba.key === 'ete-capex' && CAMPOS_SO_ETE_NOVA.includes(col) && row.nova !== 'Sim') return false
-  if (origem === 'db') return col === 'cidade_id' && CIDADE_EDITAVEL_EM.includes(aba.key)
+  if (origem === 'db') {
+    //: a cidade se escolhe nas abas de lista (metas, faixas): lá ela é a identidade da
+    //: linha que a pessoa está criando, e não um dado da ficha.
+    if (col === 'cidade_id') return CIDADE_EDITAVEL_EM.includes(aba.key)
+    //: a abertura desta mudança, e só ela: a medida da base que o `PUT` grava. O `ctx`
+    //: carrega a exceção da CTS somada, onde o servidor refaz o bloco `db`.
+    return colunaGravavel(aba.key, col, ctx)
+  }
   return true
 }
 
@@ -252,8 +305,9 @@ function podeEditarCelula(
   col: string,
   origem: Origem,
   papeis: readonly Papel[],
+  ctx: ContextoDeGravacao,
 ): boolean {
-  return celulaEditavel(aba, row, col, origem) && podeEditarCampoCadastro(papeis, aba.key, col)
+  return celulaEditavel(aba, row, col, origem, ctx) && podeEditarCampoCadastro(papeis, aba.key, col)
 }
 
 /**
@@ -485,6 +539,27 @@ export function AbaGrid({
   const papeis = user?.papeis ?? []
 
   /**
+   * O CONTEXTO DA UNIDADE para o contrato de gravação.
+   *
+   * Hoje carrega um caso: no regime de macrorregião, a medida da base de uma CTS é a SOMA
+   * dos coletores, e o servidor a refaz a cada gravação — editá-la na grade seria digitar
+   * para ver o valor voltar. Vem da MESMA função que a planilha usa, para os dois lados não
+   * divergirem.
+   *
+   * MEMOIZADO NO BOOLEANO, e não em `dados` — e a diferença custa 4× o custo de uma tecla.
+   *
+   * `dados` muda de IDENTIDADE a cada edição (é o que o reducer faz, e o teste de perf diz
+   * isso em letras). Memoizar nele devolvia um objeto novo a cada render, e esse objeto
+   * desce como prop para a linha MEMOIZADA — então as 751 linhas re-renderizavam a cada
+   * tecla, em vez de uma. Medido: 548ms contra um teto de 150ms, pego pela revisão do
+   * Codex em 01/10/2026.
+   *
+   * O booleano é estável: ele só muda quando alguém marca a caixa da macrorregião.
+   */
+  const ctsSomada = contextoDeGravacao(dados).ctsSomada
+  const ctxGravacao = useMemo(() => ({ ctsSomada }), [ctsSomada])
+
+  /**
    * Filtros por coluna: `nome da coluna → conjunto de valores aceitos`.
    * Ausente ou `null` = coluna sem filtro.
    *
@@ -574,12 +649,12 @@ export function AbaGrid({
     let n = 0
     for (const { row } of visiveis) {
       for (const { coluna, origem } of aba.cols) {
-        if (!celulaEditavel(aba, row, coluna, origem)) continue
+        if (!celulaEditavel(aba, row, coluna, origem, ctxGravacao)) continue
         if ((row[coluna] ?? '') === '') n++
       }
     }
     return n
-  }, [visiveis, aba])
+  }, [visiveis, aba, ctxGravacao])
 
   /** Erros locais no recorte visível — ver `erroLocal`. */
   const erros = useMemo(() => {
@@ -630,9 +705,9 @@ export function AbaGrid({
   const podeEditar = useCallback(
     (ri: number, ci: number) => {
       const def = aba.cols[ci]
-      return def ? podeEditarCelula(aba, visiveis[ri]?.row, def.coluna, def.origem, papeis) : false
+      return def ? podeEditarCelula(aba, visiveis[ri]?.row, def.coluna, def.origem, papeis, ctxGravacao) : false
     },
-    [aba, visiveis, papeis],
+    [aba, visiveis, papeis, ctxGravacao],
   )
 
   const valorDe = useCallback(
@@ -912,7 +987,7 @@ export function AbaGrid({
                       linha. É o bug das colunas sobrepostas. */}
                   {colunaLabel(col)}{' '}
                   <span className="whitespace-nowrap">
-                    <OrigemBadge origem={origem} /> <AjudaColuna col={col} coldef={coldef} />
+                    <OrigemBadge origem={origem} editavel={editavelNaPlanilha(aba, coldef, ctxGravacao)} /> <AjudaColuna col={col} coldef={coldef} />
                     {colunasFiltraveis && !semFunil.has(col) && (
                       <FiltroColuna
                         rotulo={colunaLabel(col)}
@@ -977,6 +1052,7 @@ export function AbaGrid({
                   congelar={rolagem.transborda}
                   padCel={DENSIDADE_PAD[densidade].cel}
                   papeis={papeis}
+                  ctxGravacao={ctxGravacao}
                 />
               )
             })}
@@ -1092,6 +1168,7 @@ const AbaGridRow = memo(function AbaGridRow({
   aba, row, ri, idxOriginal, cidades, dados, onCell, onDelRow, acaoRotulo, mostrarAcao, onAcao,
   edicaoLiberada, faixaClara, novoBloco,
   selC0, selC1, focoCi, editando, onPressionar, onEntrar, onEditar, numericas, congelar, padCel, papeis,
+  ctxGravacao,
 }: {
   aba: AbaDef; row: Row; ri: number
   /** Posição da linha no array COMPLETO — `ri` é a posição entre as visíveis. */
@@ -1125,6 +1202,8 @@ const AbaGridRow = memo(function AbaGridRow({
   onEditar: (ri: number, ci: number) => void
   /** Papel de quem está olhando — decide, junto de `celulaEditavel`, o que trava. */
   papeis: readonly Papel[]
+  /** O contexto da unidade que muda o que é gravável — ver `ContextoDeGravacao`. */
+  ctxGravacao: ContextoDeGravacao
 }) {
   // A coluna congelada precisa de fundo OPACO próprio: ela desliza por cima das
   // vizinhas, e `bg-white` da <tr> não pinta a célula, pinta a linha atrás dela.
@@ -1145,7 +1224,7 @@ const AbaGridRow = memo(function AbaGridRow({
         const erro = erroLocal(row[col] ?? '', col, origem, numericas)
         // `edicaoLiberada` entra ANTES da permissão: quem não tem permissão
         // nunca edita, e quem tem só edita com o modo ligado.
-        const permitida = edicaoLiberada && podeEditarCelula(aba, row, col, origem, papeis)
+        const permitida = edicaoLiberada && podeEditarCelula(aba, row, col, origem, papeis, ctxGravacao)
         return (
           <td
             key={col}
@@ -1187,6 +1266,10 @@ const AbaGridRow = memo(function AbaGridRow({
               dados={dados}
               onChange={(c, v) => onCell(idxOriginal, c, v)}
               numerica={numericas.has(col)}
+              // A REGRA ESTRUTURAL VEM DAQUI, resolvida — ver `AbaCellProps.editavelNaEstrutura`.
+              // `permitida` não serve: ela já mistura o papel e o modo de edição, e a célula
+              // de quem não tem permissão continua sendo um campo travado, não um texto.
+              editavelNaEstrutura={celulaEditavel(aba, row, col, origem, ctxGravacao)}
               // Fora do modo de edição o input é só a "cara" da célula: não
               // aceita digitação direta (quem trata a tecla é o grid, que
               // decide entre navegar e começar a editar). SEM PERMISSÃO

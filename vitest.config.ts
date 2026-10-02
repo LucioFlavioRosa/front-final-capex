@@ -15,6 +15,16 @@ import { fileURLToPath, URL } from 'node:url'
  * lugares onde o alias já vive (`vite.config.ts` e `tsconfig.json`).
  */
 export default defineConfig({
+  /**
+   * O SELO DO BUILD também nos testes.
+   *
+   * `__BUILD__` é substituído em tempo de build pelo `define` do `vite.config.ts`, e
+   * esta configuração é separada daquela (ver o comentário acima) — então o global
+   * precisa existir aqui também, ou todo teste que monte o cartão da planilha estoura
+   * com `__BUILD__ is not defined`. Valor fixo: um carimbo de hora deixaria o snapshot
+   * do teste diferente a cada rodada.
+   */
+  define: { __BUILD__: JSON.stringify('teste') },
   plugins: [react()],
   resolve: {
     alias: {

@@ -81,7 +81,9 @@ describe('o cartão da planilha', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
     expect(onImportado).not.toHaveBeenCalled()
     expect(screen.getByRole('alert')).toHaveTextContent('2 avisos')
-    expect(screen.getByRole('alert')).toHaveTextContent(/"b99" não existe no cadastro/)
+    //: desde 01/10/2026 a sub-bacia desconhecida é uma linha NOVA — e sem nome nem
+    //: sistema ela é recusada com o motivo, em vez de só "ignorada"
+    expect(screen.getByRole('alert')).toHaveTextContent(/"b99" é uma linha NOVA/)
     expect(screen.getByRole('alert')).toHaveTextContent(/"Rascunho" não é uma aba do cadastro/)
     expect(screen.getByRole('status')).toHaveTextContent(/Nada mudou/)
   })

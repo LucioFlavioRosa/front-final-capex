@@ -43,14 +43,22 @@ function abrir(topo: Row[], empresas: string[], nome = 'Empresa 1') {
   )
 }
 
+/**
+ * O RÓTULO DA OPÇÃO GANHOU id E EMPRESA em 01/10/2026 — "CTS daqui — t1 · empresa 1".
+ *
+ * O dono do produto pediu: a lista recorta por empresa e não mostrava a empresa nem o
+ * código, "seria bom ter para evitar qualquer desalinhamento". Por isso as buscas aqui
+ * casam pelo COMEÇO do nome, e não pelo nome inteiro: o que o teste prende é QUAL CTS a
+ * lista oferece, não como ela se escreve.
+ */
 describe('o seletor de CTS é recortado pela empresa do sistema', () => {
   const TOPO: Row[] = [cts('daqui', 'e1'), cts('de-fora', 'e2'), cts('sem-dono', '')]
 
   it('oferece a CTS da empresa e NÃO a de outra empresa', () => {
     abrir(TOPO, ['e1'])
     const opcoes = within(screen.getByRole('combobox'))
-    expect(opcoes.getByRole('option', { name: 'CTS daqui' })).toBeInTheDocument()
-    expect(opcoes.queryByRole('option', { name: 'CTS de-fora' })).not.toBeInTheDocument()
+    expect(opcoes.getByRole('option', { name: (n) => n.startsWith('CTS daqui') })).toBeInTheDocument()
+    expect(opcoes.queryByRole('option', { name: (n) => n.startsWith('CTS de-fora') })).not.toBeInTheDocument()
     // E DIZ DE QUE EMPRESA A LISTA É: um recorte sem rótulo é uma lista curta sem
     // explicação, e quem não achar a CTS que procura não sabe por quê.
     expect(screen.getByRole('option', { name: /livres? de Empresa 1/ })).toBeInTheDocument()
@@ -60,25 +68,25 @@ describe('o seletor de CTS é recortado pela empresa do sistema', () => {
     // Saracuruna: Duque de Caxias é a 57, Magé é a 56. O recorte é um conjunto.
     abrir(TOPO, ['e1', 'e2'], 'Empresa 1 e Empresa 2')
     const opcoes = within(screen.getByRole('combobox'))
-    expect(opcoes.getByRole('option', { name: 'CTS daqui' })).toBeInTheDocument()
-    expect(opcoes.getByRole('option', { name: 'CTS de-fora' })).toBeInTheDocument()
+    expect(opcoes.getByRole('option', { name: (n) => n.startsWith('CTS daqui') })).toBeInTheDocument()
+    expect(opcoes.getByRole('option', { name: (n) => n.startsWith('CTS de-fora') })).toBeInTheDocument()
   })
 
   it('a CTS sem empresa continua ofertada, num grupo à parte', () => {
     abrir(TOPO, ['e1'])
     const grupo = screen.getByRole('group', { name: 'Sem empresa cadastrada' })
-    expect(within(grupo).getByRole('option', { name: 'CTS sem-dono' })).toBeInTheDocument()
+    expect(within(grupo).getByRole('option', { name: (n) => n.startsWith('CTS sem-dono') })).toBeInTheDocument()
     // Fora do grupo, e não solta no meio das da empresa: misturada, a lista
     // voltaria a afirmar um dono que ela não sabe.
-    expect(within(grupo).queryByRole('option', { name: 'CTS daqui' })).not.toBeInTheDocument()
+    expect(within(grupo).queryByRole('option', { name: (n) => n.startsWith('CTS daqui') })).not.toBeInTheDocument()
   })
 
   it('sistema sem cidade (logo sem empresa) não duplica a lista nem promete recorte', () => {
     abrir(TOPO, [])
     // A CTS sem dono aparece UMA vez só.
-    expect(screen.getAllByRole('option', { name: 'CTS sem-dono' })).toHaveLength(1)
+    expect(screen.getAllByRole('option', { name: (n) => n.startsWith('CTS sem-dono') })).toHaveLength(1)
     // E as das empresas não aparecem — não há como saber se cabem.
-    expect(screen.queryByRole('option', { name: 'CTS daqui' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: (n) => n.startsWith('CTS daqui') })).not.toBeInTheDocument()
     expect(screen.getByRole('option', { name: /sem empresa cadastrada/ })).toBeInTheDocument()
     expect(screen.getByText(/não é recortada/)).toBeInTheDocument()
   })
@@ -96,13 +104,13 @@ describe('a macrorregião segue a mesma régua', () => {
   it('é oferecida num sistema da empresa dela', () => {
     abrir([MACRO, cts('de-fora', 'e2')], ['e1'])
     const opcoes = within(screen.getByRole('combobox'))
-    expect(opcoes.getByRole('option', { name: 'CTS MACRO_A' })).toBeInTheDocument()
-    expect(opcoes.queryByRole('option', { name: 'CTS de-fora' })).not.toBeInTheDocument()
+    expect(opcoes.getByRole('option', { name: (n) => n.startsWith('CTS MACRO_A') })).toBeInTheDocument()
+    expect(opcoes.queryByRole('option', { name: (n) => n.startsWith('CTS de-fora') })).not.toBeInTheDocument()
   })
 
   it('NÃO é oferecida num sistema de outra empresa', () => {
     abrir([MACRO], ['e2'])
-    expect(screen.queryByRole('option', { name: 'CTS MACRO_A' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: (n) => n.startsWith('CTS MACRO_A') })).not.toBeInTheDocument()
   })
 
   it('o rótulo diz "macrorregiões" quando é isso que a lista tem', () => {

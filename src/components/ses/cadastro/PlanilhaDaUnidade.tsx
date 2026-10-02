@@ -70,6 +70,23 @@ export function PlanilhaDaUnidade({
           `${resultado.alteracoes} ${resultado.alteracoes === 1 ? 'valor alterado' : 'valores alterados'} em ${abas} ${abas === 1 ? 'aba' : 'abas'} — revise e clique em Salvar.`,
         )
         toast('Planilha importada. Revise os campos e clique em Salvar.', 'success')
+      } else if (resultado.naoVoltaram) {
+        /**
+         * TROUXE DIFERENÇA, E ELA NÃO ENTRA — é outro recado, não o mesmo.
+         *
+         * Antes os dois casos caíam na mesma frase, "nenhum valor diferente do que a tela
+         * já tem", e ela era FALSA justamente no caso que leva alguém a reclamar: a pessoa
+         * mudou algo e a mudança não entrou. O dono do produto trocou o nome da empresa na
+         * planilha, subiu, e leu que nada havia mudado — com o aviso da coluna logo ao
+         * lado, contradizendo a frase. Dizer "nada mudou" quando algo veio diferente é
+         * transformar uma regra explicável em defeito aparente.
+         */
+        const n = resultado.naoVoltaram
+        setResumo(
+          `Nenhum valor foi aplicado. ${n} ${n === 1 ? 'célula veio diferente' : 'células vieram diferentes'} ` +
+            `em ${n === 1 ? 'coluna que não volta' : 'colunas que não voltam'} pela planilha — veja abaixo o motivo de cada uma.`,
+        )
+        toast('A planilha trouxe mudanças em colunas que não voltam. Veja os avisos.', 'warning')
       } else {
         setResumo(`Nada mudou: ${resultado.linhasLidas} ${resultado.linhasLidas === 1 ? 'linha lida' : 'linhas lidas'}, nenhum valor diferente do que a tela já tem.`)
         toast('A planilha não trouxe nada diferente do que a tela já tem.', 'info')
@@ -96,6 +113,15 @@ export function PlanilhaDaUnidade({
               ? 'marcado acima: cada macrorregião tem uma ficha (a soma dos coletores) para preencher as obras — inclusive as que ainda esperam sistema, cujo sistema você informa na própria planilha.'
               : 'desmarcado acima: cada coletor tem a própria ficha de obras — inclusive os que ainda esperam sistema, cujo sistema você informa na própria planilha.'}{' '}
             Mudou a caixa, baixe de novo.
+          </p>
+          {/*
+            O SELO DO BUILD, aqui e nao no rodape do site: e nesta tela que se baixa e se
+            sobe a planilha, e foi aqui que a duvida "a mudanca esta no ar?" custou uma
+            tarde inteira em 01/10/2026 — o navegador servia o aplicativo do cache e nada
+            na tela dizia qual codigo estava rodando. Ver `define` em `vite.config.ts`.
+          */}
+          <p className="mt-2 font-mono text-[11px] text-ink-water" data-testid="selo-do-build">
+            build {__BUILD__}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
