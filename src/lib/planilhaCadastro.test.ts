@@ -25,8 +25,10 @@ describe('a planilha gerada', () => {
     const wb = await abrir(await gerarPlanilha(unidade))
     const nomes = wb.worksheets.map((ws) => ws.name)
     expect(nomes[0]).toBe(LEIA_ME)
-    expect(nomes.slice(1, -1)).toEqual(planilhasDoCadastro(unidade.data).map((p) => p.nome))
-    // a aba de apoio fecha o arquivo, com os sistemas da unidade
+    //: DUAS abas de apoio fecham o arquivo: `Componentes` (o que as listas suspensas do
+    //: Fluxo oferecem) e `Sistemas` (para consultar o id ao colocar uma CTS)
+    expect(nomes.slice(1, -2)).toEqual(planilhasDoCadastro(unidade.data).map((p) => p.nome))
+    expect(nomes.at(-2)).toBe('Componentes')
     expect(nomes.at(-1)).toBe(SISTEMAS)
     const sistemas = wb.getWorksheet(SISTEMAS)!
     expect(sistemas.getRow(3).getCell(1).value).toBe('s1')
@@ -104,9 +106,14 @@ describe('ida e volta', () => {
     expect(r.avisos).toEqual([])
     expect(r.alteracoes).toBe(0)
     expect(r.dados).toEqual({})
-    // o arquivo tem 2 linhas a mais que a tela: a linha-modelo da Cidade Dois em Metas e em Escala
+    // A CONTA DO ARQUIVO contra a tela: +2 linhas-modelo (a Cidade Dois em Metas e em
+    // Escala) e -1 linha de topologia — desde 02/10 a CTS fora de sistema não vai para a
+    // aba do Fluxo, que é o desenho dos sistemas. Ela está em "Dados da CTS".
+    const livresForaDoFluxo = (unidade.data['sistema-topologia'] ?? [])
+      .filter((l) => !(l.sistema_id ?? '').trim()).length
+    expect(livresForaDoFluxo, 'o fixture precisa ter CTS livre para esta conta valer').toBe(1)
     expect(r.linhasLidas).toBe(
-      planilhasDoCadastro(unidade.data).reduce((n, p) => n + p.linhas.length, 0) + 2,
+      planilhasDoCadastro(unidade.data).reduce((n, p) => n + p.linhas.length, 0) + 2 - livresForaDoFluxo,
     )
     for (const nome of ['Metas de cobertura', 'Escala de paridade']) {
       const modelo = lida[nome].linhas.at(-1)!
@@ -147,7 +154,10 @@ describe('ida e volta', () => {
     const lida = await lerPlanilha((await wb.xlsx.writeBuffer()) as ArrayBuffer)
     expect(Object.keys(lida)).not.toContain(SISTEMAS)
     const r = mesclarPlanilha(unidade, lida)
-    expect(r.avisos).toEqual([])
+    // O único aviso é o do `wacc` que este teste apaga de propósito, logo acima: desde
+    // 01/10 apagar é DITO antes de salvar (as medidas da base comercial passaram a voltar
+    // pela planilha, e esvaziar uma coluna sem perceber deixou de ser um erro pequeno).
+    expect(r.avisos).toEqual([expect.stringContaining('"WACC" ficou VAZIA em 1 linha')])
     expect(r.dados['componentes-cts-capex'][0]).toMatchObject({ quantidade: '1.234', obra_obrigatoria_ano: '2031', wacc: '' })
     expect(r.dados['unidade-regional'][0]).toMatchObject({ wacc_medio: '0,1', usa_macrorregiao_cts: 'Nao' })
     expect(r.dados['metas-cobertura']).toHaveLength(3)

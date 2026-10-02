@@ -1060,17 +1060,26 @@ function CartaoWacc() {
 }
 
 /**
- * Legenda de ORIGEM — quem edita o quê.
+ * Legenda de ORIGEM — DE ONDE vem o valor. Não "quem edita".
  *
- * DB = vem do Databricks e se corrige na origem; un = a unidade preenche, e é o que a
- * completude conta; fx = o motor calcula e ignora o que estiver gravado.
+ * Eram a mesma coisa, e a legenda dizia `DB = vem do Databricks — não editável`. Em
+ * 01/10/2026 deixaram de ser: a ficha de coleta grava `{...bloco_db, ...params}`, e a
+ * MEDIDA que veio da base passou a se corrigir aqui, com trilha de override. No mesmo dia
+ * os NOMES também — empresa, sub-bacia, ETE e coletor —, então "id e nome, na origem"
+ * durou meia hora: `sub_bacia_name` e `cts_name` são `db` e são graváveis. Continuam
+ * travados o ID, que é a identidade da linha, e o que o servidor calcula.
+ *
+ * Esta linha era literalmente o que dizia ao dono do produto que nada havia mudado —
+ * a liberação estava de pé e a tela ainda anunciava o contrário.
+ *
+ * fx = o motor calcula e ignora o que estiver gravado.
  *
  * É a ÚNICA legenda da tela: a de PROCEDÊNCIA (dado real × exemplo × sem fonte)
  * não existe — ver o comentário no topo de `AbaGrid` para o motivo.
  */
 function Legenda() {
   const origens = [
-    { sigla: 'DB', texto: 'vem do Databricks — não editável', cls: 'text-water-600 bg-water-50 border-water-200' },
+    { sigla: 'DB', texto: 'vem da base — em âmbar você corrige aqui; em azul, só leitura', cls: 'text-water-600 bg-water-50 border-water-200' },
     // Mesmo tom de `AbaGrid`: `amber-600` aos 9px da 3,07:1 sobre `amber-50`.
     { sigla: 'un', texto: 'você preenche', cls: 'text-[#8A4B0A] bg-amber-50 border-amber-300' },
     { sigla: 'fx', texto: 'calculado', cls: 'text-ink-600 bg-ink-100 border-ink-200' },

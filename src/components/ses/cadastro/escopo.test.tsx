@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { colunasImportaveis } from '@/domain/planilha'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { SCHEMA } from '../../../data/cadastroUnidade/schema'
 import type { AbaDef, Row } from '../../../data/cadastroUnidade/types'
@@ -412,6 +413,9 @@ describe('a sequência do cadastro desce a hierarquia', () => {
     'cidade-operacional': 3,
     'metas-cobertura': 3,
     'fator-esgoto': 3,
+    //: o SISTEMA é o nível 4, e a aba dele voltou à tela em 01/10/2026 — a ETE e a
+    //: topologia são do mesmo nível, porque descrevem a malha de um `sistema_id`
+    'cidade-sistema': 4,
     'ete-capex': 4,
     // A topologia é do sistema, e não da sub-bacia: ela descreve a malha de um
     // `sistema_id`. Por isso 4, e por isso ela fecha o bloco do Sistema.
@@ -520,11 +524,23 @@ describe('Unifilar — o desenho ao lado da tabela', () => {
  * que não existe em lugar nenhum — nem no Databricks, nem no cadastro.
  */
 describe('nenhuma aba do cadastro é intocável', () => {
-  it('toda aba visível tem pelo menos uma coluna que a unidade preenche', () => {
+  it('toda aba visível tem pelo menos uma coluna que se preenche', () => {
+    /**
+     * A MEDIDA MUDOU DE `origem === 'un'` PARA O CONTRATO — e a troca é o assunto de
+     * 01/10/2026.
+     *
+     * `origem` diz de ONDE o valor veio, não se o servidor o grava. Enquanto as duas
+     * coisas coincidiam, contar colunas `un` respondia "há o que preencher aqui?". Pararam
+     * de coincidir quando a medida da base virou sobreponível e os nomes viraram
+     * graváveis: a aba Municípios tem as 4 colunas `db` e MESMO ASSIM se preenche, porque
+     * o `PUT` grava o nome da cidade.
+     *
+     * O que o teste prende continua sendo o mesmo: nenhuma aba visível é intocável.
+     */
     for (const b of BLOCOS) {
       for (const a of b.abas) {
-        const editaveis = a.cols.filter((c) => c.origem === 'un').map((c) => c.coluna)
-        expect(editaveis, `aba "${a.titulo}" (${a.key}) não tem nenhuma coluna 'un'`).not.toHaveLength(0)
+        const editaveis = colunasImportaveis(a)
+        expect(editaveis, `aba "${a.titulo}" (${a.key}) não tem coluna que o servidor grave`).not.toHaveLength(0)
       }
     }
   })

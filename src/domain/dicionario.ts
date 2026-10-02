@@ -255,12 +255,13 @@ export const DICT: Record<string, Verbete> = {
     exemplo: 'e1',
   },
   capacidade_por_modulo: {
-    rotulo: 'Capacidade por módulo',
+    rotulo: 'Capacidade por módulo inicial',
     tec: 'capacidade_por_modulo',
     origem: 'você preenche',
     tipo: 'vazão',
-    oque: 'Vazão que cada módulo da ETE trata.',
-    porque: 'Define quantos módulos são necessários para a vazão conectada.',
+    oque: 'Vazão que cada módulo INICIAL trata — o módulo com que a ETE nova é construída.',
+    porque:
+      'Com os "Módulos iniciais", define a capacidade do pacote de construção; a vazão que passar dele exige módulo de EXPANSÃO, que tem colunas próprias. Numa ETE que já existe todo módulo é expansão, e esta é a capacidade do módulo que se constrói.',
     exemplo: '49',
   },
   capex_terreno: {

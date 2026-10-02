@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { AbaCell, ehColunaDeCodigo } from './AbaCell'
+import { celulaEditavel } from './AbaGrid'
+import { SCHEMA } from '../../../data/cadastroUnidade/schema'
+import type { Row } from '../../../data/cadastroUnidade/types'
 
 /**
  * `somenteLeitura` carrega PERMISSÃO, e não só o estado de foco/edição — ver o
@@ -26,6 +29,8 @@ describe('AbaCell — o <select> desabilita por PERMISSÃO, não por foco', () =
                 cidades={[]}
                 dados={{}}
                 onChange={vi.fn()}
+                // coluna `un`: a regra estrutural a libera — este teste é sobre os outros portões
+                editavelNaEstrutura
                 {...props}
               />
             </td>
@@ -68,6 +73,62 @@ describe('AbaCell — o <select> desabilita por PERMISSÃO, não por foco', () =
   it('sem a prop, o padrão é fechar', () => {
     montar({ somenteLeitura: true })
     expect(screen.getByRole('combobox')).toBeDisabled()
+  })
+})
+
+/**
+ * A CÉLULA DESENHADA, e não só a regra — o teste que faltava em 01/10/2026.
+ *
+ * `celulaEditavel` liberou as medidas da base, a planilha passou a aceitá-las, os testes
+ * todos passaram, e do lado de fora NÃO HOUVE DIFERENÇA NENHUMA: a `AbaCell` tinha o seu
+ * próprio `origem === 'db'` e continuava devolvendo texto de leitura. Era a terceira cópia
+ * da mesma pergunta — a primeira divergência custou 11 colunas pintadas de âmbar que o
+ * upload descartava, e esta custou a mudança inteira.
+ *
+ * Os testes de regra não pegam isto por construção: eles param na função. Este desce até o
+ * que a pessoa vê, e é por isso que ele existe — a composição é a parte que quebra.
+ */
+describe('a medida da base chega EDITÁVEL até a célula', () => {
+  function montar(abaKey: string, col: string, origem: 'db' | 'un' | 'calc', row: Row = {}) {
+    const aba = SCHEMA.find((a) => a.key === abaKey)!
+    render(
+      <table>
+        <tbody>
+          <tr>
+            <td>
+              <AbaCell
+                abaKey={abaKey}
+                col={col}
+                origem={origem}
+                row={row}
+                cidades={[]}
+                dados={{}}
+                onChange={vi.fn()}
+                //: a MESMA composição da grade — é ela que estava rompida
+                editavelNaEstrutura={celulaEditavel(aba, row, col, origem)}
+                bloqueada={false}
+              />
+            </td>
+          </tr>
+        </tbody>
+      </table>,
+    )
+  }
+
+  it('a medida da base virou campo, e não texto', () => {
+    montar('subbacia-operacional', 'ligacoes_atuais', 'db', { ligacoes_atuais: '140' })
+    expect(screen.getByRole('textbox')).toHaveValue('140')
+  })
+
+  it('a derivada continua texto: é conta do servidor', () => {
+    montar('subbacia-operacional', 'ticket_medio', 'db', { ticket_medio: '191,29' })
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.getByText('191,29')).toBeInTheDocument()
+  })
+
+  it('o id continua texto: é a identidade da linha', () => {
+    montar('subbacia-operacional', 'sub_bacia_id', 'db', { sub_bacia_id: 'b1' })
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
 })
 

@@ -218,7 +218,10 @@ export const COLUNA_LABELS: Record<string, string> = {
   // chama `emp_codigo` no de-para da Aegea, e é por esse nome que quem confere
   // a base a procura. Chamá-la de "ID Empresa" faria procurar por `empresa_id`,
   // que não existe em lugar nenhum.
-  emp_codigo: 'emp_codigo',
+  // O ROTULO ERA O PROPRIO CODIGO — a planilha dele mostrava "emp_codigo" na linha 1,
+  // onde todas as outras colunas mostram nome de gente. Visto no arquivo que o dono do
+  // produto importou em 01/10/2026.
+  emp_codigo: 'Código da empresa',
   empresa: 'Empresa',
   cidade_id: 'ID Cidade',
   cidade_name: 'Cidade',
@@ -323,8 +326,24 @@ export const COLUNA_LABELS: Record<string, string> = {
   wacc: 'WACC',
   ete_id: 'ID ETE',
   ete_name: 'ETE',
-  capacidade_por_modulo: 'Capacidade por módulo',
-  capex_por_modulo: 'CAPEX por módulo',
+  // OS DOIS TIPOS DE MÓDULO TÊM DE SE NOMEAR, os dois.
+  //
+  // São dois: o de CONSTRUÇÃO da ETE nova (o pacote inicial, com terreno) e o de
+  // EXPANSÃO (o que entra quando a vazão conectada passa da capacidade do pacote).
+  // Só o segundo tinha nome — estas duas se chamavam "Capacidade por módulo" e "CAPEX
+  // por módulo", genéricas —, e quem abria a aba para cadastrar uma ETE nova lia a
+  // mesma coisa que lê numa existente. O dono do produto apontou em 01/10/2026: "não
+  // tem a coluna de capex e capacidade para criar a ETE nova, só temos dados de módulos
+  // de expansão". As colunas estavam lá; o que faltava era o nome dizê-lo.
+  //
+  // "inicial" e não "de construção" para casar com `modulos` ('Módulos iniciais') e com
+  // o texto das duas de expansão, que já diziam "igual à do módulo inicial".
+  //
+  // NUMA ETE EXISTENTE todo módulo já é expansão, e lá estas duas continuam sendo "o
+  // módulo que eu construo" — é o que a ajuda de campo explica, porque o rótulo sozinho
+  // não cabe as duas leituras.
+  capacidade_por_modulo: 'Capacidade por módulo inicial',
+  capex_por_modulo: 'CAPEX por módulo inicial',
   opex_por_modulo: 'OPEX por módulo',
   capacidade_nominal_atual: 'Capacidade nominal atual',
   vazao_de_operacao_atual: 'Vazão de operação atual',
@@ -643,6 +662,16 @@ export const SCHEMA: AbaDef[] = [
     //
     // Não declara `bloco`: pertence ao bloco 01, aberto pela aba do Ano-base.
     key: 'empresa', icone: GitFork, titulo: 'Empresas',
+    /**
+     * ADICIONAR LINHA — a tela cria empresa, desde 01/10/2026.
+     *
+     * A aba era só de leitura para o cadastro de empresas: elas vinham da carga, e a
+     * única coluna preenchível era o fim da concessão. O dono do produto mudou a regra:
+     * as três fontes — Databricks, tela e planilha — criam e atualizam o mesmo. Sem
+     * isto a planilha criaria empresa e a grade não, que é a assimetria que o resto
+     * desta mudança existe para tirar.
+     */
+    addRow: true,
     desc: 'Liga unidade → empresa. A EMPRESA OPERADORA é o nível entre a unidade e a cidade, vem do de-para oficial e é quem assina a concessão.',
     cols: [
       { coluna: 'unidade_id', origem: 'db', procedencia: 'depara', oque: 'Código da unidade a que esta empresa pertence.', exemplo: '57' },
@@ -677,19 +706,22 @@ export const SCHEMA: AbaDef[] = [
   {
     key: 'cidade-operacional', icone: Buildings, titulo: 'Municípios', bloco: 'Município',
     /**
-     * FORA DA TELA (`ocultaNoWizard`): as 4 colunas são 'db', não há o que
-     * preencher — a régua da cobertura é parâmetro de rodada, e emp_codigo,
-     * empresa, cidade_id e cidade_name já aparecem em Organização e em Empresas.
+     * VOLTOU À TELA em 01/10/2026 — e o motivo de ter saído é o que a mudança derrubou.
      *
-     * A ABA EXISTE porque o DADO serve: `cidade-operacional` é onde a tela do
-     * Fluxo acha o NOME da cidade de um sistema, é por ele que o seletor de CTS
-     * diz de qual município a lista é, e é dela que a planilha tira a
-     * linha-modelo por cidade nas listas de metas e faixas.
+     * Ela era `ocultaNoWizard` porque "as 4 colunas são 'db', não há o que preencher". Era
+     * verdade enquanto nada nascia pelo cadastro. O dono do produto então disse que a
+     * planilha tem de poder subir uma unidade inteira, porque "tem unidade que não estão
+     * salvas no Databricks" — e a CIDADE é elo obrigatório da corrente: sem ela não há
+     * sistema, e sem sistema não há sub-bacia nem ETE.
      *
-     * Sem `escopo` nem `replicarPor`: sem campo editável, não há o que recortar
-     * nem replicar.
+     * Oculta não era só invisível na tela: `ABAS_VISIVEIS` decide também o que vai para o
+     * ARQUIVO. Escondida, a cidade não tinha onde nascer em nenhuma das três fontes.
+     *
+     * A ABA JÁ SERVIA AO DADO: é aqui que a tela do Fluxo acha o nome da cidade de um
+     * sistema, é por ela que o seletor de CTS diz de qual município a lista é, e é dela
+     * que a planilha tira a linha-modelo por cidade nas listas de metas e faixas.
      */
-    ocultaNoWizard: true,
+    addRow: true,
     desc: 'Os municípios da unidade, como vêm do de-para oficial da Aegea. A régua da cobertura é parâmetro da simulação, em Simular ▸ Cobertura medida em. O fim da concessão é da empresa, em Organização ▸ Empresas.',
     cols: [
       { coluna: 'emp_codigo', origem: 'db', procedencia: 'depara', oque: 'Código real da empresa operadora responsável por esta cidade.', exemplo: '57' }, { coluna: 'empresa', origem: 'db', procedencia: 'depara', oque: 'Nome da empresa operadora responsável por esta cidade.', exemplo: 'Águas do Rio 04' },
@@ -751,7 +783,15 @@ export const SCHEMA: AbaDef[] = [
      * apagar quebra o Fluxo.
      */
     key: 'cidade-sistema', icone: FlowArrow, titulo: 'Sistemas de esgoto', bloco: 'Sistema',
-    ocultaNoWizard: true,
+    /**
+     * VOLTOU À TELA em 01/10/2026, pela mesma razão do Município: o SISTEMA é elo
+     * obrigatório da corrente de partida, e escondido ele não tinha onde nascer.
+     *
+     * UM SES É UM SISTEMA, EM VÁRIAS CIDADES — há 12 assim na base, e um deles atravessa
+     * empresa. Por isso a linha aqui é o par sistema×cidade: acrescentar uma linha com o
+     * mesmo `sistema_id` e outra cidade é dizer que ele também atende aquela.
+     */
+    addRow: true,
     desc: 'Liga sistema → cidade — o universo que a otimização analisa. O primeiro sistema é real (o da amostra do Fluxo de escoamento, sem cidade porque nenhuma fonte diz qual ele atende); os demais são exemplo, e sustentam a aba de CAPEX das ETEs.',
     cols: [
       { coluna: 'emp_codigo', origem: 'db', procedencia: 'depara', oque: 'Código real da empresa operadora no de-para da Aegea — é ele que recorta os dados comerciais (sub-bacias, CTS) por unidade.', exemplo: '57' }, { coluna: 'empresa', origem: 'db', procedencia: 'depara', oque: 'Nome da empresa operadora responsável por este sistema.', exemplo: 'Águas do Rio 04' },
@@ -804,8 +844,8 @@ export const SCHEMA: AbaDef[] = [
        * destinos sem acusar erro nenhum.
        */
       { coluna: 'sistema_id', origem: 'un', procedencia: 'mock', oque: 'Sistema de esgotamento sanitário que esta ETE atende. Escolha na lista.', porque: 'É o que permite ao Fluxo de escoamento oferecer a ETE certa como destino das sub-bacias daquele sistema — e é o sistema que uma CTS herda quando deságua nesta estação.', exemplo: 's01' },
-      { coluna: 'capacidade_por_modulo', origem: 'un', procedencia: 'mock', oque: 'Vazão que cada módulo da ETE trata.', porque: 'Define quantos módulos são necessários para a vazão conectada.', exemplo: '49' },
-      { coluna: 'capex_por_modulo', origem: 'un', procedencia: 'mock', oque: 'Investimento de um módulo — o custo da expansão.' },
+      { coluna: 'capacidade_por_modulo', origem: 'un', procedencia: 'mock', oque: 'Vazão que cada módulo INICIAL trata — o módulo com que a ETE nova é construída.', porque: 'Com os "Módulos iniciais", define a capacidade do pacote de construção. A vazão que passar dele exige módulo de EXPANSÃO, que tem colunas próprias. Numa ETE que já existe não há pacote inicial: todo módulo é expansão, e esta é a capacidade do módulo que se constrói.', exemplo: '49' },
+      { coluna: 'capex_por_modulo', origem: 'un', procedencia: 'mock', oque: 'Investimento de um módulo INICIAL — o módulo com que a ETE nova é construída.', porque: 'O CAPEX da ETE nova é terreno + módulos iniciais + módulos de expansão, cada parcela ao seu preço. Numa ETE que já existe não há pacote inicial: todo módulo é expansão, e este é o custo do módulo que se constrói.', exemplo: '1.500.000' },
       { coluna: 'opex_por_modulo', origem: 'un', procedencia: 'mock', oque: 'Custo anual de operar um módulo.' },
       { coluna: 'tempo_predecessoras', origem: 'un', procedencia: 'mock', oque: 'Espera entre as obras que vêm antes ficarem prontas e esta poder começar.', porque: 'É assim que a sequência é montada: a simulação escolhe o ano de cada obra, mas respeita a ordem física. 0 = pode começar junto.', exemplo: '4' },
       { coluna: 'tempo_de_execucao', origem: 'un', procedencia: 'mock', oque: 'Quanto dura a construção de um módulo. Mesma lógica das demais obras.', porque: 'Define quando a obra passa a atender e a gerar receita.', exemplo: '9' },

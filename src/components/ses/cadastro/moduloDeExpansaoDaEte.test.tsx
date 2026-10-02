@@ -74,6 +74,8 @@ describe('as colunas de expansão só se aplicam à ETE nova', () => {
                 cidades={[]}
                 dados={{}}
                 onChange={vi.fn()}
+                // coluna `un`: a regra estrutural a libera — este teste é sobre os outros portões
+                editavelNaEstrutura
               />
             </td>
           </tr>

@@ -24,14 +24,23 @@
  *   GET /unidades/{u}/etes         ete-capex
  *   GET /unidades/{u}/cts          cts-operacional, componentes-cts-capex
  *
- * ## O que este módulo NÃO grava, e por quê
+ * ## O que este módulo grava, e o que não
  *
- * O backend não expõe escrita para NOME — de regional, empresa, cidade
- * ou sistema —, nem para `regional-operacional` (ano-base). Eles vêm do
- * Databricks. As abas correspondentes continuam sendo LIDAS e exibidas; o que
- * elas não fazem é voltar para o banco. `ABAS_SEM_ESCRITA` lista todas, e
- * `salvarCadastro` as ignora explicitamente em vez de tentar e falhar — falha
- * silenciosa aqui seria pior que ausência.
+ * ESTE CABEÇALHO DIZIA O CONTRÁRIO ATÉ 01/10/2026, e vale saber o que mudou: ele
+ * afirmava que "o backend não expõe escrita para NOME — de regional, empresa, cidade ou
+ * sistema". Era verdade, e deixou de ser no dia em que o dono do produto decidiu que as
+ * três fontes — Databricks, tela e planilha — podem o mesmo.
+ *
+ * HOJE GRAVAM: o nome da EMPRESA (`PUT /empresas/{cod}`), da CIDADE (no corpo do
+ * contrato), do SISTEMA (`PUT /sistemas/{id}`, rota nova) e das três fichas de
+ * componente — sub-bacia, ETE e coletor —, cujo nome mora todo na mesma coluna da
+ * topologia. E as fichas NASCEM por aqui: `gravarColeta` criava nada e passou a criar,
+ * porque uma unidade que não está no Databricks precisa subir inteira pela planilha.
+ *
+ * CONTINUA SEM ESCRITA: o nome de REGIONAL e de DIRETORIA (que são acima da unidade, e
+ * vêm da carga) e `regional-operacional` (o ano-base, que é o ano corrente e não campo).
+ * `ABAS_SEM_ESCRITA` lista o que `salvarCadastro` ignora explicitamente, em vez de tentar
+ * e falhar — falha silenciosa aqui seria pior que ausência.
  *
  * `unidade-regional` é meio-termo, e por isso NÃO está naquela lista: os nomes
  * de regional e unidade não gravam, mas `wacc_medio` e `usa_macrorregiao_cts`
@@ -45,6 +54,7 @@
  * que só pode enganar.
  */
 import { api } from './api'
+import { recalcularDerivadasDaColeta } from '../domain/calc'
 import type { Row, UnidadeState } from '../data/cadastroUnidade/types'
 
 export interface CadastroSalvo {
@@ -143,7 +153,7 @@ interface Etes {
  * wizard usa o nome da coluna do banco. É o único de/para real deste módulo; o
  * resto das abas já bate nome a nome.
  */
-const DB: Record<string, string> = {
+export const DB: Record<string, string> = {
   fat: 'receita_faturada_media_mensal',
   arr: 'receita_arrecadada_media_mensal',
   ligU: 'universo_ligacoes',
@@ -162,7 +172,7 @@ const DB: Record<string, string> = {
   ecoARes: 'economias_atuais_residencial',
 }
 
-const PARAMS: Record<string, string> = {
+export const PARAMS: Record<string, string> = {
   preco: 'preco_por_ligacao',
   tarr: 'tempo_arrecadacao',
   ramp: 'tempo_ramp_up',
@@ -222,7 +232,7 @@ const DB_SO_DA_SUBBACIA: Record<string, string> = {
 }
 
 /** Obra: índice do backend ↔ colunas de `componentes-*-capex`. */
-const OBRA: Record<string, string> = {
+export const OBRA: Record<string, string> = {
   nome: 'componente',
   qtd: 'quantidade',
   un: 'unidade',
@@ -258,13 +268,27 @@ export const COLUNAS_DA_ETE: Record<string, string> = {
   wacc: 'wacc',
 }
 
+/**
+ * PRAZO E JANELA DA OBRA DA ETE, que o servidor manda ao lado das colunas de
+ * `ETE` — fora do mapa acima, porque no corpo elas não estão dentro de `ete`.
+ *
+ * Aqui, e não escritas à mão nos dois sentidos: estavam repetidas na leitura e
+ * na gravação, e uma lista repetida é uma lista que vai divergir. O contrato da
+ * planilha (`cadastroUnidade/gravavel.ts`) também as lê daqui.
+ */
+export const JANELA_DA_ETE: Record<string, string> = {
+  tPred: 'tempo_predecessoras',
+  anoObrig: 'obra_obrigatoria_ano',
+  proibAte: 'obra_proibida_ate',
+}
+
 /** Inverte um de/para, para o caminho da gravação. */
 const inverso = (m: Record<string, string>): Record<string, string> =>
   Object.fromEntries(Object.entries(m).map(([k, v]) => [v, k]))
 
-// `empresa` NAO ENTRA AQUI: a aba grava, por `PUT /empresas/{emp_codigo}` — e o
-// unico campo dela, o fim da concessao, e justamente o que a tela existe para
-// informar. Ver `salvarCadastro`.
+// `empresa` NAO ENTRA AQUI: a aba grava, por `PUT /empresas/{emp_codigo}` — o fim
+// da concessao, que e o que a tela existe para informar, e desde 01/10/2026 o NOME.
+// Ver `salvarCadastro`.
 export const ABAS_SEM_ESCRITA = [
   'regional-operacional',
   'cidade-empresa',
@@ -503,10 +527,7 @@ export async function lerCadastro(unidadeId: string): Promise<CadastroLido> {
       const linha: Row = { ete_id: e.id ?? '', ete_name: e.nome ?? e.id ?? '', sistema_id: e.sisId ?? '' }
       for (const [curto, coluna] of Object.entries(COLUNAS_DA_ETE)) linha[coluna] = e[curto] ?? ''
       linha.capacidade_ociosa = e.ociosa ?? ''
-      // Prazo e janela da obra da ETE, que o servidor manda ao lado das colunas de `ETE`.
-      linha.tempo_predecessoras = e.tPred ?? ''
-      linha.obra_obrigatoria_ano = e.anoObrig ?? ''
-      linha.obra_proibida_ate = e.proibAte ?? ''
+      for (const [curto, coluna] of Object.entries(JANELA_DA_ETE)) linha[coluna] = e[curto] ?? ''
       return linha
     }),
 
@@ -699,13 +720,24 @@ export async function salvarCadastro(
   const paramsInv = inverso(PARAMS)
   const obraInv = inverso(OBRA)
 
-  // ---- empresa: o fim da concessao, que desce para as cidades dela ----
+  // ---- empresa: o NOME e o fim da concessao, que desce para as cidades dela ----
+  //
+  // O NOME PASSOU A VIAJAR em 01/10/2026, por decisao do dono do produto: "se mudar
+  // pela planilha deve atualizar". Antes a planilha recusava a mudanca com um aviso
+  // que mandava usar a tela — onde tambem nao dava, porque o `PUT` so levava `fim`.
+  //
+  // Nome VAZIO nao e enviado: o servidor recusa (422), e a recusa derrubaria o lote
+  // inteiro por causa de uma celula limpa sem intencao. A importacao tambem o barra,
+  // com aviso; esta guarda e a segunda, para o caminho da tela.
   const empresaBase = porChave(base.dados['empresa'], 'emp_codigo')
   for (const e of d['empresa'] ?? []) {
     if (!e.emp_codigo) continue
     if (igual(e, empresaBase.get(e.emp_codigo))) continue
+    const ficha: Record<string, string> = { fim: e.data_fim_concessao ?? '' }
+    const nome = (e.empresa ?? '').trim()
+    if (nome) ficha.nome = nome
     await api.put(`/api/unidades/${u}/empresas/${encodeURIComponent(e.emp_codigo)}`, {
-      empresa: { fim: e.data_fim_concessao ?? '' },
+      empresa: ficha,
     })
   }
 
@@ -732,6 +764,9 @@ export async function salvarCadastro(
       cidade: {
         id: c.cidade_id,
         nome: c.cidade_name,
+        //: O VÍNCULO, que o serviço exige para CRIAR a cidade — é a empresa que diz de
+        //: que unidade ela é. Numa cidade que já existe o serviço o ignora.
+        empCodigo: c.emp_codigo ?? '',
       },
       metas: (metasPorCidade.get(c.cidade_id) ?? []).map((m) => ({
         cid: m.cidade_id,
@@ -748,20 +783,38 @@ export async function salvarCadastro(
 
   // ---- coleta: a sub-bacia agora; a CTS só DEPOIS da topologia (ver abaixo) ----
   await gravarColeta(u, 'sub-bacias', 'sub_bacia_id', d, base, 'subbacia-operacional',
-    'componentes-subbacias-capex', base.subs.subs, { dbInv, paramsInv, obraInv })
+    'componentes-subbacias-capex', base.subs.subs, { dbInv, paramsInv, obraInv }, 'sub_bacia_name')
 
   // ---- ETE ----
   const eteBase = porChave(base.dados['ete-capex'], 'ete_id')
   for (const e of d['ete-capex'] ?? []) {
     if (!e.ete_id || igual(e, eteBase.get(e.ete_id))) continue
     const ficha: Record<string, string> = {}
-    for (const [curto, coluna] of Object.entries(COLUNAS_DA_ETE)) ficha[curto] = e[coluna] ?? ''
-    ficha.tPred = e.tempo_predecessoras ?? ''
-    ficha.anoObrig = e.obra_obrigatoria_ano ?? ''
-    ficha.proibAte = e.obra_proibida_ate ?? ''
+    for (const [curto, coluna] of Object.entries({ ...COLUNAS_DA_ETE, ...JANELA_DA_ETE })) {
+      ficha[curto] = e[coluna] ?? ''
+    }
+    // O NOME DA ETE, só quando mudou — ver o comentário do nome em `gravarColeta`. A
+    // grade SEMPRE deixou digitá-lo (`origem: 'un'`) e até 01/10/2026 o `PUT` o
+    // descartava calado, porque `COLUNAS_DA_ETE` não tem campo de nome.
+    const nomeDaEte = (e.ete_name ?? '').trim()
+    const eteNova = !eteBase.has(e.ete_id)
+    //: no NASCIMENTO o nome vai sempre (o serviço o exige); depois, só quando mudou
+    if (nomeDaEte && (eteNova || nomeDaEte !== (eteBase.get(e.ete_id)?.ete_name ?? '').trim())) {
+      ficha.nome = nomeDaEte
+    }
     // `ociosa` NÃO volta: é derivada (nominal − vazão de operação), e o motor
     // avisa quando o valor gravado discorda da conta. Mesma regra do `ticket`.
-    await api.put(`/api/unidades/${u}/etes/${encodeURIComponent(e.ete_id)}`, { ete: ficha })
+    /**
+     * O `sisId` SÓ NO NASCIMENTO, e na raiz do corpo.
+     *
+     * É ele que prova a posse de uma ficha que ainda não existe — a ETE chega à unidade
+     * pelo sistema, como a sub-bacia. Numa ETE que já existe ele não vai: o sistema dela
+     * se muda pela topologia, e mandá-lo aqui abriria um segundo caminho para a mesma
+     * coluna.
+     */
+    const corpoDaEte: Record<string, unknown> = { ete: ficha }
+    if (eteNova && (e.sistema_id ?? '').trim()) corpoDaEte.sisId = (e.sistema_id ?? '').trim()
+    await api.put(`/api/unidades/${u}/etes/${encodeURIComponent(e.ete_id)}`, corpoDaEte)
   }
 
   // ---- a unidade: WACC médio e a macrorregião de CTS ----
@@ -792,6 +845,28 @@ export async function salvarCadastro(
   // mais para gravar duas colunas da mesma linha.
   if ((ctsMudou && ctsAgora !== 'Sim') || waccMudou) await gravarLinhaDaUnidade(ctsMudou && ctsAgora !== 'Sim')
 
+  /**
+   * ---- os SISTEMAS: nome e cidade, um PUT por par ----
+   *
+   * Rota nova de 01/10/2026 (`PUT /unidades/{u}/sistemas/{id}`). A aba é o par
+   * sistema×cidade, e o serviço ACRESCENTA a cidade em vez de substituir — então um PUT
+   * por linha mudada diz exatamente o que se quer dizer.
+   *
+   * SÓ O QUE MUDOU: a aba tem uma linha por cidade atendida, e mandar as 30 a cada
+   * salvamento encheria a trilha de mudanças que ninguém fez.
+   */
+  const sistemaBase = porChave(base.dados['cidade-sistema'], 'sistema_id')
+  for (const sis of d['cidade-sistema'] ?? []) {
+    if (!sis.sistema_id || !sis.cidade_id) continue
+    const antes = sistemaBase.get(sis.sistema_id)
+    if (antes && igual(sis, antes)) continue
+    const nome = (sis.sistema_name ?? '').trim()
+    if (!nome) continue // o serviço recusa nome vazio, e a planilha já avisou
+    await api.put(`/api/unidades/${u}/sistemas/${encodeURIComponent(sis.sistema_id)}`, {
+      sistema: { nome, cidId: sis.cidade_id },
+    })
+  }
+
   // ---- topologia: o SISTEMA INTEIRO, numa transação só ----
   //
   // O sistema inteiro, e não um PUT por componente: mover uma cadeia de sistema
@@ -817,7 +892,7 @@ export async function salvarCadastro(
   // planilha. Depois da topologia, a ficha existe e é da unidade — para a CTS
   // livre comum também, pela cidade dela.
   await gravarColeta(u, 'cts', 'cts_id', d, base, 'cts-operacional',
-    'componentes-cts-capex', base.cts.ctss, { dbInv, paramsInv, obraInv })
+    'componentes-cts-capex', base.cts.ctss, { dbInv, paramsInv, obraInv }, 'cts_name')
 
   // MARCAR VAI DEPOIS da topologia: o servidor recusa marcar enquanto algum
   // sistema tiver duas CTS, e tirar a excedente é justamente o que a topologia
@@ -845,7 +920,10 @@ async function gravarColeta(
   abaObras: string,
   servidor: Record<string, FichaColeta>,
   inv: { dbInv: Record<string, string>; paramsInv: Record<string, string>; obraInv: Record<string, string> },
+  /** A coluna de nome desta ficha — `sub_bacia_name` ou `cts_name`. */
+  colNome: string,
 ): Promise<void> {
+  const { dbInv, paramsInv } = inv
   const obras = agrupar(d[abaObras] ?? [], (r) => r[colId])
   const obrasBase = agrupar(base.dados[abaObras] ?? [], (r) => r[colId])
   const fichaBase = porChave(base.dados[abaFicha], colId)
@@ -854,7 +932,61 @@ async function gravarColeta(
     const id = linha[colId]
     if (!id) continue
     const anterior = servidor[id]
-    if (!anterior) continue // ficha que o servidor não conhece: criar não é papel do wizard
+    if (!anterior) {
+      /**
+       * A FICHA QUE O SERVIDOR NÃO CONHECE É CRIADA — era pulada.
+       *
+       * "Criar não é papel do wizard" era a regra, e o dono do produto a trocou em
+       * 01/10/2026: "todas as abas e colunas podem ser criadas e auditadas a partir da
+       * planilha". O serviço cria a ficha, a linha da topologia e as obras de
+       * vocabulário (`_criar_ficha_de_componente`).
+       *
+       * O CORPO CARREGA O QUE A PESSOA DIGITOU, e não só o id: os dois blocos vão
+       * INTEIROS, com `''` no que ela não preencheu, porque é isso que
+       * `exigir_ficha_inteira` pede de um bloco presente. Mandar só o nome criaria a
+       * ficha e perderia o preço que estava na mesma linha da planilha.
+       *
+       * AS OBRAS VÃO JUNTO, pela chave do NOME.
+       *
+       * O contrato antigo pedia a chave por ÍNDICE, e os índices só vinham do `GET` —
+       * numa ficha que acabou de nascer não havia `GET`, então os números que a pessoa
+       * digitou na aba de CAPEX da mesma planilha se perdiam no primeiro salvamento.
+       * Era perda silenciosa, apontada pela revisão do Codex em 01/10/2026.
+       *
+       * O serviço passou a aceitar a chave por nome de componente e resolve o índice com
+       * o mapa que ele já tinha (`_INDICE_SUBBACIA`/`_INDICE_CTS`) — e é só isso que a
+       * ficha nova precisa, porque o serviço acabou de criar as obras do vocabulário e a
+       * cardinalidade já está completa no banco quando este `PUT` as sobrepõe.
+       *
+       * Espelhar o mapa de índices aqui seria a alternativa, e a pior: vocabulário
+       * duplicado divergiria, e o sintoma seria número caindo na obra errada, calado.
+       */
+      const corpo: Record<string, unknown> = {
+        nome: (linha[colNome] ?? '').trim(),
+        db: Object.fromEntries(Object.values(DB).map((c) => [dbInv[c], linha[c] ?? ''])),
+        params: Object.fromEntries(Object.values(PARAMS).map((c) => [paramsInv[c], linha[c] ?? ''])),
+      }
+      const sis = (linha.sistema_id ?? '').trim()
+      const cid = (linha.cidade_id ?? '').trim()
+      if (sis) corpo.sisId = sis
+      if (cid) corpo.cidId = cid
+      //: as obras que a pessoa preencheu para esta ficha, por NOME do componente
+      const obrasNovas = obras.get(id) ?? []
+      if (obrasNovas.length) {
+        corpo.obrasOverride = Object.fromEntries(
+          obrasNovas
+            .filter((o) => (o.componente ?? '').trim())
+            .map((o) => [
+              o.componente,
+              Object.fromEntries(
+                Object.entries(OBRA).map(([curto, col]) => [curto, o[col] ?? '']),
+              ),
+            ]),
+        )
+      }
+      await api.put(`/api/unidades/${u}/${rota}/${encodeURIComponent(id)}`, corpo)
+      continue
+    }
     // Nem a ficha nem as obras dela mudaram: não há o que gravar.
     if (igual(linha, fichaBase.get(id)) && listasIguais(obras.get(id), obrasBase.get(id))) continue
 
@@ -866,7 +998,15 @@ async function gravarColeta(
       Object.entries(anterior.db).filter(([k]) => !(k in DB_DERIVADO) && !(k in DB_SO_DA_SUBBACIA)),
     )
     const params = { ...anterior.params }
-    for (const [coluna, valor] of Object.entries(linha)) {
+    /**
+     * AS TRÊS DERIVADAS SAEM DA CONTA, não da linha. `ligacoes_novas_obras` e as duas
+     * irmãs são `universo − atuais`, e a célula da grade sempre MOSTROU a conta sem
+     * guardá-la. Desde 01/10/2026 as duas entradas são editáveis — na grade e pela
+     * planilha —, então o valor guardado na linha pode estar velho, e era ele que subia.
+     * O motor recalcula e ignora o que está no banco; quem lê o banco de fora, não.
+     */
+    const ficha = recalcularDerivadasDaColeta(linha) ?? linha
+    for (const [coluna, valor] of Object.entries(ficha)) {
       if (inv.dbInv[coluna]) db[inv.dbInv[coluna]] = valor
       if (inv.paramsInv[coluna]) params[inv.paramsInv[coluna]] = valor
     }
@@ -884,11 +1024,20 @@ async function gravarColeta(
       obrasOverride[i] = obra
     }
 
-    await api.put(`/api/unidades/${u}/${rota}/${encodeURIComponent(id)}`, {
-      db,
-      params,
-      obrasOverride,
-    })
+    /**
+     * O NOME, só quando MUDOU. Liberado em 01/10/2026 ("faça todos"): ele mora na
+     * topologia, não na ficha, e o servidor o grava por `_gravar_nome_do_componente`.
+     *
+     * Mandá-lo sempre custaria uma leitura e um diff de topologia a cada gravação de
+     * ficha, para quase nunca haver mudança. E nome VAZIO não vai: o servidor recusa
+     * com 422, e a recusa derrubaria o lote inteiro por causa de uma célula limpa sem
+     * intenção — a planilha também o barra, com aviso.
+     */
+    const corpo: Record<string, unknown> = { db, params, obrasOverride }
+    const nome = (linha[colNome] ?? '').trim()
+    if (nome && nome !== (fichaBase.get(id)?.[colNome] ?? '').trim()) corpo.nome = nome
+
+    await api.put(`/api/unidades/${u}/${rota}/${encodeURIComponent(id)}`, corpo)
   }
 }
 

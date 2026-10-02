@@ -43,6 +43,25 @@ import { ehCts, type Dados } from '../../../domain/fluxo'
  * deixaria uma CTS que existe no banco sem forma nenhuma de ser colocada —
  * trocaria uma lista grande demais por uma que mente.
  */
+/**
+ * O RÓTULO DE UMA CTS NA LISTA — nome, id e empresa.
+ *
+ * Era só o nome. O dono do produto apontou em 01/10/2026: a lista recorta por empresa e
+ * não MOSTRA a empresa nem o código, "seria bom ter para evitar qualquer desalinhamento".
+ * Ele tem razão — quem escolhe numa lista de coletores com nomes parecidos não tem como
+ * conferir se pegou o da empresa certa, e o erro só aparece depois, no resultado.
+ *
+ * O id entra junto porque é ele que a planilha usa: quem alterna entre a tela e o arquivo
+ * precisa reconhecer a mesma CTS nos dois.
+ */
+function rotuloDaCts(c: Row): string {
+  const nome = (c.componente_sistema_nome ?? '').trim() || (c.componente_sistema_id ?? '')
+  const id = (c.componente_sistema_id ?? '').trim()
+  const emp = (c.emp_codigo ?? '').trim()
+  const entre = [id && id !== nome ? id : '', emp && `empresa ${emp}`].filter(Boolean)
+  return entre.length ? `${nome} — ${entre.join(' · ')}` : nome
+}
+
 export function AdicionarCts({
   sistemaId,
   sistemaNome,
@@ -143,7 +162,7 @@ export function AdicionarCts({
           </option>
           {daEmpresaDoSistema.map((c) => (
             <option key={c.componente_sistema_id} value={c.componente_sistema_id}>
-              {c.componente_sistema_nome || c.componente_sistema_id}
+              {rotuloDaCts(c)}
             </option>
           ))}
           {/* Agrupadas e rotuladas: sem o rótulo elas se misturariam às da
@@ -152,7 +171,7 @@ export function AdicionarCts({
             <optgroup label="Sem empresa cadastrada">
               {semEmpresa.map((c) => (
                 <option key={c.componente_sistema_id} value={c.componente_sistema_id}>
-                  {c.componente_sistema_nome || c.componente_sistema_id}
+                  {rotuloDaCts(c)}
                 </option>
               ))}
             </optgroup>

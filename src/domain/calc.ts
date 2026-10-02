@@ -21,6 +21,51 @@ const NOVAS_OBRAS: Record<string, [string, string]> = {
 }
 
 /**
+ * AS TRÊS DERIVADAS, RECALCULADAS SOBRE A LINHA — e não só na hora de exibir.
+ *
+ * `computeCalc` serve à EXIBIÇÃO: a célula mostra a conta, e o valor guardado na linha
+ * nunca era tocado. Isso bastava enquanto `universo_*` e `*_atuais` eram intocáveis — o
+ * valor guardado não tinha como ficar velho.
+ *
+ * Em 01/10/2026 passaram a ser editáveis (a ficha de coleta grava `{...bloco_db,
+ * ...params}`, então a medida da base é sobreponível). A partir daí o valor guardado FICA
+ * velho: a tela mostra a conta certa, e o `PUT` manda o número antigo. O motor recalcula e
+ * ignora o que está no banco, então a rodada não erra — mas o banco guarda um número que
+ * contradiz as duas colunas ao lado dele, e quem o ler de fora do motor vai errar.
+ *
+ * Então a conta acompanha a mudança, onde a mudança acontece: na importação da planilha e
+ * ao montar o corpo da gravação. As duas chamam esta função; a regra continua num lugar só.
+ *
+ * DAS TRÊS, DUAS PERSISTEM. `populacao_novas_obras` está em `NAO_MODELADOS` no servidor
+ * (`dominio/campos.py`): não tem coluna, e `_gravar_coleta` a filtra — mandá-la é inofensivo
+ * e inútil. Ela continua aqui porque a LINHA tem de ser coerente consigo mesma: é dela que
+ * sai o que a tela mostra e o que a planilha leva, e deixar uma das três para trás faria a
+ * mesma incoerência que esta função existe para corrigir, só mais difícil de ver.
+ *
+ * Devolve `null` quando não há nada a corrigir — o chamador preserva a linha que recebeu.
+ */
+export function recalcularDerivadasDaColeta(linha: Row): Row | null {
+  const nova: Row = { ...linha }
+  let mudou = false
+  for (const [col, [universoCol, atuaisCol]] of Object.entries(NOVAS_OBRAS)) {
+    //: QUEM DECIDE SÃO AS ENTRADAS, e não a coluna derivada: a linha que tem as duas é
+    //: linha de coleta, e a conta pertence a ela — mesmo que o valor ainda não esteja
+    //: gravado. Olhar a derivada deixaria de fora justamente a linha que nunca a teve.
+    if (!(universoCol in linha) || !(atuaisCol in linha)) continue
+    const universo = toNum(linha[universoCol])
+    const atuais = toNum(linha[atuaisCol])
+    //: sem os dois lados não há conta — e gravar zero afirmaria "não há obra nova"
+    const valor = universo == null || atuais == null
+      ? ''
+      : Math.max(0, universo - atuais).toLocaleString('pt-BR')
+    if ((linha[col] ?? '') === valor) continue
+    nova[col] = valor
+    mudou = true
+  }
+  return mudou ? nova : null
+}
+
+/**
  * ANO-BASE — o ano 0 do cronograma, automático.
  *
  * Não é campo digitado: o ano de uma análise é o ano em que ela é feita.
